@@ -8,3 +8,4 @@
 ### Added
 - Next.js 16 프론트엔드 골격 (App Router · TypeScript · Tailwind v4)
 - FastAPI 백엔드 골격 (uv · Python 3.13) 및 `/api/health` 엔드포인트
+- 프론트엔드 `/api/*` → FastAPI 프록시 (Next `rewrites`, `BACKEND_URL` 환경변수)

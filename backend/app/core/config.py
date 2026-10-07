@@ -6,6 +6,7 @@ class Settings(BaseSettings):
 
     app_name: str = "mypage"
     debug: bool = False
+    database_url: str = "postgresql+asyncpg://taehunkang@localhost:5432/mypage"
 
 
 settings = Settings()

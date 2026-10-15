@@ -6,7 +6,7 @@
 from dataclasses import dataclass
 from datetime import datetime
 
-from sqlalchemy import Row, Select, and_, exists, func, literal_column, or_, select, union_all
+from sqlalchemy import Row, Select, exists, func, literal_column, or_, select, tuple_, union_all
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.auth.viewer import Viewer
@@ -135,13 +135,16 @@ def board_list_statements(
         if archived
         else (Post.published_at.desc(), Post.id.desc())
     )
+    # 지연 조인 — 쪽 넘김은 id 만으로 하고(인덱스), 통계·카테고리는 그 쪽의 행에만 붙인다.
+    # OFFSET 으로 버리는 행에도 조인·부분질의를 계산하던 것을 피한다(측정: 깊은 쪽 30~50ms)
+    page_ids = (
+        select(Post.id).where(*conds).order_by(*order).offset((page - 1) * per_page).limit(per_page)
+    ).subquery()
     rows = (
         select(*LIST_COLUMNS, _category_ids())
+        .join(page_ids, page_ids.c.id == Post.id)
         .outerjoin(PostStat, PostStat.post_id == Post.id)
-        .where(*conds)
         .order_by(*order)
-        .offset((page - 1) * per_page)
-        .limit(per_page)
     )
     cap = MAX_PAGE * per_page
     count = select(func.count()).select_from(select(Post.id).where(*conds).limit(cap + 1).subquery())
@@ -240,25 +243,14 @@ def neighbors_statement(viewer: Viewer, board_id: int, published_at: datetime, p
     )
     older = (
         select(literal_column("'prev'").label("dir"), Post.id, Post.title, Post.is_secret, Post.is_blinded)
-        .where(
-            *base,
-            or_(
-                Post.published_at < published_at,
-                and_(Post.published_at == published_at, Post.id < post_id),
-            ),
-        )
+        # 행 값 비교 — (A < x OR (A = x AND id < y)) 꼴은 인덱스 범위 조건이 되지 않아 앞에서부터 걸러 읽는다(측정)
+        .where(*base, tuple_(Post.published_at, Post.id) < tuple_(published_at, post_id))
         .order_by(Post.published_at.desc(), Post.id.desc())
         .limit(1)
     )
     newer = (
         select(literal_column("'next'").label("dir"), Post.id, Post.title, Post.is_secret, Post.is_blinded)
-        .where(
-            *base,
-            or_(
-                Post.published_at > published_at,
-                and_(Post.published_at == published_at, Post.id > post_id),
-            ),
-        )
+        .where(*base, tuple_(Post.published_at, Post.id) > tuple_(published_at, post_id))
         .order_by(Post.published_at.asc(), Post.id.asc())
         .limit(1)
     )

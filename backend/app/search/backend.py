@@ -12,7 +12,8 @@
 from dataclasses import dataclass
 from typing import Literal, Protocol
 
-from sqlalchemy import ColumnElement, Row, Select, and_, func, literal_column, not_, or_, select, text, true
+from sqlalchemy import ColumnElement, Row, Select, Text, and_, func, literal, literal_column, not_, or_, select, text, true
+from sqlalchemy.dialects.postgresql import ARRAY
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.auth.viewer import Viewer
@@ -82,17 +83,20 @@ def guest_visible_clause() -> ColumnElement[bool]:
     )
 
 
+def _like_pattern(text_: str) -> str:
+    escaped = text_.replace("/", "//").replace("%", "/%").replace("_", "/_")
+    return f"%{escaped}%"
+
+
 def _match(query: SearchQuery) -> ColumnElement[bool]:
-    title = and_(
-        PostSearch.title_grams.contains(query.tokens),
-        PostSearch.title_compact.contains(query.text, autoescape=True),
-    )
+    """검색어 값은 SQL 리터럴로 렌더한다(literal_execute) — 문장마다 custom 계획이 되게.
+    바인드면 같은 문장이 반복될 때 범용 계획으로 바뀌어, 흔한 단어에서 GIN 비트맵을 골라 수백 ms 가 된다(측정, §2.2 P4 와 같은 원리)."""
+    tokens = literal(query.tokens, ARRAY(Text), literal_execute=True)
+    pattern = literal(_like_pattern(query.text), literal_execute=True)
+    title = and_(PostSearch.title_grams.contains(tokens), PostSearch.title_compact.like(pattern, escape="/"))
     if query.scope == "title":
         return title
-    content = and_(
-        PostSearch.grams.contains(query.tokens),
-        PostSearch.content_compact.contains(query.text, autoescape=True),
-    )
+    content = and_(PostSearch.grams.contains(tokens), PostSearch.content_compact.like(pattern, escape="/"))
     return or_(content, title)
 
 
@@ -121,6 +125,13 @@ class BigramBackend:
             conds.append(not_(Board.exclude_from_search))
         return conds
 
+    def _order(self, viewer: Viewer):
+        # 비회원: post_search 날짜 인덱스(WHERE post_open). 회원: 열람 판정이 posts 의 status 리터럴을 쓰므로
+        # posts 날짜 인덱스(ix_posts_sitemap, WHERE status='published')를 거꾸로 따라 읽게 한다(측정)
+        if viewer.member_id is None:
+            return (PostSearch.published_at.desc(), PostSearch.post_id.desc())
+        return (Post.published_at.desc(), Post.id.desc())
+
     def statements(self, viewer: Viewer, query: SearchQuery) -> tuple[Select, Select]:
         """결과 쪽 문장과 개수 문장 — 실행과 측정(scripts/explain_hotpaths.py)이 같은 문장을 쓴다."""
         conds = self._where(viewer, query)
@@ -130,7 +141,7 @@ class BigramBackend:
             .join(Board, Board.id == PostSearch.board_id)
             .join(Post, Post.id == PostSearch.post_id)
             .where(*conds)
-            .order_by(PostSearch.published_at.desc(), PostSearch.post_id.desc())
+            .order_by(*self._order(viewer))
             .offset((query.page - 1) * PER_PAGE)
             .limit(PER_PAGE)
         )

@@ -121,6 +121,8 @@ Index(
     Post.board_id,
     Post.published_at.desc(),
     Post.id.desc(),
+    # expires_at 을 함께 담아 목록 쪽 넘김·개수가 인덱스만 읽게 한다(1단계 측정: 개수 14ms → 5ms)
+    postgresql_include=["expires_at"],
     postgresql_where=text("status = 'published' AND is_pinned = false"),
 )
 Index(

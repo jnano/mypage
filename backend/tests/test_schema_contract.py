@@ -96,6 +96,8 @@ def _index_signature(index) -> str:
         parts.append(f"where {_norm(str(opts['where']))}")
     if opts["using"]:
         parts.append(f"using {opts['using']}")
+    if opts["include"]:
+        parts.append("include " + ", ".join(str(c) for c in opts["include"]))
     if index.unique:
         parts.append("unique")
     return " | ".join(parts)

@@ -43,3 +43,12 @@ async def test_check_constraints_exist_in_db(db: AsyncSession) -> None:
         if isinstance(c, CheckConstraint)
     }
     assert in_db == in_models
+
+
+async def test_list_index_includes_expires_at(db: AsyncSession) -> None:
+    # alembic check 는 INCLUDE 를 비교하지 않으므로 실제 DB 의 정의를 본다(1단계 측정으로 정한 인덱스)
+    indexdef = (
+        await db.execute(text("SELECT indexdef FROM pg_indexes WHERE indexname = 'ix_posts_board_list'"))
+    ).scalar_one()
+    assert "INCLUDE (expires_at)" in indexdef
+    assert "WHERE (((status)::text = 'published'::text) AND (is_pinned = false))" in indexdef

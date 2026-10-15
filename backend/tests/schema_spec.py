@@ -9,7 +9,7 @@
 fks:     {칸: "참조표 ON DELETE 동작"}
 checks:  {이름: SQL} — in/range 로 표기하지 않은 CHECK
 uniques: [(칸, …)]
-indexes: {이름: "칸, … [| where 조건] [| using 방식] [| unique]"}
+indexes: {이름: "칸, … [| where 조건] [| using 방식] [| include 칸, …] [| unique]"}
 """
 
 from dataclasses import dataclass, field
@@ -205,7 +205,7 @@ SPEC: dict[str, T] = {
         },
         indexes={
             "ix_posts_board_list": "board_id, published_at DESC, id DESC"
-            " | where status = 'published' AND is_pinned = false",
+            " | where status = 'published' AND is_pinned = false | include expires_at",
             "ix_posts_board_pinned": "board_id, pin_order | where status = 'published' AND is_pinned",
             "ix_posts_board_expires": "board_id, expires_at | where expires_at IS NOT NULL",
             "ix_posts_board_pending": "board_id, created_at | where status = 'pending'",

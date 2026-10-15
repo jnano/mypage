@@ -3,6 +3,7 @@
 import { refresh } from "next/cache";
 import { redirect } from "next/navigation";
 import { BOARD_SECTIONS, parseSection } from "@/lib/admin/boardFields";
+import { SETTINGS_SECTIONS, parseLevelNames } from "@/lib/admin/settingsFields";
 import { ApiError, type ProblemBody } from "@/lib/api/problem";
 import type { Invalidation } from "@/lib/boards/types";
 import { personalSend } from "@/lib/server/backend";
@@ -199,4 +200,27 @@ export async function bulkCommentsAction(_prev: AdminFormState, f: FormData): Pr
   const commentIds = f.getAll("ids").map(Number).filter(Number.isFinite);
   if (commentIds.length === 0) return { problem: { status: 422, code: "no_ids", title: "댓글을 하나 이상 고르세요" } };
   return done("POST", "/api/comments/bulk", { ids: commentIds, action: text(f, "action"), reason: text(f, "reason") || null }, `${commentIds.length}건 처리했습니다`);
+}
+
+// ── 사이트 설정·작업 ──
+
+export async function updateSettingsAction(group: string, _prev: AdminFormState, f: FormData): Promise<AdminFormState> {
+  const reason = text(f, "reason");
+  const path = `/api/admin/settings/${group}${reason ? `?reason=${encodeURIComponent(reason)}` : ""}`;
+  let body: Record<string, unknown>;
+  if (group === "levels") body = { names: parseLevelNames(String(f.get("names") ?? "")) };
+  else {
+    const section = SETTINGS_SECTIONS.find((s) => s.id === group);
+    if (!section) return { problem: { status: 400, code: "bad_group", title: "알 수 없는 설정 묶음입니다" } };
+    body = parseSection(section, f);
+  }
+  return done("PATCH", path, body, "저장했습니다");
+}
+
+export async function reindexAction(_prev: AdminFormState): Promise<AdminFormState> {
+  return done("POST", "/api/admin/search/reindex", undefined, "재색인을 걸었습니다. 작업자가 차례로 처리합니다");
+}
+
+export async function retryJobAction(id: number, _prev: AdminFormState): Promise<AdminFormState> {
+  return done("POST", `/api/admin/jobs/${id}/retry`, undefined, "다시 시도하도록 했습니다");
 }

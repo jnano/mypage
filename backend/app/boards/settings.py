@@ -60,7 +60,7 @@ class SpamPolicy(BaseModel):
 
     banned_words: list[Annotated[str, Field(min_length=1, max_length=50)]] = Field(default=[], max_length=500)
     max_links: int | None = Field(default=5, ge=0, le=100)  # None = 제한 없음
-    interval_sec: int = Field(default=10, ge=0, le=3600)  # 같은 사람의 글 작성 간격
+    interval_sec: int = Field(default=0, ge=0, le=3600)  # 같은 사람의 글 작성 간격(0 = 끔 — 요청 수 제한이 기본 방어)
     min_len: int = Field(default=1, ge=1, le=10_000)  # 본문 글자 수(태그 제외)
     max_len: int = Field(default=200_000, ge=1, le=200_000)
     honeypot: bool = True  # 비회원 폼의 숨은 칸

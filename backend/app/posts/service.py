@@ -14,6 +14,7 @@ from app.core import idempotency, outbox, rate_limit
 from app.core.invalidation import tags_for
 from app.core.problems import Problem
 from app.db.session import SessionLocal
+from app.boards import spam
 from app.boards.settings import UploadPolicy
 from app.editor.content import Content, build_content
 from app.files import attach
@@ -101,6 +102,7 @@ async def create_post(
         if not can(viewer, role, "post.create", board):
             raise Problem(403, "post_create_forbidden", "이 게시판에 글을 쓸 권한이 없습니다")
         files = await attach.load_attachable(db, viewer, [a.id for a in body.attachments], None)
+        policy = None if spam.exempt(viewer, role) else await spam.policy_for(db, board)
     _check_secret(board, body.is_secret)
     _check_file_count(board, files)
 
@@ -116,6 +118,10 @@ async def create_post(
         content = await build_content(  # ① DB 밖
             board.editor, body.content, [f.id for f in files if f.is_image], attach.image_sources(files)
         )
+        if policy is not None:  # 스팸 정책(§14.2) — 담당자·운영자는 검사하지 않는다
+            spam.check_text(policy, title=body.title, text=content.text, html=content.html)
+            async with SessionLocal() as db:
+                await spam.check_interval(db, policy, viewer.member_id)
         search = title_fields(body.title) | content_fields(content.text)  # 검색 토큰도 트랜잭션 밖
         await rate_limit.hit("post.create", f"m:{viewer.member_id}")  # ②
         async with SessionLocal() as db, db.begin():  # ③
@@ -232,6 +238,7 @@ async def update_post(viewer: Viewer, post_id: int, body: PostUpdate, if_match: 
             files = await attach.load_attachable(db, viewer, [a.id for a in body.attachments], post_id)
         else:
             files = await attach.load_for_post(db, post_id)
+        policy = None if spam.exempt(viewer, role) else await spam.policy_for(db, board)
     if not can(viewer, role, "post.update", board, post):
         raise Problem(403, "post_update_forbidden", "이 글을 수정할 권한이 없습니다")
     if post.status not in EDITABLE_STATUSES:
@@ -246,6 +253,10 @@ async def update_post(viewer: Viewer, post_id: int, body: PostUpdate, if_match: 
         content = await build_content(  # 쓴 형식 그대로
             post.content_format, body.content, [f.id for f in files if f.is_image], attach.image_sources(files)
         )
+    if policy is not None and content is not None:
+        spam.check_text(policy, title=body.title or post.title, text=content.text, html=content.html)
+    elif policy is not None and body.title is not None:
+        spam.check_text(policy, title=body.title, text="", html="", field="title", length=False)
     # 바뀐 칸의 검색 토큰만 트랜잭션 밖에서 계산한다
     search: dict[str, Any] = {}
     if body.title is not None:

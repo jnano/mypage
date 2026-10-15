@@ -14,7 +14,8 @@ import {
 } from "@/app/admin/actions";
 import { AdminForm } from "@/components/admin/AdminForm";
 import { AdminProblem } from "@/components/admin/AdminProblem";
-import { BOARD_SECTIONS, fieldValue, type FieldSpec } from "@/lib/admin/boardFields";
+import { SettingField as Field } from "@/components/admin/SettingField";
+import { BOARD_SECTIONS, fieldValue } from "@/lib/admin/boardFields";
 import { adminGet, query } from "@/lib/admin/load";
 import type { AdminBoardDetail, AdminBoards, PermissionPreview } from "@/lib/admin/types";
 
@@ -26,53 +27,6 @@ export default function AdminBoardPage(props: PageProps<"/admin/boards/[slug]">)
     <Suspense fallback={<p data-slot="loading">불러오는 중…</p>}>
       <BoardSettings {...props} />
     </Suspense>
-  );
-}
-
-function Field({ field, value, options }: { field: FieldSpec; value: string | boolean | string[]; options?: [string, string][] }) {
-  const id = `f-${field.name.replace(".", "-")}`;
-  const help = field.help ? <small id={`${id}-help`}>{field.help}</small> : null;
-  const described = field.help ? { "aria-describedby": `${id}-help` } : {};
-  if (field.type === "bool") {
-    return (
-      <p>
-        <label>
-          <input type="checkbox" name={field.name} defaultChecked={value === true} {...described} /> {field.label}
-        </label>{" "}
-        {help}
-      </p>
-    );
-  }
-  if (field.type === "multi") {
-    return (
-      <fieldset>
-        <legend>{field.label}</legend>
-        {(field.options ?? []).map(([v, label]) => (
-          <label key={v}>
-            <input type="checkbox" name={field.name} value={v} defaultChecked={(value as string[]).includes(v)} /> {label}
-          </label>
-        ))}
-      </fieldset>
-    );
-  }
-  const control =
-    field.type === "select" ? (
-      <select id={id} name={field.name} defaultValue={value as string} {...described}>
-        {(options ?? field.options ?? []).map(([v, label]) => (
-          <option key={v} value={v}>
-            {label}
-          </option>
-        ))}
-      </select>
-    ) : field.type === "textarea" || field.type === "lines" ? (
-      <textarea id={id} name={field.name} defaultValue={value as string} rows={field.type === "lines" ? 4 : 2} {...described} />
-    ) : (
-      <input id={id} name={field.name} defaultValue={value as string} inputMode={field.type === "text" ? undefined : "numeric"} {...described} />
-    );
-  return (
-    <p>
-      <label htmlFor={id}>{field.label}</label> {control} {help}
-    </p>
   );
 }
 

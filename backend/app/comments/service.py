@@ -10,6 +10,7 @@ from sqlalchemy import func, insert, literal_column, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.auth.viewer import Viewer
+from app.boards import spam
 from app.comments import queries
 from app.comments.schemas import CommentCreate, CommentUpdate
 from app.core import idempotency, outbox, rate_limit
@@ -65,6 +66,8 @@ async def create_comment(viewer: Viewer, post_id: int, body: CommentCreate, idem
                 raise _invalid("reply_to", "답할 댓글이 이 글에 없습니다")
             reply_to = target.id
             parent_id = target.parent_id or target.id  # 1단: 답글의 답글은 같은 부모 아래
+        if not spam.exempt(viewer, role):  # 스팸 정책: 금지어·링크 수(길이는 댓글 형식이 정한다)
+            spam.check_text(await spam.policy_for(db, board), title="", text=body.content, html="", length=False)
 
     claim = None
     if idempotency_key is not None:
@@ -126,6 +129,9 @@ async def update_comment(viewer: Viewer, comment_id: int, body: CommentUpdate) -
     comment, post, board, role = await _load_comment(viewer, comment_id)
     if not can(viewer, role, "comment.update", board, post, comment=comment):
         raise Problem(403, "comment_update_forbidden", "이 댓글을 고칠 수 없습니다")
+    if not spam.exempt(viewer, role):
+        async with SessionLocal() as db:
+            spam.check_text(await spam.policy_for(db, board), title="", text=body.content, html="", length=False)
     await rate_limit.hit("comment.update", f"m:{viewer.member_id}")
     async with SessionLocal() as db, db.begin():
         changed = (

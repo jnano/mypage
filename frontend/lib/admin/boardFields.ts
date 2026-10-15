@@ -9,6 +9,10 @@ export interface FieldSpec {
   type: FieldType;
   options?: [string, string][];
   help?: string;
+  /** 빈 값을 null 로 보낸다(서버에서 null 이 '없음'인 칸) */
+  emptyNull?: boolean;
+  /** 숫자 id 를 고르는 select */
+  numeric?: boolean;
 }
 
 export interface SectionSpec {
@@ -29,9 +33,9 @@ export const BOARD_SECTIONS: SectionSpec[] = [
     fields: [
       { name: "name", label: "이름", type: "text" },
       { name: "slug", label: "주소(slug)", type: "text", help: "바꾸면 옛 주소는 새 주소로 넘겨 준다" },
-      { name: "description", label: "설명", type: "textarea" },
+      { name: "description", label: "설명", type: "textarea", emptyNull: true },
       { name: "kind", label: "형식", type: "select", options: [["default", "일반"], ["gallery", "갤러리"], ["line", "한 줄"]] },
-      { name: "group_id", label: "분류 그룹", type: "select", options: [] },
+      { name: "group_id", label: "분류 그룹", type: "select", options: [], emptyNull: true, numeric: true },
       { name: "is_active", label: "사용", type: "bool" },
       { name: "show_in_menu", label: "메뉴에 보이기", type: "bool" },
     ],
@@ -169,10 +173,10 @@ export function parseSection(section: SectionSpec, form: FormData): Json {
         if (section.json === "spam_policy" && value === null) value = undefined;
         break;
       }
-      default:
-        value = String(raw ?? "");
-        if (field.name === "group_id") value = value === "" ? null : Number(value);
-        if (field.name === "description" && value === "") value = null;
+      default: {
+        const text = String(raw ?? "");
+        value = text === "" && field.emptyNull ? null : field.numeric && text !== "" ? Number(text) : text;
+      }
     }
     if (value === undefined) continue;
     if (section.json) nested[field.name.split(".")[1]] = value;

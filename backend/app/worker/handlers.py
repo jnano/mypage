@@ -13,6 +13,7 @@ from app.files import attach, images, storage
 from app.models import Attachment, Board, Comment, OutboxEvent, Post, PostSearch
 from app.notifications import send
 from app.posts.purge import purge_posts
+from app.search import reindex
 from app.search.index import post_open
 from app.worker.core import handles
 
@@ -229,6 +230,22 @@ async def board_empty(db: AsyncSession, event: OutboxEvent) -> None:
     await purge_posts(db, ids)
     if len(ids) == BOARD_BATCH:
         await outbox.enqueue(db, [outbox.Event("board.empty", {"board_id": board_id})])
+
+
+REINDEX_BATCH = 500
+
+
+@handles("search.reindex")
+async def search_reindex(db: AsyncSession, event: OutboxEvent) -> None:
+    """관리 화면의 전체 재색인(§14.2) — 이벤트 하나에 한 묶음, 남으면 다음 이벤트로. 끝나면 GIN 대기 목록 정리."""
+    after = int(event.payload.get("after_id", 0))
+    rows = await reindex.load_batch(db, after, REINDEX_BATCH)
+    if rows:
+        await db.execute(reindex.upsert_statement(rows))
+    if len(rows) == REINDEX_BATCH:
+        await outbox.enqueue(db, [outbox.Event("search.reindex", {"after_id": rows[-1].id, "done": int(event.payload.get("done", 0)) + len(rows)})])
+    else:
+        await reindex.clean_gin(db)
 
 
 @handles("files.delete")

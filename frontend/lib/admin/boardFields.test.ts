@@ -46,3 +46,11 @@ describe("게시판 설정 칸", () => {
     expect(fieldValue(board, { name: "trash_retention_days", label: "", type: "intOrEmpty" })).toBe("");
   });
 });
+
+describe("사이트 설정 칸", () => {
+  it("등급 이름표는 줄마다 '등급 이름'", async () => {
+    const { parseLevelNames, formatLevelNames } = await import("./settingsFields");
+    expect(parseLevelNames("0 비회원\n 3  정회원 \n잘못된 줄")).toEqual({ "0": "비회원", "3": "정회원" });
+    expect(formatLevelNames({ "9": "운영자", "1": "회원" })).toBe("1 회원\n9 운영자");
+  });
+});

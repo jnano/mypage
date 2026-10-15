@@ -16,6 +16,7 @@ EXPECTED = {
     "board.updated": (["board:free", "boards:structure"], []),
     "search_terms.aggregated": ([], ["search-terms"]),
     "thumbnail.ready": (["post:1"], []),
+    "settings.updated": (["settings:seo"], []),  # v3.0.12 — 사이트 설정(SEO 메타 등)
 }
 
 
@@ -25,7 +26,7 @@ def test_table_has_exactly_the_designed_events() -> None:
 
 @pytest.mark.parametrize("event", sorted(EXPECTED))
 def test_event_tags(event: str) -> None:
-    got = tags_for(event, post_id=1, board_slug="free")
+    got = tags_for(event, post_id=1, board_slug="free", group="seo")
     assert (list(got.now), list(got.max)) == EXPECTED[event]
 
 

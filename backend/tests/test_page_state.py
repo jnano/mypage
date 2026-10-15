@@ -41,7 +41,7 @@ async def test_guest_gets_empty_state(committed_db, client: AsyncClient) -> None
     assert res.status_code == 200 and res.headers["cache-control"] == "no-store"
     assert res.json() == {
         "viewer": None, "board_role": {"is_moderator": False}, "unmasked": [], "editable": [],
-        "unread_notifications": 0, "unread_capped": False,
+        "unread_notifications": 0, "unread_capped": False, "subscribed": False,
     }  # fmt: skip
 
 

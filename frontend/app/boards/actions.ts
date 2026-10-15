@@ -153,3 +153,21 @@ export async function deleteCommentAction(slug: string, postId: number, commentI
   applyInvalidation(data.invalidate);
   redirect(`/boards/${slug}/${postId}#comments`);
 }
+
+// ── 알림·구독(§7) ──────────────────────────────────────────
+
+export async function markNotificationsReadAction(ids: number[] | "all"): Promise<void> {
+  await personalSend("POST", "/api/me/notifications/read", ids === "all" ? { all: true } : { ids });
+  redirect("/me/notifications");
+}
+
+export async function saveNotificationPrefsAction(types: string[], formData: FormData): Promise<void> {
+  const body = Object.fromEntries(types.map((t) => [t, formData.get(t) === "on"]));
+  await personalSend("PUT", "/api/me/notification-prefs", body);
+  redirect("/me/notifications#prefs");
+}
+
+export async function setSubscriptionAction(slug: string, subscribe: boolean): Promise<void> {
+  await personalSend(subscribe ? "PUT" : "DELETE", `/api/boards/${encodeURIComponent(slug)}/subscription`);
+  redirect(`/boards/${slug}`);
+}

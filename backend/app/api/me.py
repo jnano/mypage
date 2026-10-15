@@ -5,13 +5,13 @@
 
 from fastapi import APIRouter, Depends, Query
 from fastapi.responses import JSONResponse
-from sqlalchemy import func, select
+from sqlalchemy import exists, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.auth.viewer import GUEST, Viewer, get_viewer
 from app.core.problems import Problem
 from app.db.session import get_db
-from app.models import Notification
+from app.models import BoardSubscription, Notification
 from app.permissions import NO_ROLE, can, load_board_role, post_mask
 from app.posts import queries
 
@@ -31,14 +31,18 @@ def _parse_ids(raw: str) -> list[int]:
     return ids
 
 
-async def _unread_count(db: AsyncSession, member_id: int) -> int:
+async def _counts(db: AsyncSession, member_id: int, board_id: int) -> tuple[int, bool]:
+    """안 읽은 알림 수(99+ 까지)와 이 게시판 구독 여부 — 쿼리 한 번."""
     capped = (
         select(Notification.id)
         .where(Notification.recipient_id == member_id, Notification.read_at.is_(None))
         .limit(UNREAD_CAP + 1)
         .subquery()
     )
-    return (await db.execute(select(func.count()).select_from(capped))).scalar_one()
+    unread = select(func.count()).select_from(capped).scalar_subquery()
+    subscribed = exists().where(BoardSubscription.board_id == board_id, BoardSubscription.member_id == member_id)
+    row = (await db.execute(select(unread.label("unread"), subscribed.label("subscribed")))).one()
+    return row.unread, row.subscribed
 
 
 @router.get("/me/page-state")
@@ -56,6 +60,7 @@ async def page_state(
         "editable": [],
         "unread_notifications": 0,
         "unread_capped": False,
+        "subscribed": False,
     }
     if viewer.member_id is None:
         return JSONResponse(body, headers={"Cache-Control": "no-store"})
@@ -65,7 +70,7 @@ async def page_state(
         raise Problem(404, "board_not_found", "게시판을 찾을 수 없습니다")
     role = await load_board_role(db, viewer, found.id)
     rows = await queries.find_posts_for_state(db, viewer, found.id, post_ids) if post_ids else []
-    unread = await _unread_count(db, viewer.member_id)
+    unread, subscribed = await _counts(db, viewer.member_id, found.id)
 
     body |= {
         "viewer": {"member_id": viewer.member_id, "level": viewer.level, "is_admin": viewer.is_admin},
@@ -79,5 +84,6 @@ async def page_state(
         "editable": [r.id for r in rows if can(viewer, role, "post.update", found, r)],
         "unread_notifications": unread,
         "unread_capped": unread > UNREAD_CAP,
+        "subscribed": subscribed,
     }
     return JSONResponse(body, headers={"Cache-Control": "no-store"})

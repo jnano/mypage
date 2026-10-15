@@ -6,6 +6,7 @@
 ## [Unreleased]
 
 ### Added
+- 알림: 내 글에 댓글·내 댓글에 답글·구독한 게시판의 새 글·승인 대기(담당자), 안 읽은 묶음('○○님 외 N명'), 수신 설정, 알림함 `/me/notifications`(열 수 없게 된 글 가림·읽음), 게시판 구독
 - 댓글: 작성·답글(1단, 답한 상대 표시)·수정·삭제(소프트), 글 화면에 첫 쪽 포함 + 더 보기(커서), 평문 렌더(줄바꿈·자동 링크·@이름), 블라인드 가림, 댓글 수 집계, 멱등 키·요청 수 제한, outbox `comment.*`
 - 작업자 `python -m app.worker`: outbox 처리(SKIP LOCKED·지수 백오프·5회 dead·LISTEN + 폴링), 예약 발행 처리기, 캐시 무효화 이벤트 → Next `POST /api/revalidate`(내부 비밀), 주기 작업 7종(휴지통 자동 정리·알림/멱등 키/요청 수/조회 기록/outbox 정리·게시판 일별 통계), 글 영구 삭제 공용 함수(§4.6)
 - 1단계 측정 도구: 10만 건 시드(측정 전용 DB), 핫패스 EXPLAIN(custom/generic), API p95(Server-Timing), 저장 p95(Playwright), 요청 계측 `SERVER_TIMING`

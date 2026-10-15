@@ -34,6 +34,7 @@ const state = (over: Partial<PageState> = {}): PageState => ({
   editable: [],
   unread_notifications: 0,
   unread_capped: false,
+  subscribed: false,
   ...over,
 });
 

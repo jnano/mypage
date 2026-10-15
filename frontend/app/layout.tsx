@@ -16,7 +16,7 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
         </a>
         <header data-slot="site-header">
           <nav aria-label="사이트">
-            <Link href="/">처음</Link> <Link href="/search">검색</Link>
+            <Link href="/">처음</Link> <Link href="/search">검색</Link> <Link href="/me/notifications">알림</Link>
           </nav>
         </header>
         <main id="main" data-slot="site-main">

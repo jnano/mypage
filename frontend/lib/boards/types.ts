@@ -112,6 +112,7 @@ export interface PageState {
   editable: number[];
   unread_notifications: number;
   unread_capped: boolean;
+  subscribed: boolean;
 }
 
 export interface EditablePost {

@@ -7,7 +7,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.config import settings
 from app.core.invalidation import tags_for
 from app.core.outbox import enqueue_revalidate
-from app.models import Board, OutboxEvent, Post, PostSearch
+from app.models import Board, Comment, OutboxEvent, Post, PostSearch
+from app.notifications import send
 from app.search.index import post_open
 from app.worker.core import handles
 
@@ -55,10 +56,72 @@ async def publish_scheduled(db: AsyncSession, event: OutboxEvent) -> None:
 
 
 @handles("post.created")
-async def post_created(_db: AsyncSession, _event: OutboxEvent) -> None:
-    """새 글 — 게시판 구독 알림(board.new_post)은 알림 묶음(2단계 1-3)에서 붙는다."""
+async def post_created(db: AsyncSession, event: OutboxEvent) -> None:
+    """새 글 — 공개 글이면 게시판 구독자에게(board.new_post), 승인 대기면 담당자에게(admin.guest_pending)."""
+    post = (
+        await db.execute(
+            select(  # post-clause: exempt — 알림 받는 사람 계산(열람 조건은 send.notify_board_subscribers 의 SQL)
+                Post.id, Post.board_id, Post.member_id, Post.title, Post.status, Post.is_secret, Post.min_view_level
+            ).where(Post.id == int(event.payload["post_id"]))
+        )
+    ).one_or_none()
+    if post is None:
+        return
+    board = (await db.execute(select(Board).where(Board.id == post.board_id))).scalar_one()
+    if post.status == "published":
+        await send.notify_board_subscribers(
+            db, board=board, post_id=post.id, author_id=post.member_id, title=post.title,
+            is_secret=post.is_secret, min_view_level=post.min_view_level,
+        )  # fmt: skip
+    elif post.status == "pending":
+        await send.notify_moderators(
+            db, board_id=board.id, type_name="admin.guest_pending", actor_id=post.member_id,
+            post_id=post.id, title=post.title, dedupe_key=f"post.created:{post.id}:pending",
+        )  # fmt: skip
 
 
 @handles("post.updated")
 async def post_updated(_db: AsyncSession, _event: OutboxEvent) -> None:
-    """글 수정 — 지금은 할 일 없음(캐시는 Server Action 이 updateTag 로 처리)."""
+    """글 수정 — 할 일 없음(캐시는 Server Action 이 updateTag 로 처리)."""
+
+
+@handles("comment.created")
+async def comment_created(db: AsyncSession, event: OutboxEvent) -> None:
+    """내 글에 댓글(comment.on_my_post), 내 댓글에 답글(comment.reply). 같은 사람이 둘 다라면 답글 알림 하나만."""
+    comment = (
+        await db.execute(
+            select(Comment.id, Comment.post_id, Comment.member_id, Comment.reply_to_comment_id, Comment.status).where(
+                Comment.id == int(event.payload["comment_id"])
+            )
+        )
+    ).one_or_none()
+    if comment is None or comment.status != "published":
+        return
+    post = (
+        await db.execute(
+            select(Post.id, Post.member_id, Post.is_guest, Post.title).where(Post.id == comment.post_id)  # post-clause: exempt — 알림 받는 사람(글쓴이) 찾기
+        )
+    ).one()
+    replied = set()
+    if comment.reply_to_comment_id is not None:
+        target = (
+            await db.execute(select(Comment.member_id).where(Comment.id == comment.reply_to_comment_id))
+        ).scalar_one_or_none()
+        if target is not None:
+            replied.add(target)
+            await send.notify(
+                db, recipients=[target], type_name="comment.reply", actor_id=comment.member_id, post_id=post.id,
+                comment_id=comment.id, title=post.title, group_key=f"comment.reply:comment:{comment.reply_to_comment_id}",
+                dedupe_key=f"comment.created:{comment.id}:reply",
+            )  # fmt: skip
+    if not post.is_guest and post.member_id is not None and post.member_id not in replied:
+        await send.notify(
+            db, recipients=[post.member_id], type_name="comment.on_my_post", actor_id=comment.member_id,
+            post_id=post.id, comment_id=comment.id, title=post.title, group_key=f"comment.on_my_post:post:{post.id}",
+            dedupe_key=f"comment.created:{comment.id}:on_my_post",
+        )  # fmt: skip
+
+
+@handles("comment.deleted")
+async def comment_deleted(_db: AsyncSession, _event: OutboxEvent) -> None:
+    """댓글 삭제 — 이미 보낸 알림은 그대로 둔다(알림함이 지워진 댓글을 다시 확인하지는 않는다)."""

@@ -30,6 +30,7 @@ LIMITS: dict[str, Limit] = {
     "comment.update": Limit(30, 60),
     "upload": Limit(30, 60),
     "editor.preview": Limit(60, 60),
+    "report.create": Limit(10, 600),
     # 비회원 검색은 실제 IP 를 믿을 수 있는 배포 구성(§17 nginx real_ip) 뒤에 붙인다
     "search": Limit(30, 60),
 }

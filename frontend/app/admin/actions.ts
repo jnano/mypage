@@ -181,3 +181,22 @@ export async function rejectPostAction(id: number, _prev: AdminFormState, f: For
 export async function pinnedOrderAction(slug: string, order: number[], id: number, delta: number, _prev: AdminFormState): Promise<AdminFormState> {
   return done("PUT", `/api/boards/${encodeURIComponent(slug)}/pinned/order`, { ids: moved(order, id, delta) }, "고정 순서를 바꿨습니다");
 }
+
+// ── 신고·댓글 ──
+
+export async function resolveReportAction(reportId: number, _prev: AdminFormState, f: FormData): Promise<AdminFormState> {
+  const actions = f.getAll("sanction_actions").map(String);
+  const days = text(f, "sanction_days");
+  const body = {
+    action: text(f, "action"),
+    reason: text(f, "reason"),
+    sanction: actions.length ? { actions, days: days ? Number(days) : null, site_wide: f.get("sanction_site") === "on" } : null,
+  };
+  return done("POST", `/api/admin/reports/${reportId}/resolve`, body, "처리했습니다");
+}
+
+export async function bulkCommentsAction(_prev: AdminFormState, f: FormData): Promise<AdminFormState> {
+  const commentIds = f.getAll("ids").map(Number).filter(Number.isFinite);
+  if (commentIds.length === 0) return { problem: { status: 422, code: "no_ids", title: "댓글을 하나 이상 고르세요" } };
+  return done("POST", "/api/comments/bulk", { ids: commentIds, action: text(f, "action"), reason: text(f, "reason") || null }, `${commentIds.length}건 처리했습니다`);
+}

@@ -75,3 +75,34 @@ export interface AdminPostRow {
   reports: number;
   trash: { trashed_at: string; from: string | null; purge_at: string | null } | null;
 }
+
+export interface ReportGroup {
+  report_id: number;
+  board_id: number | null;
+  count: number;
+  first_at: string;
+  reasons: string[];
+  texts: string[];
+  target: {
+    type: "post" | "comment";
+    id: number;
+    exists: boolean;
+    author?: { id: number | null; name: string };
+    blinded?: boolean;
+    status?: string;
+    board_slug?: string;
+    post_id?: number;
+    title?: string;
+  };
+}
+
+export interface AdminCommentRow {
+  id: number;
+  post: { id: number; title: string };
+  board: { slug: string; name: string };
+  author: { id: number | null; name: string };
+  content: string;
+  blinded: boolean;
+  blind_source: string | null;
+  created_at: string;
+}

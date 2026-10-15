@@ -3,7 +3,9 @@ import { connection } from "next/server";
 import { Suspense } from "react";
 import { CommentThread, type CommentViewer } from "@/components/boards/CommentThread";
 import { PostView } from "@/components/boards/PostView";
+import { ReportForm } from "@/components/boards/ReportForm";
 import { ProblemNotice } from "@/components/boards/ProblemNotice";
+import { reportAction } from "@/app/boards/actions";
 import { getPublicComments, loadPostScreen } from "@/lib/server/boards";
 
 // 글 보기 — 공개 글은 캐시본, 비회원에게 닫힌 글·담당자는 요청 시점(§3.3). 첫 쪽 댓글은 묶음 응답에 들어 있다
@@ -48,6 +50,7 @@ async function PostScreen({ params, searchParams }: PageProps<"/boards/[slug]/[i
   return (
     <>
       <PostView data={data} canEdit={canEdit} />
+      {viewer && !canEdit && <ReportForm action={reportAction.bind(null, "post", postId, `${viewer.idempotencyKey}-report`)} label="글 신고" />}
       <CommentThread
         page={comments}
         total={data.post.stats.comments}

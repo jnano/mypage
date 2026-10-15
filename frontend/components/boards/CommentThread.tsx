@@ -1,8 +1,9 @@
 import Link from "next/link";
-import { createCommentAction, deleteCommentAction, updateCommentAction } from "@/app/boards/actions";
+import { createCommentAction, deleteCommentAction, reportAction, updateCommentAction } from "@/app/boards/actions";
 import { commentSegments } from "@/lib/comments/text";
 import type { CommentItem, CommentPage } from "@/lib/boards/types";
 import { CommentForm } from "./CommentForm";
+import { ReportForm } from "./ReportForm";
 import { formatDateTime } from "@/lib/format/time";
 
 // 댓글 영역 — 헤드리스 구조(§13.1). h2 = 댓글(§13). 답글은 1단(같은 부모 아래, 들여쓰기는 스킨 몫)
@@ -80,6 +81,9 @@ function Item({ c, slug, postId, viewer }: { c: CommentItem; slug: string; postI
               <form action={deleteCommentAction.bind(null, slug, postId, c.id)}>
                 <button type="submit">삭제</button>
               </form>
+            )}
+            {!mine && c.masked === null && (
+              <ReportForm action={reportAction.bind(null, "comment", c.id, `${viewer.idempotencyKey}-report-c${c.id}`)} label="댓글 신고" />
             )}
           </div>
         )}

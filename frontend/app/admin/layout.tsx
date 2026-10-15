@@ -10,7 +10,6 @@ const NAV: [string, string][] = [
   ["/admin/pending", "승인 대기"],
   ["/admin/comments", "댓글"],
   ["/admin/reports", "신고"],
-  ["/admin/sanctions", "제재"],
   ["/admin/logs", "운영 기록"],
   ["/admin/settings", "사이트 설정"],
   ["/admin/jobs", "실패 작업"],

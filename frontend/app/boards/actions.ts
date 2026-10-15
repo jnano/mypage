@@ -182,6 +182,35 @@ export async function trashPostAction(slug: string, postId: number): Promise<voi
   redirect(`/boards/${slug}`);
 }
 
+// ── 신고(§6) ──────────────────────────────────────────────
+
+export interface ReportState {
+  done?: boolean;
+  problem?: ProblemBody;
+}
+
+export async function reportAction(
+  targetType: "post" | "comment",
+  targetId: number,
+  idempotencyKey: string,
+  _prev: ReportState,
+  formData: FormData,
+): Promise<ReportState> {
+  const body = {
+    target_type: targetType,
+    target_id: targetId,
+    reason_code: String(formData.get("reason_code") ?? "other"),
+    reason_text: String(formData.get("reason_text") ?? "").trim() || null,
+  };
+  try {
+    const { data } = await personalSend<{ invalidate: Invalidation }>("POST", "/api/reports", body, { "Idempotency-Key": idempotencyKey });
+    applyInvalidation(data.invalidate);
+    return { done: true };
+  } catch (e) {
+    return { problem: asProblem(e) };
+  }
+}
+
 // ── 알림·구독(§7) ──────────────────────────────────────────
 
 export async function markNotificationsReadAction(ids: number[] | "all"): Promise<void> {

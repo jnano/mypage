@@ -23,5 +23,7 @@ ATTACHMENT_VISIBILITIES = ("public", "private")
 
 REPORT_TARGET_TYPES = ("post", "comment")
 REPORT_STATUSES = ("open", "resolved_blinded", "resolved_trashed", "resolved_deleted", "dismissed")
+# 신고 사유(reason_code 는 DB CHECK 없이 앱이 검증 — 사유 목록은 운영하며 늘린다)
+REPORT_REASONS = ("spam", "abuse", "privacy", "copyright", "illegal", "other")
 MODERATION_TARGET_TYPES = ("board", "post", "comment", "report", "member", "sanction", "setting")
 SANCTION_ACTIONS = ("write", "comment", "upload")

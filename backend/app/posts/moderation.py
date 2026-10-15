@@ -306,7 +306,7 @@ async def _reject(db: AsyncSession, targets, reason: str | None, out: Outcome) -
         out.invalidate("post.status_changed", post_id=p.id, board_slug=b.slug)
 
 
-async def _reopen(db: AsyncSession, post_ids: set[int]) -> None:
+async def reopen(db: AsyncSession, post_ids: set[int]) -> None:
     """글 단위 공개 조건이 바뀐 글 — 검색 행(post_open)과 첨부 공개 여부를 같은 트랜잭션에서."""
     if not post_ids:
         return
@@ -370,7 +370,7 @@ async def apply(
             await _reject(db, targets, reason, out)
         case _:
             raise _field_error("action", "알 수 없는 조치입니다")
-    await _reopen(db, out.reopen)
+    await reopen(db, out.reopen)
     await record(db, viewer, out.logs)
     return out
 

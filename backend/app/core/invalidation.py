@@ -31,6 +31,7 @@ TABLE: dict[str, tuple[tuple[str, Expire], ...]] = {
     "post.status_changed": _POST_CONTENT,
     "post.moved": _POST_CONTENT,
     "comment.created": (("post:{post_id}", NOW), ("recent:comments", NOW)),
+    "comment.updated": (("post:{post_id}", NOW), ("recent:comments", NOW)),  # v3.0.8 — 수정도 글 화면에 바로 보여야 한다
     "comment.deleted": (("post:{post_id}", NOW), ("recent:comments", NOW)),
     "board.updated": (("board:{board_slug}", NOW), ("boards:structure", NOW)),
     "search_terms.aggregated": (("search-terms", MAX),),

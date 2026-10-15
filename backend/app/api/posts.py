@@ -8,6 +8,8 @@ from sqlalchemy import Row
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.auth.viewer import Viewer, get_viewer
+from app.comments import present as comment_present
+from app.comments import queries as comment_queries
 from app.core.problems import Problem
 from app.db.session import get_db
 from app.models import Board
@@ -54,6 +56,7 @@ async def post_page(
         neighbors = {k: present.neighbor(viewer, role, v) for k, v in found_n.items()}
     related = await queries.find_related(db, viewer, post.id)
     attachments = await queries.list_attachments(db, post.id)
+    comment_rows, next_cursor = await comment_queries.list_comments(db, post.id)
     now = datetime.now(UTC)
     return {
         "board": present.board_summary(board),
@@ -74,6 +77,8 @@ async def post_page(
             }
             for a in attachments
         ],
+        # 첫 쪽 댓글을 함께 — 따로 부르면 화면당 FastAPI 호출 예산(로그인 ≤ 3)을 넘는다(§3.6)
+        "comments": comment_present.comments_page(viewer, role, comment_rows, next_cursor),
         "cache": {"tags": [f"post:{post.id}", f"board:{board.slug}"]},
     }
 

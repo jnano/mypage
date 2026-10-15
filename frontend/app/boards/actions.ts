@@ -93,3 +93,63 @@ export async function previewAction(markdown: string): Promise<{ html?: string; 
     return { problem: asProblem(e) };
   }
 }
+
+// ── 댓글(§8.6 평문) ─────────────────────────────────────────
+
+export interface CommentFormState {
+  problem?: ProblemBody;
+  content?: string;
+}
+
+interface CommentWriteResponse {
+  comment: { id: number };
+  invalidate: Invalidation;
+}
+
+export async function createCommentAction(
+  slug: string,
+  postId: number,
+  replyTo: number | null,
+  idempotencyKey: string,
+  _prev: CommentFormState,
+  formData: FormData,
+): Promise<CommentFormState> {
+  const content = String(formData.get("content") ?? "");
+  let id: number;
+  try {
+    const { data } = await personalSend<CommentWriteResponse>(
+      "POST",
+      `/api/posts/${postId}/comments`,
+      replyTo ? { content, reply_to: replyTo } : { content },
+      { "Idempotency-Key": idempotencyKey },
+    );
+    applyInvalidation(data.invalidate);
+    id = data.comment.id;
+  } catch (e) {
+    return { problem: asProblem(e), content };
+  }
+  redirect(`/boards/${slug}/${postId}#c-${id}`);
+}
+
+export async function updateCommentAction(
+  slug: string,
+  postId: number,
+  commentId: number,
+  _prev: CommentFormState,
+  formData: FormData,
+): Promise<CommentFormState> {
+  const content = String(formData.get("content") ?? "");
+  try {
+    const { data } = await personalSend<CommentWriteResponse>("PATCH", `/api/comments/${commentId}`, { content });
+    applyInvalidation(data.invalidate);
+  } catch (e) {
+    return { problem: asProblem(e), content };
+  }
+  redirect(`/boards/${slug}/${postId}#c-${commentId}`);
+}
+
+export async function deleteCommentAction(slug: string, postId: number, commentId: number): Promise<void> {
+  const { data } = await personalSend<CommentWriteResponse>("DELETE", `/api/comments/${commentId}`);
+  applyInvalidation(data.invalidate);
+  redirect(`/boards/${slug}/${postId}#comments`);
+}

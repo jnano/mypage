@@ -11,6 +11,7 @@ EXPECTED = {
     "post.status_changed": (["post:1", "board:free", "recent:posts"], ["boards:activity", "sitemap", "feed:free"]),
     "post.moved": (["post:1", "board:free", "recent:posts"], ["boards:activity", "sitemap", "feed:free"]),
     "comment.created": (["post:1", "recent:comments"], []),
+    "comment.updated": (["post:1", "recent:comments"], []),
     "comment.deleted": (["post:1", "recent:comments"], []),
     "board.updated": (["board:free", "boards:structure"], []),
     "search_terms.aggregated": ([], ["search-terms"]),

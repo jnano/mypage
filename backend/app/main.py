@@ -4,7 +4,7 @@ from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
 
-from app.api import boards, editor, health, me, posts, search
+from app.api import boards, comments, editor, health, me, posts, search
 from app.core import csrf, problems, timing
 from app.core.config import settings
 from app.db.session import engine
@@ -30,6 +30,7 @@ if settings.server_timing:
 app.include_router(health.router, prefix="/api")
 app.include_router(boards.router, prefix="/api")
 app.include_router(posts.router, prefix="/api")
+app.include_router(comments.router, prefix="/api")
 app.include_router(editor.router, prefix="/api")
 app.include_router(me.router, prefix="/api")
 app.include_router(search.router, prefix="/api")

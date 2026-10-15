@@ -83,7 +83,26 @@ export interface PostPage {
   neighbors: { prev: { id: number; title: string | null } | null; next: { id: number; title: string | null } | null };
   related: { id: number; title: string; board_slug: string }[];
   attachments: { id: number; name: string; size: number; mime: string; is_image: boolean; alt: string | null }[];
+  comments: CommentPage;
   cache: { tags: string[] };
+}
+
+export interface CommentItem {
+  id: number;
+  parent_id: number | null;
+  reply_to: { id: number; author_name: string } | null;
+  author_id: number | null;
+  author_name: string | null;
+  content: string | null;
+  masked: "deleted" | "blinded" | null;
+  is_blinded: boolean;
+  edited: boolean;
+  created_at: string;
+}
+
+export interface CommentPage {
+  items: CommentItem[];
+  next_cursor: string | null;
 }
 
 export interface PageState {

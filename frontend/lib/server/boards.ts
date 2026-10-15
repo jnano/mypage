@@ -2,7 +2,7 @@ import "server-only";
 import { cacheLife, cacheTag } from "next/cache";
 import { ApiError } from "@/lib/api/problem";
 import { applyUnmask, boardQueryString, maskedIds, planBoard, planPost } from "@/lib/boards/plan";
-import type { BoardPage, BoardQuery, Fetched, PageState, PostPage } from "@/lib/boards/types";
+import type { BoardPage, BoardQuery, CommentPage, Fetched, PageState, PostPage } from "@/lib/boards/types";
 import { hasViewer, personalGet, publicGet } from "@/lib/server/backend";
 
 // 화면 데이터 — 화면 하나당 FastAPI 호출: 공개 ≤ 2, 로그인 ≤ 3(§3.6, §15)
@@ -81,4 +81,12 @@ export async function loadPostScreen(slug: string, id: number): Promise<PostScre
   // 글이 화면 게시판의 목록 대상이 아니면(예: 임시 글) 개인 조각의 editable 에 없다 — 열람 가능하면 작성자 여부로 다시 본다
   const canEdit = state.editable.includes(id) || (result.ok && result.data.post.status !== "published" && state.viewer !== null);
   return { result, state, canEdit };
+}
+
+/** 댓글 더 보기 — 공개 캐시(글 태그와 함께 무효화된다) */
+export async function getPublicComments(postId: number, cursor: string): Promise<Fetched<CommentPage>> {
+  "use cache";
+  cacheTag(`post:${postId}`);
+  cacheLife("minutes");
+  return settle(() => publicGet<CommentPage>(`/api/posts/${postId}/comments?cursor=${encodeURIComponent(cursor)}`));
 }

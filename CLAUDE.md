@@ -61,8 +61,15 @@ python3 scripts/ci/check_post_clause.py     # select(Post) 가 판정 절을 거
 python3 scripts/gen_editor_tokens.py --check  # 에디터 토큰 생성 파일이 원본과 같은지 (인자 없이 실행하면 다시 생성)
 cd frontend && npm run typecheck && npm test && npm run build   # 프런트: 타입 검사·Vitest·빌드(백엔드 없이 — 빌드 때 FastAPI 를 부르지 않는다)
 ```
+
 - 테스트는 개발 DB(`mypage`)를 쓰지 않는다. conftest 는 DB 이름이 `_test` 로 끝나지 않으면 시작을 거부한다.
 - 테스트 DB 만들기(최초 1회): `/Applications/Postgres.app/Contents/Versions/18/bin/createdb -h localhost mypage_test`
+
+## 측정(1단계 방식 — 보고서 `doc/측정/1단계_측정_2026-10-15.md` 의 '재현')
+- 측정 전용 DB `mypage_bench`(스크립트는 이름이 `_bench` 로 끝나지 않으면 거부). 개발 DB 에서 측정하지 않는다
+- 순서: `backend/scripts/seed_posts.py` → (스크립트가) `VACUUM (ANALYZE)` → `gin_clean_pending_list()` → 측정
+- `backend/scripts/explain_hotpaths.py`(앱 문장을 PREPARE + EXPLAIN EXECUTE, custom/generic) · `backend/scripts/bench_api.py`(`SERVER_TIMING=true` 서버, Server-Timing p95) · `frontend/scripts/bench-save.mts`(Playwright 저장 p95)
+- 서버는 `--reload` 없이, 프런트는 `next build && next start`
 
 ## 환경 변수
 - `backend/.env` — `.env.example` 복사 후 수정 (`APP_NAME`, `DEBUG`, `DATABASE_URL`)

@@ -6,6 +6,7 @@
 ## [Unreleased]
 
 ### Added
+- 1단계 측정 도구: 10만 건 시드(측정 전용 DB), 핫패스 EXPLAIN(custom/generic), API p95(Server-Timing), 저장 p95(Playwright), 요청 계측 `SERVER_TIMING`
 - 검색 최소 구현(설계도 §9): 2글자 토큰 색인(NFKC·casefold·공백 제거, 쓰기 때 갱신), `GET /api/search`(최신순·제목만·게시판 안·300+), 비회원은 비정규화 조건·회원은 열람 판정, `/search` 화면, 전체 재색인 CLI, `/api/health/search`
 - Next 화면(스타일 없음): 게시판 목록·글 보기·글쓰기·수정(마크다운 + 미리보기), `cacheComponents` 공개 캐시 + 쪽 단위 캐시 판정(mask 제목 얹기·hide EXISTS·담당자 요청마다), Server Action 쓰기 후 `updateTag`
 - 개인 조각 `GET /api/me/page-state`, 게시판 응답의 `has_restricted_posts`
@@ -24,6 +25,7 @@
 - DB 연결 풀 설정(`DB_POOL_SIZE`·`DB_MAX_OVERFLOW`·`DB_POOL_TIMEOUT`·`DB_POOL_RECYCLE`·`DB_POOL_PRE_PING`) — 같은 서버 DB 기준으로 `pool_pre_ping` 기본 끔
 
 ### Changed
+- 성능(1단계 측정): 이전·다음 글 행 값 비교(74 → 0.07ms), 목록 지연 조인 + `ix_posts_board_list INCLUDE (expires_at)`(목록 p95 74 → 30ms), 검색어 리터럴 렌더와 회원 검색 정렬(회원 검색 p95 801 → 131ms)
 - Tailwind 제거 — 골격은 class 없는 시맨틱 HTML + `data-slot`(스킨은 디자인 단계)
 
 ## [0.1.0] - 2026-10-07

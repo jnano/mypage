@@ -15,9 +15,11 @@ frontend/            Next.js 앱. /api/* 는 next.config.ts rewrites 로 백엔�
 backend/
   app/main.py        FastAPI 앱. 모든 라우터는 prefix="/api"
   app/core/config.py 설정 (pydantic-settings, backend/.env)
-  app/db/            base.py(Base) · session.py(engine, get_db) · models.py(모델 등록)
+  app/db/            base.py(Base·제약 이름 규칙) · session.py(engine, get_db) · models.py(모델 등록)
+  app/models/        ORM 모델(설계도 §4 와 일대일). 관계는 모두 lazy="raise", 열거형 값은 enums.py
   alembic/           마이그레이션 (env.py 가 settings.database_url 사용)
-  tests/             pytest (conftest 가 DB 를 테스트 DB 로 바꾼다)
+  tests/             pytest (conftest 가 테스트 DB 를 비우고 마이그레이션을 처음부터 적용한다)
+                     schema_spec.py = 설계도 §4 를 옮긴 대조 기준 — §4 를 바꾸면 같이 바꾼다
 scripts/ci/          CI 검사 스크립트 (도메인 중립 등)
 .github/workflows/   GitHub Actions — 금지어 검사 + 백엔드 테스트(postgres:18)
 ```

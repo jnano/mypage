@@ -1,0 +1,27 @@
+"""열거형 값 — DB CHECK 와 Pydantic 검증이 같은 값을 쓴다(설계도 §4)."""
+
+MEMBER_STATUSES = ("active", "withdrawn")
+
+BOARD_KINDS = ("default", "gallery", "line")
+HIDDEN_POST_LISTINGS = ("mask", "hide")
+PINNED_DISPLAYS = ("strip", "inline")
+VIEW_COUNT_MODES = ("always", "daily", "once")
+EDITORS = ("rich", "markdown")
+ACCESS_SUBJECT_TYPES = ("member", "group")
+
+POST_STATUSES = ("draft", "scheduled", "pending", "published", "trashed")
+POST_RESTORABLE_STATUSES = ("draft", "scheduled", "pending", "published")
+CONTENT_FORMATS = EDITORS
+BLIND_SOURCES = ("manual", "auto_report")
+POSTED_AS = ("personal", "admin")
+REACTION_KINDS = ("like",)
+
+COMMENT_STATUSES = ("published", "deleted")
+
+ATTACHMENT_ROLES = ("attachment", "inline")
+ATTACHMENT_VISIBILITIES = ("public", "private")
+
+REPORT_TARGET_TYPES = ("post", "comment")
+REPORT_STATUSES = ("open", "resolved_blinded", "resolved_trashed", "resolved_deleted", "dismissed")
+MODERATION_TARGET_TYPES = ("board", "post", "comment", "report", "member", "sanction", "setting")
+SANCTION_ACTIONS = ("write", "comment", "upload")

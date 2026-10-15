@@ -48,6 +48,7 @@ cd backend && uv run pytest -q              # 테스트 DB: mypage_test (TEST_DA
 python3 scripts/ci/check_neutral_terms.py   # 도메인 중립 검사 (저장소 루트에서, --self-test 는 대조군)
 python3 scripts/ci/check_post_clause.py     # select(Post) 가 판정 절을 거치는지 (--self-test 는 대조군)
 python3 scripts/gen_editor_tokens.py --check  # 에디터 토큰 생성 파일이 원본과 같은지 (인자 없이 실행하면 다시 생성)
+cd frontend && npm run typecheck && npm test && npm run build   # 프런트: 타입 검사·Vitest·빌드(백엔드 없이 — 빌드 때 FastAPI 를 부르지 않는다)
 ```
 - 테스트는 개발 DB(`mypage`)를 쓰지 않는다. conftest 는 DB 이름이 `_test` 로 끝나지 않으면 시작을 거부한다.
 - 테스트 DB 만들기(최초 1회): `/Applications/Postgres.app/Contents/Versions/18/bin/createdb -h localhost mypage_test`

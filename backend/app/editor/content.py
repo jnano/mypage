@@ -13,7 +13,7 @@ from app.core.problems import Problem
 from app.core.threads import run_in_thread
 from app.editor import tokens
 from app.editor.markdown import MarkdownInputError, markdown_to_html
-from app.editor.render import ImageSource, render_content
+from app.editor.render import ImageSource, inline_ids, render_content
 from app.editor.sanitize import plain_text, sanitize_html
 
 ContentFormat = Literal["rich", "markdown"]
@@ -46,6 +46,9 @@ def _build(
     else:
         html = sanitize_html(raw)
         source = None
+        # 리치 글도 마크다운과 같은 규칙 — 본문 사진은 이 글의 첨부만(§8.2)
+        for attachment_id in sorted(inline_ids(html) - set(attachment_ids)):
+            raise MarkdownInputError(f"이 글의 첨부가 아닌 이미지입니다: {attachment_id}")
     text = plain_text(html)
     if not text and "<figure" not in html and "data-embed" not in html:
         raise MarkdownInputError("본문이 비어 있습니다")

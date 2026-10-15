@@ -1,0 +1,65 @@
+/*
+ * 리치 에디터 편집 화면 — 동작에 필요한 최소 규칙과 토큰 값의 기본값만 둔다.
+ * 저장 HTML 에는 class·style 이 없고, 읽기 화면의 모양은 스킨이 data-* 토큰으로 정한다(§8.2·§13.1).
+ * 편집 중 글자 꾸밈은 Lexical style 문자열의 CSS 변수(lib/editor/tokenStyle.ts)를 여기서 값으로 푼다.
+ */
+
+.root {
+  --editor-color-gray: #6b7280;
+  --editor-color-red: #b42318;
+  --editor-color-orange: #b54708;
+  --editor-color-yellow: #a16207;
+  --editor-color-green: #2f6b3f;
+  --editor-color-blue: #1d4f91;
+  --editor-color-purple: #6b4fa0;
+  --editor-color-pink: #a3326b;
+  --editor-mark-yellow: #fdf0b5;
+  --editor-mark-green: #d9f2d0;
+  --editor-mark-blue: #d6e6fb;
+  --editor-mark-pink: #fadbe8;
+  --editor-font-sans: system-ui, sans-serif;
+  --editor-font-serif: Georgia, "Noto Serif KR", serif;
+  --editor-font-mono: ui-monospace, monospace;
+  --editor-size-sm: 0.875em;
+  --editor-size-md: 1em;
+  --editor-size-lg: 1.25em;
+  --editor-size-xl: 1.5em;
+  --editor-size-2xl: 2em;
+}
+
+.root [data-leading="tight"] { line-height: 1.3; }
+.root [data-leading="normal"] { line-height: 1.6; }
+.root [data-leading="relaxed"] { line-height: 1.9; }
+.root [data-leading="loose"] { line-height: 2.2; }
+
+.underline { text-decoration: underline; }
+.strikethrough { text-decoration: line-through; }
+.underlineStrikethrough { text-decoration: underline line-through; }
+.cellSelected { outline: 2px solid Highlight; outline-offset: -2px; }
+.tableSelection ::selection { background: transparent; }
+
+/* 편집 영역 — 비어 있을 때 안내 문구를 겹쳐 둔다 */
+.root [data-slot="editor-surface"] { position: relative; }
+.root [data-slot="editor-placeholder"] { position: absolute; inset: 0 auto auto 0; pointer-events: none; opacity: 0.6; }
+.root [data-slot="editor-content"] { min-height: 12rem; }
+
+/* 도구 단추 — 24px 하한, 손가락 기기는 44px(§8.5 A7) */
+.root [data-slot="editor-toolbar"] { display: flex; flex-wrap: wrap; gap: 2px; }
+.root [data-slot="editor-toolbar"] :is(button, select) { min-width: 24px; min-height: 24px; }
+@media (pointer: coarse) {
+  .root [data-slot="editor-toolbar"] :is(button, select) { min-width: 44px; min-height: 44px; }
+  /* 휴대폰: 도구 막대를 화면 아래(키보드 위)에 붙인다 */
+  .root [data-slot="editor-toolbar"] { position: sticky; bottom: 0; z-index: 1; background: Canvas; }
+}
+
+/* 그림·동영상 자리 */
+.root [data-slot="editor-image"] img { display: block; max-width: 100%; }
+.root [data-slot="editor-image"][data-width="s"] img { width: 33%; }
+.root [data-slot="editor-image"][data-width="m"] img { width: 60%; }
+.root [data-slot="editor-image"][data-width="l"] img { width: 85%; }
+.root [data-slot="editor-image"][data-width="full"] img { width: 100%; }
+.root [data-slot="editor-image-controls"] { display: flex; flex-wrap: wrap; gap: 4px; align-items: center; }
+
+/* 전체 화면 — 화면을 덮는 고정 판(브라우저 전체 화면 API 는 쓰지 않는다: 열림 칸이 판 밖으로 나가지 않게) */
+.root[data-fullscreen] { position: fixed; inset: 0; z-index: 60; overflow: auto; background: Canvas; padding: 12px; }
+.root[data-fullscreen] [data-slot="editor-content"] { min-height: calc(100dvh - 10rem); }

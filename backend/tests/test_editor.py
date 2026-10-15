@@ -1,6 +1,7 @@
 """본문 파이프라인 — 마크다운 변환(§8.4)·nh3 정화(§11)·읽기용 렌더(§4.3)·토큰(§8.2)."""
 
 import json
+import re
 import subprocess
 import sys
 from pathlib import Path
@@ -176,3 +177,23 @@ def test_generated_tokens_file_is_current() -> None:
     assert res.returncode == 0, res.stderr
     data = json.loads((REPO_ROOT / "frontend" / "lib" / "editor" / "tokens.gen.json").read_text())
     assert data["sanitizerVersion"] == tokens.SANITIZER_VERSION
+
+
+async def test_rich_image_must_be_this_posts_attachment() -> None:
+    from app.core.problems import Problem
+    from app.editor.content import build_content
+
+    html = '<figure data-attachment-id="7" data-width="m"><img alt=""></figure>'
+    assert (await build_content("rich", html, [7])).html == html
+    with pytest.raises(Problem) as e:
+        await build_content("rich", html, [8])
+    assert e.value.errors[0]["message"] == "이 글의 첨부가 아닌 이미지입니다: 7"
+
+
+def test_rich_editor_output_passes_sanitizer_unchanged() -> None:
+    # 드리프트 시험(§8.7) — 프런트 왕복 시험(frontend/lib/editor/roundtrip.test.ts)과 같은 fixture
+    fixture = Path(__file__).parents[2] / "frontend/lib/editor/fixtures/all-formats.html"
+    html = fixture.read_text(encoding="utf-8").strip().replace(">\n<", "><")
+    # 링크 rel 은 서버가 넣는다(§8.2) — 그 밖에는 한 글자도 바뀌지 않아야 한다
+    expected = re.sub(r'(<a href="[^"]*")', rf'\1 rel="{tokens.LINK_REL}"', html)
+    assert sanitize_html(html) == expected

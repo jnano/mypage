@@ -16,8 +16,10 @@ frontend/            Next.js 앱. /api/* 는 next.config.ts rewrites 로 백엔�
   app/boards/        라우트(목록·글 보기·글쓰기·수정) + actions.ts(Server Action 쓰기 → updateTag)
   app/dev/login/     개발 로그인(APP_ENV=dev + DEV_VIEWER_LOGIN 전용)
   components/boards/ 헤드리스 구조 컴포넌트 — 시맨틱 HTML + data-slot, class·스타일 없음(설계도 §13.1)
+  components/editor/ 리치 에디터(Lexical): config(노드·토큰 HTML 변환) · Toolbar · plugins · nodes/ — 글쓰기 화면에서만 동적 import(설계도 §8.1)
   lib/server/        서버 전용: backend.ts(publicGet=쿠키 금지 / personalGet·personalSend) · boards.ts(쪽 단위 캐시 판정) · invalidate.ts
   lib/boards/        순수 로직(plan.ts 캐시 판정)·응답 타입 — Vitest 대상
+  lib/editor/        토큰(tokens.gen.json 생성 파일)·tokenStyle·officePaste · fixtures/all-formats.html(에디터 왕복·nh3 드리프트 시험 공용)
   instrumentation.ts 기동 가드(개발 로그인은 dev 전용, prod 는 INTERNAL_API_SECRET 필수)
 backend/
   app/main.py        FastAPI 앱. 모든 라우터는 prefix="/api"

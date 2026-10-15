@@ -10,7 +10,6 @@
 작성·수정·예약 발행·작업자가 모두 reconcile() 을 거친다.
 """
 
-import re
 from collections.abc import Sequence
 from typing import Any
 
@@ -20,12 +19,10 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.auth.viewer import Viewer
 from app.core import outbox
 from app.core.problems import Problem
-from app.editor.render import ImageSource, render_content
+from app.editor.render import ImageSource, inline_ids, render_content
 from app.files import storage
 from app.models import Attachment, Board, Post
 from app.search.index import post_open
-
-_ATTACHMENT_IN_HTML = re.compile(r'data-attachment-id="(\d+)"')
 
 ROW_COLUMNS = (
     Attachment.id,
@@ -39,10 +36,6 @@ ROW_COLUMNS = (
     Attachment.height,
     Attachment.thumbs_ready,
 )
-
-
-def inline_ids(content_html: str) -> set[int]:
-    return {int(m) for m in _ATTACHMENT_IN_HTML.findall(content_html)}
 
 
 def post_is_public(board: Any, *, status: str, is_secret: bool, is_blinded: bool, min_view_level: int | None) -> bool:

@@ -5,6 +5,7 @@
 입력은 이미 nh3 를 거친 정본이므로 표준 라이브러리 HTMLParser 로 다시 써도 안전하다.
 """
 
+import re
 from collections.abc import Mapping
 from dataclasses import dataclass
 from html import escape
@@ -13,6 +14,7 @@ from html.parser import HTMLParser
 from app.editor import tokens
 
 VOID = {"br", "hr", "img"}
+_ATTACHMENT_IN_HTML = re.compile(r'data-attachment-id="(\d+)"')
 THUMB_WIDTHS = (320, 640, 1280)
 
 
@@ -24,6 +26,11 @@ class ImageSource:
     width: int | None
     height: int | None
     thumbs_ready: bool
+
+
+def inline_ids(content_html: str) -> set[int]:
+    """정본이 본문에 넣은 첨부 id — 작성 검사(content)와 공개 여부 추적(attach)이 같이 쓴다."""
+    return {int(m) for m in _ATTACHMENT_IN_HTML.findall(content_html)}
 
 
 def _attrs(pairs: list[tuple[str, str | None]]) -> str:

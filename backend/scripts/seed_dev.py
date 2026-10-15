@@ -38,6 +38,14 @@ POSTS = {
         ("비밀 문의", "담당자께만 드리는 문의입니다."),
     ],
     "members": [("회원 전용 공지", "회원 등급 2 이상만 볼 수 있는 글입니다.")],
+    # 리치 에디터 게시판 — 본문은 의미 토큰 HTML(§8.2)
+    "meeting": [
+        (
+            "정기 회의 안내",
+            '<h2>이번 달 정기 회의</h2><p>일시는 <strong>둘째 주 화요일</strong>입니다.</p>'
+            '<ul><li>안건 정리</li><li>다음 일정</li></ul>',
+        )
+    ],
 }
 
 
@@ -69,7 +77,12 @@ async def main() -> None:
             list_level=2, read_level=2, write_level=2, editor="markdown", upload_policy=upload,
             display=default_display("default").model_dump(),
         )  # fmt: skip
-        db.add_all([notice, free, members_board])
+        meeting = Board(
+            slug="meeting", name="회의 안내", kind="default", sort_order=4,
+            editor="rich", upload_policy=upload,
+            display=default_display("default").model_dump(),
+        )  # fmt: skip
+        db.add_all([notice, free, members_board, meeting])
         await db.flush()
         db.add_all(
             [
@@ -87,7 +100,7 @@ async def main() -> None:
             for c in (await db.execute(select(BoardCategory).where(BoardCategory.board_id == free.id))).scalars()
         }
 
-        boards = {"notice": (notice, admin), "free": (free, m1), "members": (members_board, m3)}
+        boards = {"notice": (notice, admin), "free": (free, m1), "members": (members_board, m3), "meeting": (meeting, admin)}
         for slug, items in POSTS.items():
             board, author = boards[slug]
             viewer = Viewer(member_id=author.id, level=author.level, is_admin=author.is_admin)

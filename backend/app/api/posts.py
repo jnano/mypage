@@ -16,6 +16,7 @@ from app.models import Board
 from app.permissions import BoardRole, can, load_board_role
 from app.posts import present, queries, service
 from app.posts.schemas import PostUpdate
+from app.seo import queries as seo_queries
 
 router = APIRouter()
 
@@ -58,9 +59,13 @@ async def post_page(
     attachments = await queries.list_attachments(db, post.id)
     comment_rows, next_cursor = await comment_queries.list_comments(db, post.id)
     now = datetime.now(UTC)
+    view = present.post_view(post, board, now)
+    # 검색엔진 메타(§10) — 공개 색인 대상 글만. 비공개 글은 메타에 본문을 싣지 않는다
+    seo = {"description": seo_queries.description(post.content_rendered), "image": await seo_queries.og_image(db, post.id)} if view["indexable"] else None
     return {
         "board": present.board_summary(board),
-        "post": present.post_view(post, board, now),
+        "post": view,
+        "seo": seo,
         "neighbors": neighbors,
         "related": [{"id": r.id, "title": r.title, "board_slug": r.board_slug} for r in related],
         "attachments": [present.attachment_item(a) for a in attachments],

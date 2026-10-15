@@ -57,8 +57,15 @@ export interface BoardPage {
   cache: { tags: string[]; has_restricted_posts: boolean };
 }
 
+export interface PostSeo {
+  description: string;
+  image: { url: string; width: number | null; height: number | null; alt: string } | null;
+}
+
 export interface PostPage {
   board: BoardSummary;
+  /** 공개 색인 대상 글만(§10) — 비공개 글은 null */
+  seo: PostSeo | null;
   post: {
     id: number;
     title: string;

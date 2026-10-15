@@ -59,6 +59,7 @@ class SeoSettings(BaseModel):
     """SEO(§10) — 사이트 이름·주소·설명, 검색엔진 사이트 확인 메타."""
 
     model_config = ConfigDict(extra="forbid")
+    indexable: bool = True  # 끄면 사이트 전체 noindex + robots 전체 차단(공개 전 준비 기간)
     site_name: Annotated[str, Field(max_length=100)] = "mypage"
     site_url: Annotated[str, Field(max_length=200), AfterValidator(_site_url)] = ""
     description: Annotated[str, Field(max_length=300)] = ""

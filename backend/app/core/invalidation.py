@@ -36,7 +36,7 @@ TABLE: dict[str, tuple[tuple[str, Expire], ...]] = {
     "board.updated": (("board:{board_slug}", NOW), ("boards:structure", NOW)),
     "search_terms.aggregated": (("search-terms", MAX),),
     "thumbnail.ready": (("post:{post_id}", NOW),),
-    "settings.updated": (("settings:{group}", NOW),),  # 사이트 설정(SEO 메타 등) — 읽는 화면이 이 태그를 단다
+    "settings.updated": (("settings:{group}", NOW), ("sitemap", MAX)),  # 사이트 설정(SEO 메타 등) — 읽는 화면이 이 태그를 단다
 }
 
 

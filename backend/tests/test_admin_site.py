@@ -31,7 +31,7 @@ async def test_settings_groups(dev_header, committed_db, client) -> None:
     assert seo["site_name"] == "mypage" and seo["site_url"] == ""
     res = await client.patch("/api/admin/settings/seo", json={"site_url": "https://example.com/", "naver_verification": "abc-123"}, headers=h)
     assert res.status_code == 200 and res.json()["value"]["site_url"] == "https://example.com"
-    assert res.json()["invalidate"]["now"] == ["settings:seo"]
+    assert res.json()["invalidate"] == {"now": ["settings:seo"], "max": ["sitemap"]}
     assert (await client.patch("/api/admin/settings/seo", json={"site_url": "ftp://x"}, headers=h)).status_code == 422
     assert (await client.patch("/api/admin/settings/seo", json={"naver_verification": "<meta>"}, headers=h)).status_code == 422
     assert (await client.patch("/api/admin/settings/levels", json={"names": {"100": "x"}}, headers=h)).status_code == 422

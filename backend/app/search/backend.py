@@ -12,7 +12,7 @@
 from dataclasses import dataclass
 from typing import Literal, Protocol
 
-from sqlalchemy import ColumnElement, Row, and_, func, literal_column, not_, or_, select, text, true
+from sqlalchemy import ColumnElement, Row, Select, and_, func, literal_column, not_, or_, select, text, true
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.auth.viewer import Viewer
@@ -64,7 +64,34 @@ def _invalid(field: str, message: str) -> Problem:
 class SearchBackend(Protocol):
     name: str
 
-    async def search(self, db: AsyncSession, viewer: Viewer, query: SearchQuery) -> SearchResult: ...
+    def statements(self, viewer: Viewer, query: SearchQuery) -> tuple[Select, Select]:
+        """결과 쪽 문장과 개수 문장 — 실행과 측정(scripts/explain_hotpaths.py)이 같은 문장을 쓴다."""
+        conds = self._where(viewer, query)
+        rows = (
+            select(*RESULT_COLUMNS)  # post-clause: exempt — 공개 판정은 _where(): 회원 readable_posts_clause, 비회원 비정규화(계약 테스트)
+            .select_from(PostSearch)
+            .join(Board, Board.id == PostSearch.board_id)
+            .join(Post, Post.id == PostSearch.post_id)
+            .where(*conds)
+            .order_by(PostSearch.published_at.desc(), PostSearch.post_id.desc())
+            .offset((query.page - 1) * PER_PAGE)
+            .limit(PER_PAGE)
+        )
+        count = select(func.count()).select_from(
+            select(PostSearch.post_id)
+            .join(Board, Board.id == PostSearch.board_id)
+            .join(Post, Post.id == PostSearch.post_id)
+            .where(*conds)
+            .limit(COUNT_CAP + 1)
+            .subquery()
+        )
+        return rows, count
+
+    async def search(self, db: AsyncSession, viewer: Viewer, query: SearchQuery) -> SearchResult:
+        rows_stmt, count_stmt = self.statements(viewer, query)
+        rows = list(await db.execute(rows_stmt))
+        counted = (await db.execute(count_stmt)).scalar_one()
+        return SearchResult(rows, min(counted, COUNT_CAP), counted > COUNT_CAP)
 
     async def healthcheck(self, db: AsyncSession) -> dict: ...
 

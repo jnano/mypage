@@ -175,6 +175,13 @@ export async function deleteCommentAction(slug: string, postId: number, commentI
   redirect(`/boards/${slug}/${postId}#comments`);
 }
 
+/** 내 글을 휴지통으로(§6 DELETE = 휴지통). 댓글이 달린 글 보호 등은 서버 판정 */
+export async function trashPostAction(slug: string, postId: number): Promise<void> {
+  const { data } = await personalSend<{ invalidate: Invalidation }>("DELETE", `/api/posts/${postId}`);
+  applyInvalidation(data.invalidate);
+  redirect(`/boards/${slug}`);
+}
+
 // ── 알림·구독(§7) ──────────────────────────────────────────
 
 export async function markNotificationsReadAction(ids: number[] | "all"): Promise<void> {

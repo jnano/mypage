@@ -1,7 +1,8 @@
 """글 쓰기 요청 형식. 수정 가능한 칸과 필요한 권한은 §5.4 PATCH 칸 권한표를 따른다."""
 
 import re
-from typing import Annotated, Self
+from datetime import datetime
+from typing import Annotated, Literal, Self
 
 from pydantic import AfterValidator, BaseModel, ConfigDict, Field, model_validator
 
@@ -51,14 +52,26 @@ def _unique_attachments(items: list[AttachmentRef]) -> list[AttachmentRef]:
 
 Attachments = Annotated[list[AttachmentRef], Field(max_length=MAX_ATTACHMENTS), AfterValidator(_unique_attachments)]
 
-# §5.4 — 칸 → 필요한 action. 이 단계에서 받는 칸은 post.update 칸뿐이고, 표에 없는 칸은 422(extra=forbid)
+# §5.4 — 칸 → 필요한 action. 표에 없는 칸은 422(extra=forbid).
+# 상태(status) 전환은 PATCH 로 받지 않고 전용 경로(휴지통·복원·영구 삭제·승인·거부·즉시 발행)로 한다(v3.0.12)
 PATCH_FIELD_ACTIONS = {
     "title": "post.update",
     "content": "post.update",
     "category_ids": "post.update",
     "is_secret": "post.update",
     "attachments": "post.update",
+    "is_pinned": "post.moderate",
+    "is_blinded": "post.moderate",
+    "board_id": "post.moderate",
+    "min_view_level": "post.moderate",
+    "posted_as": "post.moderate",
+    "published_at": "post.moderate",
+    "title_bold": "post.moderate",
+    "title_color": "post.moderate",
 }
+MODERATE_FIELDS = frozenset(k for k, v in PATCH_FIELD_ACTIONS.items() if v == "post.moderate")
+# null 이 뜻을 가지는 관리 칸(열람 등급 해제·제목 색 지움)
+NULLABLE_FIELDS = frozenset({"min_view_level", "title_color"})
 
 
 class PostCreate(BaseModel):
@@ -83,12 +96,23 @@ class PostUpdate(BaseModel):
     category_ids: CategoryIds | None = None
     is_secret: bool | None = None
     attachments: Attachments | None = None
+    # 관리 칸(post.moderate)
+    is_pinned: bool | None = None
+    is_blinded: bool | None = None
+    board_id: Annotated[int, Field(gt=0)] | None = None
+    min_view_level: Annotated[int, Field(ge=1, le=99)] | None = None
+    posted_as: Literal["personal", "admin"] | None = None
+    published_at: datetime | None = None
+    title_bold: bool | None = None
+    title_color: Annotated[str, Field(max_length=10)] | None = None
 
     @model_validator(mode="after")
     def _not_empty(self) -> Self:
         if not self.model_fields_set:
             raise ValueError("바꿀 칸이 없습니다")
-        for name in self.model_fields_set:
+        if self.model_fields_set & MODERATE_FIELDS and self.model_fields_set - MODERATE_FIELDS:
+            raise ValueError("관리 칸과 글 내용 칸은 따로 바꿔 주세요")
+        for name in self.model_fields_set - NULLABLE_FIELDS:
             if getattr(self, name) is None:
                 raise ValueError(f"{name} 은(는) null 일 수 없습니다")
         return self
@@ -98,3 +122,35 @@ class PreviewRequest(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     markdown: Content
+
+
+def _unique_ids(ids: list[int]) -> list[int]:
+    if len(set(ids)) != len(ids):
+        raise ValueError("중복된 id 가 있습니다")
+    return ids
+
+
+class BulkRequest(BaseModel):
+    """일괄 조치(§6) — 최대 100건, 원자적."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    ids: Annotated[list[Annotated[int, Field(gt=0)]], Field(min_length=1, max_length=100), AfterValidator(_unique_ids)]
+    action: Literal[
+        "move", "copy", "trash", "restore", "purge", "pin", "unpin", "blind", "unblind",
+        "category", "view_level", "publish_now", "approve", "reject",
+    ]  # fmt: skip
+    board_id: Annotated[int, Field(gt=0)] | None = None
+    category_ids: CategoryIds | None = None
+    min_view_level: Annotated[int, Field(ge=1, le=99)] | None = None
+    reason: Annotated[str, Field(max_length=500)] | None = None
+
+
+class ReasonBody(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    reason: Annotated[str, Field(max_length=500)] | None = None
+
+
+class PinnedOrder(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    ids: Annotated[list[Annotated[int, Field(gt=0)]], Field(max_length=100), AfterValidator(_unique_ids)]

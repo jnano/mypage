@@ -146,3 +146,38 @@ export async function accessAction(slug: string, _prev: AdminFormState, f: FormD
 export async function moderatorsAction(slug: string, _prev: AdminFormState, f: FormData): Promise<AdminFormState> {
   return done("PUT", `/api/boards/${encodeURIComponent(slug)}/moderators`, { member_ids: ids(f, "member_ids") }, "담당자를 저장했습니다");
 }
+
+// ── 글 ──
+
+const BULK_LABELS: Record<string, string> = {
+  trash: "휴지통으로", restore: "복원", purge: "영구 삭제", pin: "고정", unpin: "고정 해제", blind: "가리기", unblind: "가림 풀기",
+  move: "옮기기", copy: "복사", category: "카테고리 바꾸기", view_level: "열람 등급", publish_now: "지금 발행",
+};
+
+export async function bulkPostsAction(_prev: AdminFormState, f: FormData): Promise<AdminFormState> {
+  const postIds = f.getAll("ids").map(Number).filter(Number.isFinite);
+  if (postIds.length === 0) return { problem: { status: 422, code: "no_ids", title: "글을 하나 이상 고르세요" } };
+  const action = text(f, "action");
+  const level = text(f, "min_view_level");
+  const body = {
+    ids: postIds,
+    action,
+    board_id: text(f, "board_id") ? Number(text(f, "board_id")) : null,
+    category_ids: action === "category" ? ids(f, "category_ids") : null,
+    min_view_level: level ? Number(level) : null,
+    reason: text(f, "reason") || null,
+  };
+  return done("POST", "/api/posts/bulk", body, `${postIds.length}건 — ${BULK_LABELS[action] ?? action} 했습니다`);
+}
+
+export async function approvePostAction(id: number, _prev: AdminFormState): Promise<AdminFormState> {
+  return done("POST", `/api/posts/${id}/approve`, {}, "승인했습니다");
+}
+
+export async function rejectPostAction(id: number, _prev: AdminFormState, f: FormData): Promise<AdminFormState> {
+  return done("POST", `/api/posts/${id}/reject`, { reason: text(f, "reason") }, "거부했습니다");
+}
+
+export async function pinnedOrderAction(slug: string, order: number[], id: number, delta: number, _prev: AdminFormState): Promise<AdminFormState> {
+  return done("PUT", `/api/boards/${encodeURIComponent(slug)}/pinned/order`, { ids: moved(order, id, delta) }, "고정 순서를 바꿨습니다");
+}

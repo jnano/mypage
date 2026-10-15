@@ -20,7 +20,8 @@ from app.files import attach
 from app.models import Board, BoardCategory, Member, Post, PostCategory, PostSearch, PostStat
 from app.permissions import can, load_board_role
 from app.posts import queries
-from app.posts.schemas import PostCreate, PostUpdate
+from app.posts import moderation
+from app.posts.schemas import MODERATE_FIELDS, PostCreate, PostUpdate
 from app.search.index import content_fields, post_open, title_fields
 
 EDITABLE_STATUSES = ("draft", "scheduled", "pending", "published")
@@ -214,9 +215,11 @@ def parse_if_match(value: str | None) -> int:
     return int(raw)
 
 
-async def update_post(viewer: Viewer, post_id: int, body: PostUpdate, if_match: str | None) -> WriteResult:
+async def update_post(viewer: Viewer, post_id: int, body: PostUpdate, if_match: str | None, reason: str | None = None) -> WriteResult:
     _require_member(viewer)
     expected_version = parse_if_match(if_match)
+    if body.model_fields_set <= MODERATE_FIELDS:
+        return await _moderate_fields(viewer, post_id, body, expected_version, reason)
 
     async with SessionLocal() as db:
         found = await queries.find_post_for_edit(db, post_id)
@@ -329,3 +332,18 @@ def _version_conflict(current: int) -> Problem:
         detail=f"current_version={current}",
         headers={"ETag": f'"{current}"'},
     )
+
+
+async def _moderate_fields(viewer: Viewer, post_id: int, body: PostUpdate, expected_version: int, reason: str | None) -> WriteResult:
+    """관리 칸 PATCH(§5.4) — 판정·조치는 posts.moderation 한 곳. If-Match 는 내용 수정과 같이 본다."""
+    async with SessionLocal() as db, db.begin():
+        current = (
+            await db.execute(select(Post.version).where(Post.id == post_id).with_for_update())  # post-clause: exempt — 판정 전 version 확인(판정은 moderation)
+        ).scalar_one_or_none()
+        if current is None:
+            raise Problem(404, "post_not_found", "글을 찾을 수 없습니다")
+        if current != expected_version:
+            raise _version_conflict(current)
+        out = await moderation.patch_fields(db, viewer, post_id, body.model_dump(include=body.model_fields_set), reason)
+        version = (await db.execute(select(Post.version).where(Post.id == post_id))).scalar_one()  # post-clause: exempt — 조치 뒤 version
+    return WriteResult(200, {"post": {"id": post_id, "version": version}} | out.body(), {"ETag": f'"{version}"'})

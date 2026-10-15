@@ -181,8 +181,10 @@ async def test_update_permissions(dev_header, committed_db, client) -> None:
     res = await client.patch(f"/api/posts/{post_id}", json={"title": "x"}, headers=as_member(other.id) | {"If-Match": '"1"'})
     assert res.status_code == 403
     assert (await client.get(f"/api/posts/{post_id}", headers=as_member(other.id))).status_code == 403
-    # 관리용 칸(§5.4 post.moderate)은 이 단계에서 받지 않는다
+    # 관리용 칸(§5.4 post.moderate)은 작성자가 바꿀 수 없다, 표에 없는 칸은 422
     res = await client.patch(f"/api/posts/{post_id}", json={"is_pinned": True}, headers=as_member(member.id) | {"If-Match": '"1"'})
+    assert res.status_code == 403
+    res = await client.patch(f"/api/posts/{post_id}", json={"status": "draft"}, headers=as_member(member.id) | {"If-Match": '"1"'})
     assert res.status_code == 422
     res = await client.patch(f"/api/posts/{post_id}", json={}, headers=as_member(member.id) | {"If-Match": '"1"'})
     assert res.status_code == 422

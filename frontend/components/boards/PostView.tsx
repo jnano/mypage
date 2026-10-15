@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { trashPostAction } from "@/app/boards/actions";
 import type { PostPage } from "@/lib/boards/types";
 import { formatDateTime } from "@/lib/format/time";
 
@@ -60,7 +61,10 @@ export function PostView({ data, canEdit }: { data: PostPage; canEdit: boolean }
         {canEdit && (
           <>
             {" "}
-            <Link href={`/boards/${board.slug}/${post.id}/edit`}>수정</Link>
+            <Link href={`/boards/${board.slug}/${post.id}/edit`}>수정</Link>{" "}
+            <form action={trashPostAction.bind(null, board.slug, post.id)} data-slot="inline-form">
+              <button type="submit">삭제(휴지통)</button>
+            </form>
           </>
         )}
       </nav>

@@ -60,3 +60,18 @@ export interface PermissionPreview {
   site_sanctions: string[];
   actions: { action: string; label: string; allowed: boolean }[];
 }
+
+export interface AdminPostRow {
+  id: number;
+  title: string;
+  status: string;
+  board: { id: number; slug: string; name: string };
+  author: { id: number | null; name: string; guest: boolean };
+  published_at: string | null;
+  created_at: string;
+  flags: { pinned: boolean; pin_order: number | null; secret: boolean; blinded: boolean; min_view_level: number | null; posted_as: string };
+  comments: number;
+  views: number;
+  reports: number;
+  trash: { trashed_at: string; from: string | null; purge_at: string | null } | null;
+}

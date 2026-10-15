@@ -2,7 +2,7 @@
 
 from datetime import UTC, datetime
 
-from fastapi import APIRouter, Depends, Header
+from fastapi import APIRouter, Depends, Header, Query
 from fastapi.responses import JSONResponse
 from sqlalchemy import Row
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -105,7 +105,8 @@ async def update_post(
     post_id: int,
     body: PostUpdate,
     if_match: str | None = Header(None, alias="If-Match"),
+    reason: str | None = Query(None, max_length=500, description="관리 칸 조치의 사유(운영 기록)"),
     viewer: Viewer = Depends(get_viewer),
 ):
-    result = await service.update_post(viewer, post_id, body, if_match)
+    result = await service.update_post(viewer, post_id, body, if_match, reason)
     return JSONResponse(result.body, status_code=result.status_code, headers=result.headers)

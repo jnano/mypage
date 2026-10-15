@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { boardQueryString } from "@/lib/boards/plan";
 import type { BoardPage, BoardQuery, ListRow, MaskReason } from "@/lib/boards/types";
+import { formatDate } from "@/lib/format/time";
 
 // 게시판 목록 — 헤드리스 구조(설계도 §13.1). 목록 보기는 <table>(§13), 쪽 넘김 nav + aria-current
 
@@ -9,10 +10,6 @@ const MASK_TEXT: Record<MaskReason, string> = {
   blinded: "운영 정책에 따라 가려진 글입니다",
   level: "열람 등급이 필요한 글입니다",
 };
-
-function formatDate(iso: string | null): string {
-  return iso ? iso.slice(0, 10) : "";
-}
 
 function Title({ slug, row }: { slug: string; row: ListRow }) {
   if (row.masked) return <span data-slot="post-title" data-masked={row.masked}>{MASK_TEXT[row.masked]}</span>;

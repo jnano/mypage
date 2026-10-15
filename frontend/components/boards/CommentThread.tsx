@@ -3,6 +3,7 @@ import { createCommentAction, deleteCommentAction, updateCommentAction } from "@
 import { commentSegments } from "@/lib/comments/text";
 import type { CommentItem, CommentPage } from "@/lib/boards/types";
 import { CommentForm } from "./CommentForm";
+import { formatDateTime } from "@/lib/format/time";
 
 // 댓글 영역 — 헤드리스 구조(§13.1). h2 = 댓글(§13). 답글은 1단(같은 부모 아래, 들여쓰기는 스킨 몫)
 
@@ -45,7 +46,7 @@ function Item({ c, slug, postId, viewer }: { c: CommentItem; slug: string; postI
         ) : (
           <>
             <p data-slot="post-meta">
-              <b>{c.author_name}</b> · <time dateTime={c.created_at}>{c.created_at.slice(0, 16).replace("T", " ")}</time>
+              <b>{c.author_name}</b> · <time dateTime={c.created_at}>{formatDateTime(c.created_at)}</time>
               {c.edited && <span data-slot="edited-mark"> (수정됨)</span>}
               {c.reply_to && <span> · {c.reply_to.author_name} 님에게</span>}
             </p>

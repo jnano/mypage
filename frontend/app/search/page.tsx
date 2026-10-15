@@ -2,6 +2,7 @@ import Link from "next/link";
 import { Suspense } from "react";
 import { ApiError, type ProblemBody } from "@/lib/api/problem";
 import { personalGet } from "@/lib/server/backend";
+import { formatDate } from "@/lib/format/time";
 
 // 검색 — 결과는 캐시하지 않는다(검색어는 사용자가 마음대로 넣는 값, 설계도 §9). 보는 사람 기준(요청 시점)
 export const metadata = { title: "검색", robots: { index: false, follow: false } };
@@ -84,7 +85,7 @@ async function SearchScreen({ searchParams }: PageProps<"/search">) {
                     {r.title}
                   </Link>{" "}
                   <span data-slot="post-meta">
-                    {r.board.name} · {r.author_name} · <time dateTime={r.published_at ?? undefined}>{r.published_at?.slice(0, 10)}</time>
+                    {r.board.name} · {r.author_name} · <time dateTime={r.published_at ?? undefined}>{formatDate(r.published_at)}</time>
                   </span>
                 </li>
               ))}

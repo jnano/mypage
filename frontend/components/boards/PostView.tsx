@@ -1,5 +1,6 @@
 import Link from "next/link";
 import type { PostPage } from "@/lib/boards/types";
+import { formatDateTime } from "@/lib/format/time";
 
 // 글 보기 — 헤드리스 구조(§13.1). h1 = 글 제목(§13). 본문은 서버가 정화·렌더한 HTML(content_rendered)
 
@@ -22,7 +23,7 @@ export function PostView({ data, canEdit }: { data: PostPage; canEdit: boolean }
         </h1>
         <p data-slot="post-meta">
           {post.author_name} ·{" "}
-          <time dateTime={post.published_at ?? undefined}>{post.published_at?.slice(0, 16).replace("T", " ")}</time>
+          <time dateTime={post.published_at ?? undefined}>{formatDateTime(post.published_at)}</time>
           {post.edited && <span data-slot="edited-mark"> (수정됨)</span>}
           {post.expired && <span data-slot="post-badge"> 지난 글</span>}
           {post.status !== "published" && <span data-slot="pending-badge"> {post.status}</span>} · 조회 {post.stats.views}

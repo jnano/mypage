@@ -3,6 +3,7 @@ import { Suspense } from "react";
 import { markNotificationsReadAction, saveNotificationPrefsAction } from "@/app/boards/actions";
 import { ApiError } from "@/lib/api/problem";
 import { hasViewer, personalGet } from "@/lib/server/backend";
+import { formatDateTime } from "@/lib/format/time";
 
 // 알림함 — 개인 데이터(요청 시점, 캐시 안 함). 열 수 없게 된 글은 서버가 제목을 가려 보낸다(§7)
 export const metadata = { title: "알림", robots: { index: false, follow: false } };
@@ -85,7 +86,7 @@ async function Inbox({ searchParams }: PageProps<"/me/notifications">) {
                 </p>
                 <p>{n.path ? <Link href={n.path}>{title}</Link> : title}</p>
                 <p data-slot="post-meta">
-                  <time dateTime={n.updated_at}>{n.updated_at.slice(0, 16).replace("T", " ")}</time>
+                  <time dateTime={n.updated_at}>{formatDateTime(n.updated_at)}</time>
                   {n.read ? " · 읽음" : ""}
                 </p>
                 {!n.read && (

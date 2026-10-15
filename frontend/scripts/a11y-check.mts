@@ -24,6 +24,9 @@ const TAGS = ["wcag2a", "wcag2aa", "wcag21a", "wcag21aa", "wcag22aa", "best-prac
 // 골격에서 빼는 규칙: target-size(WCAG 2.5.8) — 스타일이 없어 크기를 브라우저가 정한다('사용자 에이전트 제어' 예외).
 // 크기는 스킨의 몫(§13 '터치 대상 44px 목표, 하한 24px', §13.1). 에디터 도구 단추는 이미 24/44px(§8.5 A7)
 const SKELETON_EXCLUDED = values.skin ? [] : ["target-size"];
+// 외부 동영상 플레이어(제공자의 마크업)는 우리가 고칠 수 없어 검사에서 뺀다. 교차 출처 프레임은 안쪽만 빼는
+// 선택자가 듣지 않아(실측) iframe 째로 빼고, 우리 몫인 iframe 제목(frame-title)은 아래에서 직접 확인한다
+const THIRD_PARTY_FRAMES = ['iframe[src^="https://www.youtube-nocookie.com/"]'];
 
 interface Finding {
   page: string;
@@ -51,7 +54,11 @@ async function settle(page: Page, ready?: string) {
 async function check(page: Page, path: string, label: string, ready?: string): Promise<Finding[]> {
   await page.goto(base + path);
   await settle(page, ready);
-  const result = await new AxeBuilder({ page }).withTags(TAGS).disableRules(SKELETON_EXCLUDED).analyze();
+  let builder = new AxeBuilder({ page }).withTags(TAGS).disableRules(SKELETON_EXCLUDED);
+  for (const frame of THIRD_PARTY_FRAMES) builder = builder.exclude(frame);
+  const result = await builder.analyze();
+  const untitled = await page.locator(THIRD_PARTY_FRAMES.join(", ")).evaluateAll((els) => els.filter((e) => !e.getAttribute("title")?.trim()).length);
+  if (untitled) result.violations.push({ id: "frame-title", impact: "serious", help: "외부 동영상 iframe 에 제목이 있어야 합니다", nodes: [] } as unknown as (typeof result.violations)[number]);
   const findings = result.violations.map((v) => ({
     page: `${label} ${path}`,
     rule: v.id,

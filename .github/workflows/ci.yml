@@ -128,4 +128,4 @@ jobs:
         run: node scripts/a11y-check.mts --base http://localhost:3000 --admin 1 --member 3
       - name: 실패 시 서버 기록
         if: failure()
-        run: tail -100 uvicorn.log next.log
+        run: tail -n 100 uvicorn.log next.log

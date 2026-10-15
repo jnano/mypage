@@ -17,9 +17,10 @@ venv/
 .ruff_cache/
 .mypy_cache/
 
-# runtime data
-uploads/
-backups/
+# runtime data(백엔드) — 소스 폴더 이름과 겹치지 않게 경로를 좁힌다(frontend/app/api/uploads 는 소스)
+/backend/uploads/
+/backups/
+/backend/backups/
 
 # 파일 저장소(로컬 개발) — backend/var/media, backend/var/private
 backend/var/

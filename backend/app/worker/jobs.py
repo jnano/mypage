@@ -1,6 +1,6 @@
 """주기 작업 — 설계도 §3.2 표. 지금 대상 표가 있는 것만 둔다.
 
-나중에 붙는 것: 임시 업로드 정리(첨부), always 조회수 버퍼 반영(조회수 카운터), 운영 기록 개인 칸 가림(관리 기능).
+나중에 붙는 것: always 조회수 버퍼 반영(조회수 카운터), 운영 기록 개인 칸 가림(관리 기능).
 각 작업은 한 번에 처리하는 양에 상한을 둬 트랜잭션을 짧게 한다(남은 것은 다음 회차).
 """
 
@@ -11,7 +11,10 @@ from sqlalchemy import and_, delete, func, literal_column, not_, select, text, t
 from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.outbox import Event, enqueue
+from app.files import storage
 from app.models import (
+    Attachment,
     Board,
     BoardDailyStat,
     Comment,
@@ -90,6 +93,26 @@ async def cleanup_notifications(db: AsyncSession) -> int:
     return removed + (result.rowcount or 0)
 
 
+async def cleanup_temp_uploads(db: AsyncSession) -> int:
+    """글에 붙지 않은 채 24시간 지난 임시 업로드(§3.2). 행을 지우고 파일은 files.delete 이벤트로."""
+    keys = (
+        await db.execute(
+            delete(Attachment)
+            .where(
+                Attachment.id.in_(
+                    select(Attachment.id)
+                    .where(Attachment.post_id.is_(None), Attachment.created_at < func.now() - text("interval '24 hours'"))
+                    .limit(DELETE_BATCH)
+                )
+            )
+            .returning(Attachment.storage_key)
+        )
+    ).scalars().all()
+    if keys:
+        await enqueue(db, [Event("files.delete", {"labels": [label for k in keys for label in storage.all_paths(k)]})])
+    return len(keys)
+
+
 async def cleanup_idempotency(db: AsyncSession) -> int:
     return await _delete_limited(db, IdempotencyKey, IdempotencyKey.created_at < func.now() - text("interval '24 hours'"))
 
@@ -165,6 +188,7 @@ JOBS: dict[str, Job] = {
     for j in [
         Job("trash.purge", DAY, purge_trash),
         Job("notifications.cleanup", DAY, cleanup_notifications),
+        Job("uploads.cleanup", HOUR, cleanup_temp_uploads),
         Job("idempotency.cleanup", HOUR, cleanup_idempotency),
         Job("rate_limit.cleanup", HOUR, cleanup_rate_limits),
         Job("view_records.cleanup", DAY, cleanup_view_records),

@@ -2,12 +2,14 @@ import logging
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
+from fastapi.staticfiles import StaticFiles
 
-from app.api import boards, comments, editor, health, me, notifications, posts, search
+from app.api import attachments, boards, comments, editor, health, me, notifications, posts, search
 from app.core import csrf, problems, timing
 from app.core.config import settings
 from app.db.session import engine
+from app.files import storage
 
 logger = logging.getLogger(__name__)
 
@@ -31,7 +33,20 @@ app.include_router(health.router, prefix="/api")
 app.include_router(boards.router, prefix="/api")
 app.include_router(posts.router, prefix="/api")
 app.include_router(comments.router, prefix="/api")
+app.include_router(attachments.router, prefix="/api")
 app.include_router(editor.router, prefix="/api")
 app.include_router(me.router, prefix="/api")
 app.include_router(notifications.router, prefix="/api")
 app.include_router(search.router, prefix="/api")
+
+# 공개 저장소 /media — 배포에서는 nginx 가 직접 내준다(§12.2). 개발(FILE_SENDER=stream)에서만 FastAPI 가 내준다
+if settings.file_sender == "stream":
+    app.mount("/media", StaticFiles(directory=storage.root("public"), check_dir=False), name="media")
+
+
+@app.middleware("http")
+async def nosniff_media(request: Request, call_next):
+    response = await call_next(request)
+    if request.url.path.startswith("/media/"):
+        response.headers["X-Content-Type-Options"] = "nosniff"
+    return response

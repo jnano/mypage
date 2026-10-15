@@ -14,7 +14,9 @@ from app.core import idempotency, outbox, rate_limit
 from app.core.invalidation import tags_for
 from app.core.problems import Problem
 from app.db.session import SessionLocal
+from app.boards.settings import UploadPolicy
 from app.editor.content import Content, build_content
+from app.files import attach
 from app.models import Board, BoardCategory, Member, Post, PostCategory, PostSearch, PostStat
 from app.permissions import can, load_board_role
 from app.posts import queries
@@ -61,6 +63,12 @@ async def _check_categories(db: AsyncSession, board_id: int, ids: list[int]) -> 
         raise _field_error("category_ids", f"이 게시판의 카테고리가 아닙니다: {missing}")
 
 
+def _check_file_count(board: Board, files: list) -> None:
+    limit = UploadPolicy.model_validate(board.upload_policy).max_files
+    if len(files) > limit:
+        raise _field_error("attachments", f"첨부는 {limit}개까지입니다")
+
+
 def _check_secret(board: Board, is_secret: bool | None) -> None:
     if is_secret and not board.allow_secret:
         raise _field_error("is_secret", "이 게시판은 비밀글을 쓸 수 없습니다")
@@ -87,11 +95,13 @@ async def create_post(
         if board is None:
             raise Problem(404, "board_not_found", "게시판을 찾을 수 없습니다")
         role = await load_board_role(db, viewer, board.id)
-    if not can(viewer, role, "board.list", board):
-        raise Problem(403, "board_forbidden", "이 게시판을 볼 권한이 없습니다")
-    if not can(viewer, role, "post.create", board):
-        raise Problem(403, "post_create_forbidden", "이 게시판에 글을 쓸 권한이 없습니다")
+        if not can(viewer, role, "board.list", board):
+            raise Problem(403, "board_forbidden", "이 게시판을 볼 권한이 없습니다")
+        if not can(viewer, role, "post.create", board):
+            raise Problem(403, "post_create_forbidden", "이 게시판에 글을 쓸 권한이 없습니다")
+        files = await attach.load_attachable(db, viewer, [a.id for a in body.attachments], None)
     _check_secret(board, body.is_secret)
+    _check_file_count(board, files)
 
     claim = None
     if idempotency_key is not None:
@@ -102,11 +112,13 @@ async def create_post(
         claim = claimed
 
     try:
-        content = await build_content(board.editor, body.content)  # ① DB 밖
+        content = await build_content(  # ① DB 밖
+            board.editor, body.content, [f.id for f in files if f.is_image], attach.image_sources(files)
+        )
         search = title_fields(body.title) | content_fields(content.text)  # 검색 토큰도 트랜잭션 밖
         await rate_limit.hit("post.create", f"m:{viewer.member_id}")  # ②
         async with SessionLocal() as db, db.begin():  # ③
-            result = await insert_post(db, viewer, board, body, content, search)
+            result = await insert_post(db, viewer, board, body, content, search, has_files=bool(files))
             if claim is not None:
                 await idempotency.complete(db, claim, result.status_code, result.body)
         return result
@@ -123,6 +135,8 @@ async def insert_post(
     body: PostCreate,
     content: Content,
     search: dict[str, Any],
+    *,
+    has_files: bool = False,
 ) -> WriteResult:
     await _check_categories(db, board.id, body.category_ids)
     author_name = (
@@ -165,6 +179,9 @@ async def insert_post(
                 [{"post_id": row.id, "category_id": c} for c in body.category_ids]
             )
         )
+    if has_files:
+        await attach.apply(db, row.id, body.attachments, used_inline=attach.inline_ids(content.html), remove_others=False)
+        await attach.reconcile(db, row.id)
     await outbox.enqueue(
         db,
         [outbox.Event("post.created", {"post_id": row.id, "board_id": board.id}, f"post.created:{row.id}")],
@@ -207,6 +224,11 @@ async def update_post(viewer: Viewer, post_id: int, body: PostUpdate, if_match: 
             raise Problem(404, "post_not_found", "글을 찾을 수 없습니다")
         post, board = found
         role = await load_board_role(db, viewer, board.id)
+        # 붙일 첨부: 새 목록이 오면 그것(내 임시 업로드 또는 이 글의 것), 아니면 지금 붙은 것
+        if body.attachments is not None:
+            files = await attach.load_attachable(db, viewer, [a.id for a in body.attachments], post_id)
+        else:
+            files = await attach.load_for_post(db, post_id)
     if not can(viewer, role, "post.update", board, post):
         raise Problem(403, "post_update_forbidden", "이 글을 수정할 권한이 없습니다")
     if post.status not in EDITABLE_STATUSES:
@@ -214,10 +236,13 @@ async def update_post(viewer: Viewer, post_id: int, body: PostUpdate, if_match: 
     if post.version != expected_version:
         raise _version_conflict(post.version)
     _check_secret(board, body.is_secret)
+    _check_file_count(board, files)
 
     content = None
     if body.content is not None:
-        content = await build_content(post.content_format, body.content)  # 쓴 형식 그대로
+        content = await build_content(  # 쓴 형식 그대로
+            post.content_format, body.content, [f.id for f in files if f.is_image], attach.image_sources(files)
+        )
     # 바뀐 칸의 검색 토큰만 트랜잭션 밖에서 계산한다
     search: dict[str, Any] = {}
     if body.title is not None:
@@ -280,6 +305,11 @@ async def update_post(viewer: Viewer, post_id: int, body: PostUpdate, if_match: 
                         [{"post_id": post_id, "category_id": c} for c in body.category_ids]
                     )
                 )
+        if body.attachments is not None:
+            html = content.html if content is not None else post.content_html
+            await attach.apply(db, post_id, body.attachments, used_inline=attach.inline_ids(html), remove_others=True)
+        if body.attachments is not None or content is not None or body.is_secret is not None:
+            await attach.reconcile(db, post_id)  # 공개 여부가 바뀌었을 수 있다(§12.1)
         await outbox.enqueue(
             db, [outbox.Event("post.updated", {"post_id": post_id, "version": row.version})]
         )

@@ -31,6 +31,13 @@ class Settings(BaseSettings):
     # 작업자 → Next 캐시 무효화(Route Handler, 내부 비밀 헤더 INTERNAL_API_SECRET)
     next_revalidate_url: str = "http://localhost:3000/api/revalidate"
 
+    # 파일 저장소(§12) — 공개(/media 로 직접 내줌)·비공개(권한 판정 뒤 전송) 폴더
+    media_root: str = "var/media"
+    private_root: str = "var/private"
+    # 파일 전송 방식(§12.2): stream(FastAPI 직접, 개발) | nginx(X-Accel-Redirect, 배포)
+    file_sender: Literal["stream", "nginx"] = "stream"
+    nginx_private_prefix: str = "/_private/"  # nginx internal location
+
     # 요청 계측(§15.3) — 응답에 Server-Timing(app·db 시간, 쿼리 수). 측정할 때만 켠다
     server_timing: bool = False
 

@@ -6,6 +6,7 @@ from typing import Any
 from sqlalchemy import Row
 
 from app.auth.viewer import Viewer
+from app.files.attach import thumb_template
 from app.models import Board
 from app.permissions import BoardRole, post_mask
 
@@ -118,4 +119,21 @@ def post_view(row: Row, board: Board, now: datetime) -> dict[str, Any]:
             and not row.is_blinded
             and not row.min_view_level
         ),
+    }
+
+
+def attachment_item(a: Row) -> dict[str, Any]:
+    return {
+        "id": a.id,
+        "name": a.original_name,
+        "size": a.size_bytes,
+        "mime": a.detected_mime,
+        "is_image": a.is_image,
+        "width": a.width,
+        "height": a.height,
+        "alt": a.alt_text,
+        "is_cover": a.is_cover,
+        "role": a.role,
+        "url": f"/api/attachments/{a.id}/file",
+        "thumb": thumb_template(a).format(w=320) if a.is_image and a.thumbs_ready else None,
     }

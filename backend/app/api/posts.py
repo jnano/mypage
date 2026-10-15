@@ -63,20 +63,7 @@ async def post_page(
         "post": present.post_view(post, board, now),
         "neighbors": neighbors,
         "related": [{"id": r.id, "title": r.title, "board_slug": r.board_slug} for r in related],
-        "attachments": [
-            {
-                "id": a.id,
-                "name": a.original_name,
-                "size": a.size_bytes,
-                "mime": a.detected_mime,
-                "is_image": a.is_image,
-                "width": a.width,
-                "height": a.height,
-                "alt": a.alt_text,
-                "is_cover": a.is_cover,
-            }
-            for a in attachments
-        ],
+        "attachments": [present.attachment_item(a) for a in attachments],
         # 첫 쪽 댓글을 함께 — 따로 부르면 화면당 FastAPI 호출 예산(로그인 ≤ 3)을 넘는다(§3.6)
         "comments": comment_present.comments_page(viewer, role, comment_rows, next_cursor),
         "cache": {"tags": [f"post:{post.id}", f"board:{board.slug}"]},
@@ -97,6 +84,7 @@ async def get_post_for_edit(
     role = await load_board_role(db, viewer, board.id)
     if not can(viewer, role, "post.update", board, post):
         raise Problem(403, "post_update_forbidden", "이 글을 수정할 권한이 없습니다")
+    files = await queries.list_attachments(db, post.id, include_inline=True)
     body = {
         "id": post.id,
         "board_slug": board.slug,
@@ -107,6 +95,7 @@ async def get_post_for_edit(
         "is_secret": post.is_secret,
         "status": post.status,
         "version": post.version,
+        "attachments": [present.attachment_item(a) for a in files],
     }
     return JSONResponse(body, headers={"ETag": f'"{post.version}"', "Cache-Control": "no-store"})
 

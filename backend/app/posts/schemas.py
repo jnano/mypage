@@ -7,6 +7,7 @@ from pydantic import AfterValidator, BaseModel, ConfigDict, Field, model_validat
 
 MAX_CONTENT_CHARS = 200_000
 MAX_CATEGORIES = 5
+MAX_ATTACHMENTS = 50
 _CONTROL = re.compile(r"[\x00-\x08\x0b\x0c\x0e-\x1f\x7f]")
 
 
@@ -31,12 +32,32 @@ CategoryIds = Annotated[
     list[Annotated[int, Field(gt=0)]], Field(max_length=MAX_CATEGORIES), AfterValidator(_unique)
 ]
 
+
+class AttachmentRef(BaseModel):
+    """글에 붙일 첨부(목록 순서가 표시 순서). 본문 이미지(attachment:ID)도 여기 있어야 한다."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    id: Annotated[int, Field(gt=0)]
+    alt_text: Annotated[str, Field(max_length=300)] | None = None
+    is_cover: bool = False
+
+
+def _unique_attachments(items: list[AttachmentRef]) -> list[AttachmentRef]:
+    if len({i.id for i in items}) != len(items):
+        raise ValueError("첨부가 중복되었습니다")
+    return items
+
+
+Attachments = Annotated[list[AttachmentRef], Field(max_length=MAX_ATTACHMENTS), AfterValidator(_unique_attachments)]
+
 # §5.4 — 칸 → 필요한 action. 이 단계에서 받는 칸은 post.update 칸뿐이고, 표에 없는 칸은 422(extra=forbid)
 PATCH_FIELD_ACTIONS = {
     "title": "post.update",
     "content": "post.update",
     "category_ids": "post.update",
     "is_secret": "post.update",
+    "attachments": "post.update",
 }
 
 
@@ -49,6 +70,7 @@ class PostCreate(BaseModel):
     content: Content
     category_ids: CategoryIds = []
     is_secret: bool = False
+    attachments: Attachments = []
 
 
 class PostUpdate(BaseModel):
@@ -60,6 +82,7 @@ class PostUpdate(BaseModel):
     content: Content | None = None
     category_ids: CategoryIds | None = None
     is_secret: bool | None = None
+    attachments: Attachments | None = None
 
     @model_validator(mode="after")
     def _not_empty(self) -> Self:

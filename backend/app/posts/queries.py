@@ -278,24 +278,30 @@ async def find_related(db: AsyncSession, viewer: Viewer, post_id: int) -> list[R
     )
 
 
-async def list_attachments(db: AsyncSession, post_id: int) -> list[Row]:
-    return list(
-        await db.execute(
-            select(
-                Attachment.id,
-                Attachment.original_name,
-                Attachment.size_bytes,
-                Attachment.detected_mime,
-                Attachment.is_image,
-                Attachment.width,
-                Attachment.height,
-                Attachment.alt_text,
-                Attachment.is_cover,
-            )
-            .where(Attachment.post_id == post_id, Attachment.role == literal_column("'attachment'"))
-            .order_by(Attachment.sort_order, Attachment.id)
+async def list_attachments(db: AsyncSession, post_id: int, *, include_inline: bool = False) -> list[Row]:
+    """글의 첨부 — 글 보기는 첨부 역할만(본문 이미지는 본문에), 수정 화면은 전부."""
+    stmt = (
+        select(
+            Attachment.id,
+            Attachment.original_name,
+            Attachment.size_bytes,
+            Attachment.detected_mime,
+            Attachment.is_image,
+            Attachment.width,
+            Attachment.height,
+            Attachment.alt_text,
+            Attachment.is_cover,
+            Attachment.role,
+            Attachment.storage_key,
+            Attachment.visibility,
+            Attachment.thumbs_ready,
         )
+        .where(Attachment.post_id == post_id)
+        .order_by(Attachment.sort_order, Attachment.id)
     )
+    if not include_inline:
+        stmt = stmt.where(Attachment.role == literal_column("'attachment'"))
+    return list(await db.execute(stmt))
 
 
 async def find_post_for_edit(db: AsyncSession, post_id: int) -> tuple[Row, Board] | None:

@@ -146,16 +146,16 @@ def test_render_video_iframe_and_image_srcset() -> None:
         '<p>a &amp; b</p><figure data-attachment-id="12" data-width="m"><img alt="x"></figure>'
         '<div data-embed="youtube" data-video-id="dQw4w9WgXcQ"></div>'
     )
-    out = render_content(html, {12: ImageSource("/media/ab/key", 800, 600, True)})
+    out = render_content(html, {12: ImageSource("/media/ab/key.w{w}.webp", 800, 600, True)})
     assert "<p>a &amp; b</p>" in out
     assert 'src="https://www.youtube-nocookie.com/embed/dQw4w9WgXcQ"' in out
-    assert 'srcset="/media/ab/key/thumb?w=320 320w, /media/ab/key/thumb?w=640 640w, /media/ab/key/thumb?w=1280 1280w"' in out
+    assert 'srcset="/media/ab/key.w320.webp 320w, /media/ab/key.w640.webp 640w, /media/ab/key.w1280.webp 1280w"' in out
     assert 'width="800" height="600"' in out
 
 
 def test_render_image_without_thumbs_does_not_expose_original() -> None:
     html = '<figure data-attachment-id="12"><img alt="x"></figure>'
-    out = render_content(html, {12: ImageSource("/media/ab/key", 800, 600, False)})
+    out = render_content(html, {12: ImageSource("/media/ab/key.w{w}.webp", 800, 600, False)})
     assert "data-pending" in out and "src=" not in out
 
 

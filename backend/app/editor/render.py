@@ -20,7 +20,7 @@ THUMB_WIDTHS = (320, 640, 1280)
 class ImageSource:
     """첨부 이미지의 읽기용 주소. 썸네일이 아직 없으면 thumbs_ready=False(자리 표시, 원본 내보내지 않음)."""
 
-    base_url: str  # 예: /media/ab/abcdef… 또는 /api/attachments/12
+    thumb_url: str  # '{w}' 자리를 폭으로 바꾼다 — 공개 /media/ab/<stem>.w{w}.webp, 비공개 /api/attachments/12/thumb?w={w}
     width: int | None
     height: int | None
     thumbs_ready: bool
@@ -63,9 +63,9 @@ class _Renderer(HTMLParser):
             extra += [("width", str(img.width)), ("height", str(img.height))]
         if not img.thumbs_ready:
             return extra + [("data-pending", "")]
-        srcset = ", ".join(f"{img.base_url}/thumb?w={w} {w}w" for w in THUMB_WIDTHS)
+        srcset = ", ".join(f"{img.thumb_url.format(w=w)} {w}w" for w in THUMB_WIDTHS)
         return extra + [
-            ("src", f"{img.base_url}/thumb?w=640"),
+            ("src", img.thumb_url.format(w=640)),
             ("srcset", srcset),
             ("sizes", "(max-width: 640px) 100vw, 640px"),
             ("loading", "lazy"),

@@ -86,6 +86,14 @@ async def committed_db() -> AsyncIterator[AsyncSession]:
             await session.commit()
 
 
+@pytest.fixture(autouse=True)
+def file_roots(tmp_path, monkeypatch: pytest.MonkeyPatch):
+    """파일 저장소를 테스트마다 임시 폴더로."""
+    monkeypatch.setattr(settings, "media_root", str(tmp_path / "media"))
+    monkeypatch.setattr(settings, "private_root", str(tmp_path / "private"))
+    return tmp_path
+
+
 @pytest.fixture
 def dev_header(monkeypatch: pytest.MonkeyPatch) -> None:
     """개발용 Viewer 헤더를 켠다 — tests.helpers.as_member(id) 로 요청한다."""

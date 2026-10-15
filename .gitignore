@@ -20,3 +20,6 @@ venv/
 # runtime data
 uploads/
 backups/
+
+# 파일 저장소(로컬 개발) — backend/var/media, backend/var/private
+backend/var/

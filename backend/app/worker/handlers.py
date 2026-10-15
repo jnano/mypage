@@ -7,7 +7,10 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.config import settings
 from app.core.invalidation import tags_for
 from app.core.outbox import enqueue_revalidate
-from app.models import Board, Comment, OutboxEvent, Post, PostSearch
+from app.core import outbox
+from app.core.threads import run_in_thread
+from app.files import attach, images, storage
+from app.models import Attachment, Board, Comment, OutboxEvent, Post, PostSearch
 from app.notifications import send
 from app.search.index import post_open
 from app.worker.core import handles
@@ -52,6 +55,7 @@ async def publish_scheduled(db: AsyncSession, event: OutboxEvent) -> None:
         .values(post_open=post_open("published", row.is_secret, row.is_blinded, row.min_view_level))
     )
     slug = (await db.execute(select(Board.slug).where(Board.id == row.board_id))).scalar_one()
+    await attach.reconcile(db, post_id)  # 공개가 됐으니 첨부도 공개 저장소로(작업자가 옮긴다)
     await enqueue_revalidate(db, [tags_for("post.status_changed", post_id=post_id, board_slug=slug)])
 
 
@@ -125,3 +129,71 @@ async def comment_created(db: AsyncSession, event: OutboxEvent) -> None:
 @handles("comment.deleted")
 async def comment_deleted(_db: AsyncSession, _event: OutboxEvent) -> None:
     """댓글 삭제 — 이미 보낸 알림은 그대로 둔다(알림함이 지워진 댓글을 다시 확인하지는 않는다)."""
+
+
+# ── 파일(§12) ────────────────────────────────────────────
+
+
+@handles("attachment.uploaded")
+async def attachment_uploaded(db: AsyncSession, event: OutboxEvent) -> None:
+    """썸네일(회전 반영). 글에 이미 붙어 있으면 공개 여부 맞추기와 본문 다시 렌더로 이어진다."""
+    attachment_id = int(event.payload["attachment_id"])
+    row = (
+        await db.execute(select(Attachment.id, Attachment.storage_key, Attachment.post_id, Attachment.is_image).where(Attachment.id == attachment_id))
+    ).one_or_none()
+    if row is None or not row.is_image:
+        return
+    found = storage.locate(row.storage_key)
+    if found is None:
+        raise FileNotFoundError(row.storage_key)
+    visibility, path = found
+    width, height = await run_in_thread("image", images.make_thumbnails, path, visibility, row.storage_key)
+    await db.execute(update(Attachment).where(Attachment.id == attachment_id).values(thumbs_ready=True, width=width, height=height))
+    if row.post_id is not None:
+        await attach.reconcile(db, row.post_id)
+
+
+@handles("attachments.sync")
+async def attachments_sync(db: AsyncSession, event: OutboxEvent) -> None:
+    """글의 첨부 파일을 있어야 할 저장소로 옮긴다. 공개로는 썸네일이 준비된 것만, 비공개로는 새 storage_key 로.
+    복사 → 행 갱신 → (커밋 뒤) 옛 파일 삭제 이벤트 → 본문 다시 렌더 → 캐시 무효화."""
+    post_id = int(event.payload["post_id"])
+    post = (
+        await db.execute(
+            select(  # post-clause: exempt — 첨부 공개 여부 계산(판정은 attach.post_is_public)
+                Post.id, Post.board_id, Post.status, Post.is_secret, Post.is_blinded, Post.min_view_level, Post.content_html
+            ).where(Post.id == post_id)
+        )
+    ).one_or_none()
+    if post is None:
+        return
+    board = (await db.execute(select(Board).where(Board.id == post.board_id))).scalar_one()
+    public = attach.post_is_public(board, status=post.status, is_secret=post.is_secret, is_blinded=post.is_blinded, min_view_level=post.min_view_level)
+    old_labels: list[str] = []
+    changed = False
+    for r in await attach.load_for_post(db, post_id):
+        desired = attach.desired_visibility(post_public=public, is_image=r.is_image, role=r.role, download_level=board.download_level)
+        if desired == "public" and not r.thumbs_ready:
+            continue  # 썸네일 처리기가 끝나면 다시 부른다
+        found = storage.locate(r.storage_key)
+        if found is None:
+            continue
+        actual = found[0]
+        if actual == desired and r.visibility == desired:
+            continue
+        key = r.storage_key
+        if actual != desired:
+            key = r.storage_key if desired == "public" else storage.new_key(r.storage_key.rsplit(".", 1)[-1])
+            old_labels += await run_in_thread("image", storage.copy_with_thumbs, r.storage_key, desired, key)
+        await db.execute(update(Attachment).where(Attachment.id == r.id).values(storage_key=key, visibility=desired))
+        changed = True
+    if old_labels:
+        await outbox.enqueue(db, [outbox.Event("files.delete", {"labels": old_labels})])
+    if changed:
+        await attach.rerender(db, post_id, post.content_html, await attach.load_for_post(db, post_id))
+        await enqueue_revalidate(db, [tags_for("post.updated", post_id=post_id, board_slug=board.slug)])
+
+
+@handles("files.delete")
+async def files_delete(_db: AsyncSession, event: OutboxEvent) -> None:
+    await run_in_thread("image", storage.delete_labels, list(event.payload.get("labels", [])))

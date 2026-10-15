@@ -4,7 +4,7 @@ from datetime import UTC, datetime, timedelta
 
 import pytest
 from httpx import AsyncClient
-from sqlalchemy import func, not_, select, update
+from sqlalchemy import Select, func, not_, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.auth.viewer import GUEST, load_viewer
@@ -12,7 +12,7 @@ from app.editor.content import compact
 from app.models import Board, BoardModerator, Post, PostSearch
 from app.permissions import readable_posts_clause
 from app.search import backend as search_backend
-from app.search.backend import guest_visible_clause
+from app.search.backend import BigramBackend, SearchBackend, guest_visible_clause, parse_query
 from app.search.index import bigrams
 from app.search.reindex import reindex_all
 from tests.factories import make_board, make_member, make_post
@@ -214,3 +214,10 @@ async def test_reindex_is_idempotent(committed_db: AsyncSession) -> None:
 
 async def test_healthcheck(client: AsyncClient) -> None:
     assert (await client.get("/api/health/search")).json() == {"backend": "bigram", "ok": True, "missing_indexes": []}
+
+
+def test_backend_exposes_statements_used_by_search_and_measurement() -> None:
+    # 실행과 측정(scripts/explain_hotpaths.py)이 같은 문장을 쓴다 — 구현이 프로토콜이 아니라 백엔드에 있어야 한다
+    rows, count = search_backend.backend.statements(GUEST, parse_query("회의", board_id=None, scope="all", page=1))
+    assert isinstance(rows, Select) and isinstance(count, Select)
+    assert "statements" in BigramBackend.__dict__ and SearchBackend.statements.__doc__ is None

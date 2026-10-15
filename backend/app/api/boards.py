@@ -56,6 +56,7 @@ async def board_page(
     result = await queries.list_board_posts(
         db, viewer, role, board, page=page, per_page=per_page, category_id=category, archived=archived
     )
+    has_restricted = await queries.has_restricted_posts(db, board.id)
     now = datetime.now(UTC)
     views = board.display.get("views") or ["list"]
     return {
@@ -74,7 +75,8 @@ async def board_page(
             "archived": archived,
             "sort": sort,
         },
-        "cache": {"tags": [f"board:{board.slug}"]},
+        # 쪽 단위 캐시 판정용(§3.3): 보는 사람에 따라 달라지는 공개 글이 이 게시판에 있는지
+        "cache": {"tags": [f"board:{board.slug}"], "has_restricted_posts": has_restricted},
     }
 
 

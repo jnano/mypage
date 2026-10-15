@@ -4,7 +4,7 @@ from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
 
-from app.api import boards, editor, health, posts
+from app.api import boards, editor, health, me, posts
 from app.core import csrf, problems
 from app.core.config import settings
 from app.db.session import engine
@@ -29,3 +29,4 @@ app.include_router(health.router, prefix="/api")
 app.include_router(boards.router, prefix="/api")
 app.include_router(posts.router, prefix="/api")
 app.include_router(editor.router, prefix="/api")
+app.include_router(me.router, prefix="/api")

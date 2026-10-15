@@ -308,3 +308,39 @@ async def find_post_for_edit(db: AsyncSession, post_id: int) -> tuple[Row, Board
         )
     ).one_or_none()
     return (row, row.Board) if row else None
+
+
+async def has_restricted_posts(db: AsyncSession, board_id: int) -> bool:
+    """보는 사람에 따라 달라지는 공개 글이 있는지 — hide 게시판의 쪽 단위 캐시 판정(§3.3). 부분 인덱스 ix_posts_board_restricted."""
+    stmt = select(
+        exists().where(
+            Post.board_id == board_id,
+            Post.status == literal_column("'published'"),
+            or_(Post.is_secret, Post.is_blinded, Post.min_view_level > literal_column("0")),
+        )  # post-clause: exempt — 게시판 단위 존재 여부만(행을 내주지 않음)
+    )
+    return (await db.execute(stmt)).scalar_one()
+
+
+async def find_posts_for_state(
+    db: AsyncSession, viewer: Viewer, board_id: int, ids: list[int]
+) -> list[Row]:
+    """개인 조각용 — 목록에 나올 수 있는 글만(지난 글 탭 포함), 판정에 필요한 칸만."""
+    return list(
+        await db.execute(
+            select(
+                Post.id,
+                Post.title,
+                Post.member_id,
+                Post.is_guest,
+                Post.status,
+                Post.is_secret,
+                Post.is_blinded,
+                Post.min_view_level,
+            ).where(
+                Post.board_id == board_id,
+                Post.id.in_(ids),
+                or_(listable_posts_clause(viewer), listable_posts_clause(viewer, expired=True)),
+            )
+        )
+    )

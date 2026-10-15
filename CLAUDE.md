@@ -17,6 +17,9 @@ backend/
   app/core/config.py 설정 (pydantic-settings, backend/.env)
   app/db/            base.py(Base) · session.py(engine, get_db) · models.py(모델 등록)
   alembic/           마이그레이션 (env.py 가 settings.database_url 사용)
+  tests/             pytest (conftest 가 DB 를 테스트 DB 로 바꾼다)
+scripts/ci/          CI 검사 스크립트 (도메인 중립 등)
+.github/workflows/   GitHub Actions — 금지어 검사 + 백엔드 테스트(postgres:18)
 ```
 
 ## 서버 실행
@@ -27,6 +30,14 @@ cd backend && uv sync && uv run uvicorn app.main:app --reload --port 8000
 cd frontend && npm install && npm run dev
 ```
 확인: `http://localhost:3000/api/health` · `/api/health/db`
+
+## 테스트
+```bash
+cd backend && uv run pytest -q              # 테스트 DB: mypage_test (TEST_DATABASE_URL 로 변경)
+python3 scripts/ci/check_neutral_terms.py   # 도메인 중립 검사 (저장소 루트에서)
+```
+- 테스트는 개발 DB(`mypage`)를 쓰지 않는다. conftest 는 DB 이름이 `_test` 로 끝나지 않으면 시작을 거부한다.
+- 테스트 DB 만들기(최초 1회): `/Applications/Postgres.app/Contents/Versions/18/bin/createdb -h localhost mypage_test`
 
 ## 환경 변수
 - `backend/.env` — `.env.example` 복사 후 수정 (`APP_NAME`, `DEBUG`, `DATABASE_URL`)

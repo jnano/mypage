@@ -1,16 +1,17 @@
 """주기 작업 — 설계도 §3.2 표. 지금 대상 표가 있는 것만 둔다.
 
-나중에 붙는 것: always 조회수 버퍼 반영(조회수 카운터), 운영 기록 개인 칸 가림(관리 기능).
+나중에 붙는 것: always 조회수 버퍼 반영(조회수 카운터).
 각 작업은 한 번에 처리하는 양에 상한을 둬 트랜잭션을 짧게 한다(남은 것은 다음 회차).
 """
 
 from collections.abc import Awaitable, Callable
 from dataclasses import dataclass
 
-from sqlalchemy import and_, delete, func, literal_column, not_, select, text, tuple_
+from sqlalchemy import and_, bindparam, delete, exists, func, literal_column, not_, or_, select, text, tuple_, update
 from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.admin.logs import redact_log_payload
 from app.core.outbox import Event, enqueue
 from app.files import storage
 from app.models import (
@@ -19,6 +20,8 @@ from app.models import (
     BoardDailyStat,
     Comment,
     IdempotencyKey,
+    Member,
+    ModerationLog,
     Notification,
     OutboxEvent,
     Post,
@@ -183,6 +186,45 @@ async def aggregate_board_daily_stats(db: AsyncSession) -> int:
     return result.rowcount or 0
 
 
+REDACT_BATCH = 500
+
+
+async def redact_moderation_logs(db: AsyncSession) -> int:
+    """운영 기록 개인 칸 가림(§14.4) — 기록에 나오는 회원(행위자·작성자)이 탈퇴했거나 3년 지난 행."""
+    withdrawn = Member.status == literal_column("'withdrawn'")
+
+    def author_withdrawn(payload):
+        return exists().where(Member.id == payload["author_id"].astext.cast(Member.id.type), withdrawn)
+
+    rows = (
+        await db.execute(
+            select(ModerationLog.id, ModerationLog.before, ModerationLog.after)
+            .where(
+                ModerationLog.redacted_at.is_(None),
+                or_(
+                    ModerationLog.created_at < func.now() - text("interval '3 years'"),
+                    exists().where(Member.id == ModerationLog.actor_id, withdrawn),
+                    author_withdrawn(ModerationLog.before),
+                    author_withdrawn(ModerationLog.after),
+                ),
+            )
+            .order_by(ModerationLog.id)
+            .limit(REDACT_BATCH)
+            .with_for_update(skip_locked=True)
+        )
+    ).all()
+    if not rows:
+        return 0
+    logs = ModerationLog.__table__  # 행마다 값이 다른 UPDATE 를 executemany 로 — Core 표에 건다
+    await db.execute(
+        update(logs)
+        .where(logs.c.id == bindparam("log_id"))
+        .values(before=bindparam("b"), after=bindparam("a"), redacted_at=func.now()),
+        [{"log_id": r.id, "b": redact_log_payload(r.before), "a": redact_log_payload(r.after)} for r in rows],
+    )
+    return len(rows)
+
+
 JOBS: dict[str, Job] = {
     j.name: j
     for j in [
@@ -194,5 +236,6 @@ JOBS: dict[str, Job] = {
         Job("view_records.cleanup", DAY, cleanup_view_records),
         Job("outbox.cleanup", DAY, cleanup_outbox),
         Job("board_daily_stats", HOUR, aggregate_board_daily_stats),
+        Job("moderation_logs.redact", DAY, redact_moderation_logs),
     ]
 }

@@ -8,6 +8,8 @@ class Settings(BaseSettings):
     model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8", extra="ignore")
 
     app_name: str = "mypage"
+    # 사이트 시간대 — 날짜로 거르는 관리 화면이 하루의 경계를 이 시간대로 잡는다(프런트 lib/format/time 과 같은 값)
+    site_time_zone: str = "Asia/Seoul"
     debug: bool = False
     # 실행 환경 — 기본값은 가장 엄격한 prod. 로컬 개발은 .env 에 ENV=dev
     env: Literal["dev", "test", "prod"] = "prod"

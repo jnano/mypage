@@ -87,7 +87,7 @@ export class ExtendedTextNode extends TextNode {
   }
 
   static importDOM(): DOMConversionMap | null {
-    const base = TextNode.importDOM() || {};
+    const base = TextNode.importDOM?.() || {};
     const map: DOMConversionMap = { ...base };
     // 인라인 서식이 실릴 수 있는 태그 전부에 style 복원을 덧댄다(span 이 대표).
     for (const tag of ["span", "b", "strong", "i", "em", "u", "s", "sub", "sup", "mark", "font"]) {
@@ -188,7 +188,7 @@ export class StyledParagraphNode extends ParagraphNode {
   }
 
   static importDOM(): DOMConversionMap | null {
-    return importDOMWithBlockStyle(ParagraphNode.importDOM(), ["p"]);
+    return importDOMWithBlockStyle(ParagraphNode.importDOM?.() ?? null, ["p"]);
   }
 
   createDOM(config: EditorConfig): HTMLElement {
@@ -243,7 +243,7 @@ export class StyledHeadingNode extends HeadingNode {
   }
 
   static importDOM(): DOMConversionMap | null {
-    return importDOMWithBlockStyle(HeadingNode.importDOM(), ["h1", "h2", "h3", "h4", "h5", "h6"]);
+    return importDOMWithBlockStyle(HeadingNode.importDOM?.() ?? null, ["h1", "h2", "h3", "h4", "h5", "h6"]);
   }
 
   createDOM(config: EditorConfig): HTMLElement {
@@ -298,7 +298,7 @@ export class StyledQuoteNode extends QuoteNode {
   }
 
   static importDOM(): DOMConversionMap | null {
-    return importDOMWithBlockStyle(QuoteNode.importDOM(), ["blockquote"]);
+    return importDOMWithBlockStyle(QuoteNode.importDOM?.() ?? null, ["blockquote"]);
   }
 
   createDOM(config: EditorConfig): HTMLElement {
@@ -307,9 +307,9 @@ export class StyledQuoteNode extends QuoteNode {
     return dom;
   }
 
-  updateDOM(prevNode: this, dom: HTMLElement): boolean {
+  updateDOM(prevNode: this, dom: HTMLElement, config: EditorConfig): boolean {
     if (prevNode.getStyle() !== this.getStyle()) applyStyleToDom(dom, this.getStyle(), prevNode.getStyle());
-    return super.updateDOM(prevNode, dom);
+    return super.updateDOM(prevNode, dom, config);
   }
 
   exportDOM(editor: LexicalEditor) {

@@ -81,7 +81,7 @@ import {
   $patchStyleText,
   $setBlocksType,
 } from "@lexical/selection";
-import { $getNearestNodeOfType, mergeRegister } from "@lexical/utils";
+import { $getNearestNodeOfType, mergeRegister, objectKlassEquals } from "@lexical/utils";
 import {
   $createParagraphNode,
   $getRoot,
@@ -1137,7 +1137,9 @@ function OfficePastePlugin({ onUploadFile }: { onUploadFile?: RichTextEditorProp
     () =>
       editor.registerCommand(
         PASTE_COMMAND,
-        (event: ClipboardEvent) => {
+        (event) => {
+          // 붙여넣기 명령은 키보드·입력 이벤트로도 온다 — 클립보드 이벤트만 다룬다(공식 예제와 같은 판별)
+          if (!objectKlassEquals(event, ClipboardEvent)) return false;
           const cd = event.clipboardData;
           if (!cd) return false;
           const html = cd.getData("text/html");

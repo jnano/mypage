@@ -4,7 +4,7 @@
 문서(계획서·보고서 등)는 `~/projects/mypage/doc/` 에 둔다 — 이 저장소(`src`)에 두지 않는다.
 
 ## 기술 스택
-- 프론트엔드: Next.js 16 (App Router) · React 19 · TypeScript · Tailwind v4 — `frontend/`
+- 프론트엔드: Next.js 16 (App Router) · React 19 · TypeScript — `frontend/` (CSS 프레임워크 없음: 골격은 class 없는 시맨틱 HTML + data-slot, 모양은 스킨 — 설계도 §13.1)
   - Next 16 은 학습 데이터와 다를 수 있다. 코드 작성 전 `frontend/node_modules/next/dist/docs/` 확인 (`frontend/AGENTS.md`)
 - 백엔드: FastAPI · Python 3.13 · **uv** (pip/venv 직접 사용 금지) — `backend/`
 - DB: PostgreSQL 18 (Postgres.app) · SQLAlchemy 2 **async** + asyncpg · Alembic(async 템플릿)

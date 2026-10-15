@@ -4,7 +4,7 @@ from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
 
-from app.api import health
+from app.api import boards, editor, health, posts
 from app.core import problems
 from app.core.config import settings
 from app.db.session import engine
@@ -25,3 +25,6 @@ problems.install(app)
 
 # 모든 API 는 /api 아래에 둔다 — 프론트엔드가 /api/* 를 그대로 프록시한다
 app.include_router(health.router, prefix="/api")
+app.include_router(boards.router, prefix="/api")
+app.include_router(posts.router, prefix="/api")
+app.include_router(editor.router, prefix="/api")

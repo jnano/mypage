@@ -12,6 +12,7 @@
 ## 구조
 ```
 frontend/            Next.js 앱. /api/* 는 next.config.ts rewrites 로 백엔드에 프록시
+  lib/editor/tokens.gen.json  에디터 토큰(생성 파일 — 직접 고치지 않는다, scripts/gen_editor_tokens.py)
 backend/
   app/main.py        FastAPI 앱. 모든 라우터는 prefix="/api"
   app/core/config.py 설정 (pydantic-settings, backend/.env)
@@ -20,6 +21,11 @@ backend/
   app/auth/          Viewer(보는 사람)·get_viewer — 골격은 개발용 헤더(ENV=dev 전용)
   app/permissions/   권한 판정 한 곳: load_board_roles(DB) · can/post_mask(순수) · 목록/열람 판정 절(SQL)
   app/core/problems.py  오류 응답(RFC 9457) — 모든 API 공용
+  app/core/          rate_limit(UNLOGGED 고정 창) · idempotency · outbox · invalidation(§3.4 무효화 표) · threads(작업별 한도)
+  app/editor/        본문 파이프라인: tokens(원본) · markdown(서버 변환 한 곳) · sanitize(nh3) · render(읽기용) · content(공용 진입점)
+  app/boards/        게시판 JSONB 설정 형식·기본값(settings.py)
+  app/posts/         queries(읽기, 판정 절 경유) · service(쓰기) · present(응답 모양) · schemas(요청)
+  scripts/seed_dev.py  개발용 시드 — `uv run python -m scripts.seed_dev`
   alembic/           마이그레이션 (env.py 가 settings.database_url 사용)
   tests/             pytest (conftest 가 테스트 DB 를 비우고 마이그레이션을 처음부터 적용한다)
                      schema_spec.py = 설계도 §4 를 옮긴 대조 기준 — §4 를 바꾸면 같이 바꾼다
@@ -41,6 +47,7 @@ cd frontend && npm install && npm run dev
 cd backend && uv run pytest -q              # 테스트 DB: mypage_test (TEST_DATABASE_URL 로 변경)
 python3 scripts/ci/check_neutral_terms.py   # 도메인 중립 검사 (저장소 루트에서, --self-test 는 대조군)
 python3 scripts/ci/check_post_clause.py     # select(Post) 가 판정 절을 거치는지 (--self-test 는 대조군)
+python3 scripts/gen_editor_tokens.py --check  # 에디터 토큰 생성 파일이 원본과 같은지 (인자 없이 실행하면 다시 생성)
 ```
 - 테스트는 개발 DB(`mypage`)를 쓰지 않는다. conftest 는 DB 이름이 `_test` 로 끝나지 않으면 시작을 거부한다.
 - 테스트 DB 만들기(최초 1회): `/Applications/Postgres.app/Contents/Versions/18/bin/createdb -h localhost mypage_test`

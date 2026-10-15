@@ -1,33 +1,17 @@
 """load_board_roles — 게시판 여러 개의 역할을 쿼리 한 번으로(§5.1, §2.2 P2)."""
 
-from contextlib import contextmanager
 from datetime import UTC, datetime, timedelta
 
 import pytest
-from sqlalchemy import event
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.auth.viewer import GUEST, Viewer
-from app.db.session import engine
 from app.models import BoardAccess, BoardModerator, MemberGroup, MemberSanction
 from app.permissions import NO_ROLE, BoardRole, load_board_role, load_board_roles
 from tests.factories import make_board, make_member
+from tests.helpers import count_queries
 
 pytestmark = pytest.mark.anyio
-
-
-@contextmanager
-def count_queries():
-    counter = {"n": 0}
-
-    def on_execute(*_):
-        counter["n"] += 1
-
-    event.listen(engine.sync_engine, "before_cursor_execute", on_execute)
-    try:
-        yield counter
-    finally:
-        event.remove(engine.sync_engine, "before_cursor_execute", on_execute)
 
 
 async def test_roles_for_many_boards_in_one_query(db: AsyncSession) -> None:

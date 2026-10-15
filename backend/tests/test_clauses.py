@@ -13,7 +13,9 @@ from app.permissions import (
     can,
     listable_posts_clause,
     load_board_roles,
+    post_mask,
     readable_posts_clause,
+    unmasked_posts_clause,
 )
 from tests.factories import make_board, make_member, make_post
 
@@ -159,3 +161,16 @@ def test_fixed_conditions_are_sql_literals(clause) -> None:
         )
     )
     assert "posts.status = 'published'" in sql
+
+
+@pytest.mark.parametrize("who", ["guest", "other", "author", "mod", "high", "admin"])
+async def test_unmasked_clause_matches_post_mask(db: AsyncSession, who: str) -> None:
+    # hide 게시판 목록용 SQL 절 ↔ post_mask(제목 가림) 대조
+    boards, posts, viewers = await _world(db)
+    viewer = viewers[who]
+    roles = await load_board_roles(db, viewer, [b.id for b in boards.values()])
+    for board in boards.values():
+        role = roles[board.id]
+        mine = [(b, p) for b, p in posts if b.id == board.id]
+        expected = {p.id for _, p in mine if not post_mask(viewer, role, p)}
+        assert await _ids(db, mine, unmasked_posts_clause(viewer, role)) == expected

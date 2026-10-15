@@ -23,9 +23,11 @@ from httpx import ASGITransport, AsyncClient  # noqa: E402
 from sqlalchemy import text  # noqa: E402
 from sqlalchemy.ext.asyncio import AsyncSession  # noqa: E402
 
+from app.core.config import settings  # noqa: E402
 from app.db.base import Base  # noqa: E402
 from app.db.session import SessionLocal, engine  # noqa: E402
 from app.main import app  # noqa: E402
+from tests.helpers import DEV_SECRET  # noqa: E402
 
 BACKEND_DIR = Path(__file__).resolve().parents[1]
 
@@ -81,6 +83,13 @@ async def committed_db() -> AsyncIterator[AsyncSession]:
             tables = ", ".join(t.name for t in Base.metadata.sorted_tables)
             await session.execute(text(f"TRUNCATE {tables} RESTART IDENTITY CASCADE"))
             await session.commit()
+
+
+@pytest.fixture
+def dev_header(monkeypatch: pytest.MonkeyPatch) -> None:
+    """개발용 Viewer 헤더를 켠다 — tests.helpers.as_member(id) 로 요청한다."""
+    monkeypatch.setattr(settings, "dev_viewer_header", True)
+    monkeypatch.setattr(settings, "dev_viewer_secret", DEV_SECRET)
 
 
 @pytest.fixture

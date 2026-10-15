@@ -7,6 +7,9 @@
 
 ### Added
 - DB 연결 풀 설정(`DB_POOL_SIZE`·`DB_MAX_OVERFLOW`·`DB_POOL_TIMEOUT`·`DB_POOL_RECYCLE`·`DB_POOL_PRE_PING`) — 같은 서버 DB 기준으로 `pool_pre_ping` 기본 끔
+- 게시판 화면 묶음 응답 `GET /api/boards/{slug}/page`(고정 글 띠·목록·카테고리·지난 글 탭·mask/hide·옛 주소 308)과 글 화면 묶음 응답 `GET /api/posts/{id}/page`(이전·다음 글·관련 글·410)
+- 회원 글 작성·수정 API(마크다운 서버 변환 + nh3 정화, 낙관적 잠금 `If-Match`, `Idempotency-Key`, 요청 수 제한, outbox, 무효화 태그 응답)와 마크다운 미리보기 `POST /api/editor/preview`
+- 에디터 의미 토큰 원본과 프런트용 생성 파일(`frontend/lib/editor/tokens.gen.json`), 개발용 시드 스크립트
 - 권한 판정(설계도 v3.0.2 §5): Viewer·게시판별 역할(쿼리 1회)·`can`·`post_mask`·목록/열람 판정 절, 게시판 단위 정지, 담당자의 열람 통과, 명부 쓰기의 댓글·첨부 적용
 - 개발용 Viewer 헤더(`X-Dev-Member`, ENV=dev 전용·공유 비밀 필수, 그 밖에는 기동 실패)와 RFC 9457 오류 응답
 - CI 검사: `select(Post)` 가 판정 절을 거치는지(검색 모듈의 목록 절 사용 금지)

@@ -1,0 +1,132 @@
+{
+  "$generated": "scripts/gen_editor_tokens.py — 직접 고치지 않는다",
+  "sanitizerVersion": 1,
+  "align": [
+    "left",
+    "center",
+    "right",
+    "justify"
+  ],
+  "leading": [
+    "tight",
+    "normal",
+    "relaxed",
+    "loose"
+  ],
+  "colors": [
+    "gray",
+    "red",
+    "orange",
+    "yellow",
+    "green",
+    "blue",
+    "purple",
+    "pink"
+  ],
+  "fonts": [
+    "sans",
+    "serif",
+    "mono"
+  ],
+  "textSizes": [
+    "sm",
+    "md",
+    "lg",
+    "xl",
+    "2xl"
+  ],
+  "marks": [
+    "yellow",
+    "green",
+    "blue",
+    "pink"
+  ],
+  "imageWidths": [
+    "s",
+    "m",
+    "l",
+    "full"
+  ],
+  "urlSchemes": [
+    "http",
+    "https",
+    "mailto"
+  ],
+  "videoProviders": {
+    "youtube": {
+      "idPattern": "^[A-Za-z0-9_-]{11}$",
+      "urlPatterns": [
+        "^https?://(?:www\\.|m\\.)?youtube\\.com/watch\\?(?:[^#\\s]*&)?v=([A-Za-z0-9_-]{11})(?:[&#][^\\s]*)?$",
+        "^https?://youtu\\.be/([A-Za-z0-9_-]{11})(?:[?#][^\\s]*)?$",
+        "^https?://(?:www\\.)?youtube\\.com/(?:shorts|embed|live)/([A-Za-z0-9_-]{11})(?:[?#][^\\s]*)?$"
+      ]
+    }
+  },
+  "tags": {
+    "p": [
+      "data-align",
+      "data-leading"
+    ],
+    "h2": [
+      "data-align",
+      "data-leading"
+    ],
+    "h3": [
+      "data-align",
+      "data-leading"
+    ],
+    "br": [],
+    "strong": [],
+    "em": [],
+    "u": [],
+    "s": [],
+    "sub": [],
+    "sup": [],
+    "code": [],
+    "pre": [],
+    "span": [
+      "data-color",
+      "data-font",
+      "data-text-size"
+    ],
+    "mark": [
+      "data-mark"
+    ],
+    "ul": [],
+    "ol": [
+      "start"
+    ],
+    "li": [],
+    "blockquote": [],
+    "hr": [],
+    "a": [
+      "href"
+    ],
+    "figure": [
+      "data-attachment-id",
+      "data-width",
+      "data-align"
+    ],
+    "img": [
+      "alt"
+    ],
+    "figcaption": [],
+    "table": [],
+    "thead": [],
+    "tbody": [],
+    "tr": [],
+    "th": [
+      "scope",
+      "colspan",
+      "rowspan"
+    ],
+    "td": [
+      "colspan",
+      "rowspan"
+    ],
+    "div": [
+      "data-embed",
+      "data-video-id"
+    ]
+  }
+}

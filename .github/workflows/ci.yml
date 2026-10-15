@@ -18,6 +18,8 @@ jobs:
         run: python3 scripts/ci/check_post_clause.py --self-test
       - name: 글 조회 판정 절 검사
         run: python3 scripts/ci/check_post_clause.py
+      - name: 에디터 토큰 생성 파일 비교
+        run: python3 scripts/gen_editor_tokens.py --check
 
   backend:
     runs-on: ubuntu-latest

@@ -32,6 +32,9 @@ def _selects_post(call: ast.Call) -> bool:
     if name != "select":
         return False
     for arg in call.args:
+        # select(*COLUMNS) 는 무엇을 펼치는지 알 수 없으므로 글 조회로 본다(보수적으로)
+        if isinstance(arg, ast.Starred):
+            return True
         node = arg.value if isinstance(arg, ast.Attribute) else arg
         if isinstance(node, ast.Name) and node.id == "Post":
             return True
@@ -70,6 +73,7 @@ def check_source(source: str, path: str) -> list[str]:
 
 
 SAMPLES_BAD = {
+    "app/boards/cols.py": "def f():\n    return select(*LIST_COLUMNS)\n",
     "app/boards/repo.py": "async def f(db):\n    return await db.execute(select(Post.id))\n",
     "app/search/q.py": (
         "async def f(db, v):\n    return await db.execute(select(Post).where(listable_posts_clause(v)))\n"

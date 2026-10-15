@@ -21,17 +21,23 @@ class Settings(BaseSettings):
     db_pool_recycle: int = 3600
     db_pool_pre_ping: bool = False
 
+    # Next 서버 → FastAPI 내부 호출 확인용 공유 비밀(§3.5, §6). 상태를 바꾸는 요청은 이 값이 있어야 한다.
+    # 비어 있으면 모든 쓰기를 거부한다(fail closed). Next 의 같은 이름 환경 변수와 같은 값
+    internal_api_secret: str = ""
+
     # 개발용 Viewer 헤더(설계도 §5.1, §11) — 인증을 붙이기 전 골격 전용
     dev_viewer_header: bool = False
     dev_viewer_secret: str = ""
 
     @model_validator(mode="after")
-    def _guard_dev_viewer_header(self) -> Self:
+    def _guard_secrets(self) -> Self:
         # 방어선 ①: ENV=dev 가 아니면 기동 실패. 방어선 ②: 공유 비밀 값 필수
         if self.dev_viewer_header and self.env != "dev":
             raise ValueError("DEV_VIEWER_HEADER 는 ENV=dev 에서만 켤 수 있습니다")
         if self.dev_viewer_header and len(self.dev_viewer_secret) < 16:
             raise ValueError("DEV_VIEWER_HEADER 를 켜려면 DEV_VIEWER_SECRET(16자 이상)이 필요합니다")
+        if self.env == "prod" and len(self.internal_api_secret) < 32:
+            raise ValueError("ENV=prod 에서는 INTERNAL_API_SECRET(32자 이상)이 필요합니다")
         return self
 
 

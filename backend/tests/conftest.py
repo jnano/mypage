@@ -16,6 +16,7 @@ os.environ["DATABASE_URL"] = TEST_DATABASE_URL
 # 로컬 .env 의 개발 설정(ENV=dev, 개발 헤더)이 테스트에 섞이지 않게 고정한다
 os.environ["ENV"] = "test"
 os.environ["DEV_VIEWER_HEADER"] = "false"
+os.environ["INTERNAL_API_SECRET"] = INTERNAL_SECRET = "test-internal-secret-0123456789abcdef"
 
 from alembic import command  # noqa: E402
 from alembic.config import Config  # noqa: E402
@@ -94,5 +95,17 @@ def dev_header(monkeypatch: pytest.MonkeyPatch) -> None:
 
 @pytest.fixture
 async def client() -> AsyncIterator[AsyncClient]:
+    """Next 서버처럼 내부 비밀 헤더를 싣는 클라이언트."""
+    async with AsyncClient(
+        transport=ASGITransport(app=app),
+        base_url="http://test",
+        headers={"X-Internal-Secret": INTERNAL_SECRET},
+    ) as c:
+        yield c
+
+
+@pytest.fixture
+async def browser() -> AsyncIterator[AsyncClient]:
+    """rewrites 로 FastAPI 에 바로 온 브라우저 요청 — 내부 비밀이 없다."""
     async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as c:
         yield c

@@ -1,4 +1,4 @@
-import { notFound } from "next/navigation";
+import { notFound, permanentRedirect } from "next/navigation";
 import { Suspense } from "react";
 import { BoardView } from "@/components/boards/BoardView";
 import { ProblemNotice } from "@/components/boards/ProblemNotice";
@@ -23,6 +23,8 @@ async function BoardScreen({ params, searchParams }: PageProps<"/boards/[slug]">
     if (result.problem.status === 404) notFound();
     return <ProblemNotice problem={result.problem} />;
   }
+  // 옛 주소(slug 변경 기록) — 백엔드 308 을 fetch 가 따라가 새 게시판을 받았다. 주소창도 새 주소로
+  if (result.data.board.slug !== slug) permanentRedirect(`/boards/${result.data.board.slug}`);
   return (
     <div data-render={plan}>
       {state?.viewer && (

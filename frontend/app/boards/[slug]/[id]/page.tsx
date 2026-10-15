@@ -1,4 +1,4 @@
-import { notFound } from "next/navigation";
+import { notFound, permanentRedirect } from "next/navigation";
 import { connection } from "next/server";
 import { Suspense } from "react";
 import { CommentThread, type CommentViewer } from "@/components/boards/CommentThread";
@@ -26,6 +26,8 @@ async function PostScreen({ params, searchParams }: PageProps<"/boards/[slug]/[i
     return <ProblemNotice problem={result.problem} />;
   }
   const data = result.data;
+  // 글은 전역 id — 게시판을 옮겼거나 주소가 바뀌었으면 지금 주소로(§6)
+  if (data.board.slug !== slug) permanentRedirect(`/boards/${data.board.slug}/${postId}`);
 
   // 댓글 더 보기(?comments=커서) — 공개 캐시
   let comments = data.comments;

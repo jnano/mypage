@@ -12,6 +12,7 @@ from app.core.threads import run_in_thread
 from app.files import attach, images, storage
 from app.models import Attachment, Board, Comment, OutboxEvent, Post, PostSearch
 from app.notifications import send
+from app.posts.purge import purge_posts
 from app.search.index import post_open
 from app.worker.core import handles
 
@@ -192,6 +193,42 @@ async def attachments_sync(db: AsyncSession, event: OutboxEvent) -> None:
     if changed:
         await attach.rerender(db, post_id, post.content_html, await attach.load_for_post(db, post_id))
         await enqueue_revalidate(db, [tags_for("post.updated", post_id=post_id, board_slug=board.slug)])
+
+
+BOARD_BATCH = 200
+
+
+@handles("board.reconcile")
+async def board_reconcile(db: AsyncSession, event: OutboxEvent) -> None:
+    """게시판 공개 조건이 바뀐 뒤 첨부가 있는 글을 차례로 다시 맞춘다(§12). 한 번에 BOARD_BATCH 글, 남으면 이어서."""
+    board_id = int(event.payload["board_id"])
+    after = int(event.payload.get("after_post_id", 0))
+    ids = (
+        await db.execute(
+            select(Post.id)  # post-clause: exempt — 첨부 공개 여부 재계산 대상(판정은 reconcile 안 post_is_public)
+            .where(Post.board_id == board_id, Post.id > after, Post.id.in_(select(Attachment.post_id).where(Attachment.post_id.is_not(None))))
+            .order_by(Post.id)
+            .limit(BOARD_BATCH)
+        )
+    ).scalars().all()
+    for post_id in ids:
+        await attach.reconcile(db, post_id)
+    if len(ids) == BOARD_BATCH:
+        await outbox.enqueue(db, [outbox.Event("board.reconcile", {"board_id": board_id, "after_post_id": ids[-1]})])
+
+
+@handles("board.empty")
+async def board_empty(db: AsyncSession, event: OutboxEvent) -> None:
+    """게시판 비우기 — 글을 BOARD_BATCH 개씩 영구 삭제(묘비·신고 처리는 purge_posts), 남으면 이어서."""
+    board_id = int(event.payload["board_id"])
+    ids = (
+        await db.execute(
+            select(Post.id).where(Post.board_id == board_id).order_by(Post.id).limit(BOARD_BATCH)  # post-clause: exempt — 비울 게시판의 글
+        )
+    ).scalars().all()
+    await purge_posts(db, ids)
+    if len(ids) == BOARD_BATCH:
+        await outbox.enqueue(db, [outbox.Event("board.empty", {"board_id": board_id})])
 
 
 @handles("files.delete")

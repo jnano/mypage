@@ -31,7 +31,8 @@ backend/
   app/core/problems.py  오류 응답(RFC 9457) — 모든 API 공용
   app/core/          rate_limit(UNLOGGED 고정 창) · idempotency · outbox · invalidation(§3.4 무효화 표) · threads(작업별 한도)
   app/editor/        본문 파이프라인: tokens(원본) · markdown(서버 변환 한 곳) · sanitize(nh3) · render(읽기용) · content(공용 진입점)
-  app/boards/        게시판 JSONB 설정 형식·기본값(settings.py)
+  app/boards/        게시판 JSONB 설정 형식·기본값(settings.py) · 형식 견본(templates) · 관리(admin·schemas)
+  app/admin/         관리 범위(scope: 운영자/담당자) · 운영 기록(logs: 남기기·개인 칸 가림)
   app/posts/         queries(읽기, 판정 절 경유) · service(쓰기) · present(응답 모양) · schemas(요청)
   app/search/        검색(§9): index(정규화·2글자 토큰, 쓰기·재색인 공용) · backend(SearchBackend/BigramBackend) · reindex(`uv run python -m app.search.reindex`)
   scripts/seed_dev.py  개발용 시드 — `uv run python -m scripts.seed_dev`

@@ -23,3 +23,40 @@ export interface Page<T> {
   items: T[];
   next_cursor: number | string | null;
 }
+
+export interface AdminBoardRow {
+  id: number;
+  slug: string;
+  name: string;
+  kind: string;
+  editor: string;
+  is_active: boolean;
+  is_system: boolean;
+  show_in_menu: boolean;
+  sort_order: number;
+  group: { id: number; name: string } | null;
+  posts: number;
+  last_post_at: string | null;
+  pending: number;
+  reports: number;
+}
+
+export interface AdminBoards {
+  boards: AdminBoardRow[];
+  groups: { id: number; name: string; sort_order: number }[];
+  templates: { name: string; label: string }[];
+}
+
+export interface AdminBoardDetail {
+  board: Record<string, unknown> & { id: number; slug: string; name: string; is_system: boolean };
+  categories: { id: number; name: string; is_active: boolean; sort_order: number; posts: number }[];
+  entries: { subject_type: "member" | "group"; subject_id: number; can_read: boolean; can_write: boolean }[];
+  moderators: { id: number; name: string }[];
+}
+
+export interface PermissionPreview {
+  subject: { member_id: number | null; level: number; is_admin: boolean };
+  role: { is_moderator: boolean; listed_read: boolean; listed_write: boolean; sanctions: string[] };
+  site_sanctions: string[];
+  actions: { action: string; label: string; allowed: boolean }[];
+}

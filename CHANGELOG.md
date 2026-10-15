@@ -6,6 +6,7 @@
 ## [Unreleased]
 
 ### Added
+- 작업자 `python -m app.worker`: outbox 처리(SKIP LOCKED·지수 백오프·5회 dead·LISTEN + 폴링), 예약 발행 처리기, 캐시 무효화 이벤트 → Next `POST /api/revalidate`(내부 비밀), 주기 작업 7종(휴지통 자동 정리·알림/멱등 키/요청 수/조회 기록/outbox 정리·게시판 일별 통계), 글 영구 삭제 공용 함수(§4.6)
 - 1단계 측정 도구: 10만 건 시드(측정 전용 DB), 핫패스 EXPLAIN(custom/generic), API p95(Server-Timing), 저장 p95(Playwright), 요청 계측 `SERVER_TIMING`
 - 검색 최소 구현(설계도 §9): 2글자 토큰 색인(NFKC·casefold·공백 제거, 쓰기 때 갱신), `GET /api/search`(최신순·제목만·게시판 안·300+), 비회원은 비정규화 조건·회원은 열람 판정, `/search` 화면, 전체 재색인 CLI, `/api/health/search`
 - Next 화면(스타일 없음): 게시판 목록·글 보기·글쓰기·수정(마크다운 + 미리보기), `cacheComponents` 공개 캐시 + 쪽 단위 캐시 판정(mask 제목 얹기·hide EXISTS·담당자 요청마다), Server Action 쓰기 후 `updateTag`

@@ -1,6 +1,7 @@
 """outbox — 본 데이터와 같은 트랜잭션에 작업을 넣는다(§3.1-5, §3.2).
 
-여러 행은 INSERT … VALUES 한 번, NOTIFY 는 트랜잭션당 한 번. 작업자는 2단계에서 붙는다.
+여러 행은 INSERT … VALUES 한 번. NOTIFY 는 PostgreSQL 이 같은 트랜잭션의 같은 알림을 하나로 접는다.
+처리는 작업자(app/worker, `python -m app.worker`).
 """
 
 from dataclasses import dataclass, field
@@ -10,6 +11,7 @@ from typing import Any
 from sqlalchemy import func, insert, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.invalidation import Invalidation
 from app.models import OutboxEvent
 
 CHANNEL = "outbox"
@@ -37,3 +39,15 @@ async def enqueue(db: AsyncSession, events: list[Event]) -> None:
             r.setdefault("available_at", func.now())
     await db.execute(insert(OutboxEvent).values(rows))
     await db.execute(select(func.pg_notify(CHANNEL, "")))
+
+
+async def enqueue_revalidate(db: AsyncSession, invalidations: list[Invalidation]) -> None:
+    """작업자가 바꾼 데이터의 캐시 무효화를 같은 트랜잭션에 예약한다(§3.4 '작업자 변경').
+    태그는 무효화 표(core.invalidation)에서 정한 것을 모아 한 이벤트로. 실패하면 작업자 재시도를 탄다."""
+    now: list[str] = []
+    later: list[str] = []
+    for inv in invalidations:
+        now += [t for t in inv.now if t not in now]
+        later += [t for t in inv.max if t not in later]
+    if now or later:
+        await enqueue(db, [Event("cache.revalidate", {"now": now, "max": later})])

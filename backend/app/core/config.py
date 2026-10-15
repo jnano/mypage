@@ -25,6 +25,12 @@ class Settings(BaseSettings):
     # 비어 있으면 모든 쓰기를 거부한다(fail closed). Next 의 같은 이름 환경 변수와 같은 값
     internal_api_secret: str = ""
 
+    # 작업자(§3.2) — `python -m app.worker`
+    worker_poll_seconds: float = 30.0  # LISTEN 으로 놓친 일을 줍는 폴링 간격
+    worker_batch: int = 50  # 한 번 깨어날 때 처리할 최대 이벤트 수
+    # 작업자 → Next 캐시 무효화(Route Handler, 내부 비밀 헤더 INTERNAL_API_SECRET)
+    next_revalidate_url: str = "http://localhost:3000/api/revalidate"
+
     # 요청 계측(§15.3) — 응답에 Server-Timing(app·db 시간, 쿼리 수). 측정할 때만 켠다
     server_timing: bool = False
 

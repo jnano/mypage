@@ -34,7 +34,7 @@ cd frontend && npm install && npm run dev
 ## 테스트
 ```bash
 cd backend && uv run pytest -q              # 테스트 DB: mypage_test (TEST_DATABASE_URL 로 변경)
-python3 scripts/ci/check_neutral_terms.py   # 도메인 중립 검사 (저장소 루트에서)
+python3 scripts/ci/check_neutral_terms.py   # 도메인 중립 검사 (저장소 루트에서, --self-test 는 대조군)
 ```
 - 테스트는 개발 DB(`mypage`)를 쓰지 않는다. conftest 는 DB 이름이 `_test` 로 끝나지 않으면 시작을 거부한다.
 - 테스트 DB 만들기(최초 1회): `/Applications/Postgres.app/Contents/Versions/18/bin/createdb -h localhost mypage_test`

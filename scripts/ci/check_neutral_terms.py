@@ -6,6 +6,7 @@
 사용법
   python3 scripts/ci/check_neutral_terms.py            # git 이 추적하는 파일 전체
   python3 scripts/ci/check_neutral_terms.py 파일...     # 지정한 파일만
+  python3 scripts/ci/check_neutral_terms.py --self-test # 대조군 검사(금지어를 잡는지·오탐이 없는지)
 """
 
 import re
@@ -94,7 +95,30 @@ def scan(path: Path) -> list[tuple[int, str, str]]:
     return hits
 
 
+def self_test() -> int:
+    """음성·양성 대조군. 금지어 문자열을 다른 파일에 적지 않도록 이 파일 안에서 만든다."""
+    import tempfile
+
+    cases = {
+        f"{FORBIDDEN_KO[4]} 모임 안내\n{FORBIDDEN_EN[1].title()} notice\n": 2,  # 반드시 잡아야 함
+        "미사용 칸, 미리보기도 쓴다, 일주일, 3주일, 그렇게 하기도 한다, 전례 없는\n": 0,  # 오탐 금지
+    }
+    ok = True
+    with tempfile.TemporaryDirectory() as d:
+        for i, (body, expected) in enumerate(cases.items()):
+            p = Path(d) / f"case{i}.txt"
+            p.write_text(body, encoding="utf-8")
+            got = len(scan(p))
+            if got != expected:
+                ok = False
+                print(f"self-test 실패: case{i} 기대 {expected}건, 실제 {got}건", file=sys.stderr)
+    print("self-test 통과" if ok else "self-test 실패")
+    return 0 if ok else 1
+
+
 def main(argv: list[str]) -> int:
+    if argv == ["--self-test"]:
+        return self_test()
     paths = [Path(a).resolve() for a in argv] if argv else tracked_files()
     found = 0
     for path in paths:

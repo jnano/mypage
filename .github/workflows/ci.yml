@@ -9,15 +9,11 @@ jobs:
   neutral-terms:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
+      - name: 도메인 중립 검사 — 대조군(금지어를 잡는지·오탐이 없는지)
+        run: python3 scripts/ci/check_neutral_terms.py --self-test
       - name: 도메인 중립 검사
         run: python3 scripts/ci/check_neutral_terms.py
-      - name: 도메인 중립 검사 — 음성 대조군(금지어가 있으면 실패해야 한다)
-        run: |
-          printf '성당\n' > "$RUNNER_TEMP/bad.txt"
-          if python3 scripts/ci/check_neutral_terms.py "$RUNNER_TEMP/bad.txt"; then
-            echo "금지어를 잡지 못했다" && exit 1
-          fi
 
   backend:
     runs-on: ubuntu-latest
@@ -40,7 +36,7 @@ jobs:
       run:
         working-directory: backend
     steps:
-      - uses: actions/checkout@v4
-      - uses: astral-sh/setup-uv@v6
+      - uses: actions/checkout@v7
+      - uses: astral-sh/setup-uv@v10.2.0
       - run: uv sync --locked
       - run: uv run pytest -q

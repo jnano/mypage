@@ -119,10 +119,11 @@ function upload() {
   jar.set(BASE, "dev_member", id);
   const res = http.post(`${BASE}/api/uploads?board=free`, PHOTO, {
     tags: { page: "upload" },
-    headers: { "content-type": "image/jpeg", "x-upload-filename": "load.jpg", "idempotency-key": `${__VU}-${__ITER}-${Date.now()}` },
+    // 업로드 Route Handler 는 같은 출처의 Origin 을 요구한다(CSRF, lib/api/origin.ts) — 브라우저처럼 싣는다
+    headers: { origin: BASE, "content-type": "image/jpeg", "x-upload-filename": "load.jpg", "idempotency-key": `${__VU}-${__ITER}-${Date.now()}` },
   });
-  check(res, { "업로드 201": (r) => r.status === 201 || r.status === 429 });
-  sleep(0.2);
+  check(res, { "업로드 201": (r) => r.status === 201 });
+  sleep(2.1); // 회원 한 명의 업로드 한도(1분 30회) 안에서
 }
 
 function timed(res, api) {

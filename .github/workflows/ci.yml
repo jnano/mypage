@@ -193,7 +193,7 @@ jobs:
           cache: npm
           cache-dependency-path: frontend/package-lock.json
       - name: 운영 배치의 폴더
-        run: sudo mkdir -p /srv/mypage/shared/media /srv/mypage/shared/private && sudo chown -R "$USER" /srv/mypage && chmod 755 /srv /srv/mypage /srv/mypage/shared
+        run: sudo mkdir -p /srv/mypage/shared/media /srv/mypage/shared/private && sudo chown -R "$USER" /srv/mypage && sudo chmod 755 /srv /srv/mypage /srv/mypage/shared
       - name: 빌드(deploy/build.sh)
         run: ./deploy/build.sh
       - name: 마이그레이션·개발 시드·기동(유닛과 같은 실행 인자, 측정을 위해 접근 기록만 켬)

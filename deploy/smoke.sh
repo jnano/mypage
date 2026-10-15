@@ -37,6 +37,10 @@ code=$(curl -s -o /dev/null -w '%{http_code}' "$BASE/_private/private/zz/x.txt")
 code=$(head -c 60000000 /dev/zero | curl -s -o /dev/null -w '%{http_code}' -X POST --data-binary @- -H 'content-type: image/jpeg' "$BASE/api/uploads?board=free")
 [ "$code" = 413 ] && ok "60MB 업로드 413" || bad "60MB 업로드 $code"
 
+# 5-1. 출처 검사 — 다른 출처·출처 없는 업로드는 앱이 거부한다(위조한 X-Forwarded-Host 로 속이지 못한다)
+code=$(curl -s -o /dev/null -w '%{http_code}' -X POST -H 'Origin: http://evil.example' -H 'X-Forwarded-Host: evil.example' -H 'content-type: text/plain' --data-binary 'x' "$BASE/api/uploads?board=free")
+[ "$code" = 403 ] && ok "다른 출처 업로드 403(X-Forwarded-Host 위조 무시)" || bad "다른 출처 업로드 $code"
+
 # 6. 실제 IP — 위조한 X-Forwarded-For 가 앱까지 닿지 않는다(uvicorn --proxy-headers 가 계산한 클라이언트 주소로 본다)
 curl -s -o /dev/null -H 'X-Forwarded-For: 203.0.113.9' "$BASE/api/health"
 if [ -n "$BACKEND_LOG" ]; then
@@ -61,7 +65,7 @@ PY
 
   # 8. 비공개 파일 — FastAPI 가 판정 뒤 X-Accel-Redirect 로 넘기고 nginx 가 내부 위치에서 보낸다
   echo "private-ok $(date +%s)" > /tmp/smoke-private.txt
-  up=$(curl -s -b "dev_member=$MEMBER" -H 'content-type: text/plain' -H 'x-upload-filename: smoke.txt' -H "idempotency-key: smoke-$(date +%s%N)" \
+  up=$(curl -s -b "dev_member=$MEMBER" -H "Origin: $BASE" -H 'content-type: text/plain' -H 'x-upload-filename: smoke.txt' -H "idempotency-key: smoke-$(date +%s%N)" \
     --data-binary @/tmp/smoke-private.txt "$BASE/api/uploads?board=free")
   id=$(echo "$up" | python3 -c 'import json,sys; print(json.load(sys.stdin)["attachment"]["id"])' 2>/dev/null)
   if [ -n "$id" ]; then

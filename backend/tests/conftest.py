@@ -13,13 +13,18 @@ TEST_DATABASE_URL = os.environ.get(
 if not (make_url(TEST_DATABASE_URL).database or "").endswith("_test"):
     raise RuntimeError(f"테스트 DB 이름은 _test 로 끝나야 합니다: {TEST_DATABASE_URL}")
 os.environ["DATABASE_URL"] = TEST_DATABASE_URL
+# 로컬 .env 의 개발 설정(ENV=dev, 개발 헤더)이 테스트에 섞이지 않게 고정한다
+os.environ["ENV"] = "test"
+os.environ["DEV_VIEWER_HEADER"] = "false"
 
 from alembic import command  # noqa: E402
 from alembic.config import Config  # noqa: E402
 from httpx import ASGITransport, AsyncClient  # noqa: E402
+from sqlalchemy import text  # noqa: E402
 from sqlalchemy.ext.asyncio import AsyncSession  # noqa: E402
 
-from app.db.session import engine  # noqa: E402
+from app.db.base import Base  # noqa: E402
+from app.db.session import SessionLocal, engine  # noqa: E402
 from app.main import app  # noqa: E402
 
 BACKEND_DIR = Path(__file__).resolve().parents[1]
@@ -62,6 +67,20 @@ async def db() -> AsyncIterator[AsyncSession]:
         finally:
             await session.close()
             await trans.rollback()
+
+
+@pytest.fixture
+async def committed_db() -> AsyncIterator[AsyncSession]:
+    """커밋이 실제로 일어나는 세션 — 다른 연결(예: Viewer 로드의 별도 세션)이 데이터를 봐야 할 때.
+    끝나면 모든 표를 비운다."""
+    async with SessionLocal() as session:
+        try:
+            yield session
+        finally:
+            await session.rollback()
+            tables = ", ".join(t.name for t in Base.metadata.sorted_tables)
+            await session.execute(text(f"TRUNCATE {tables} RESTART IDENTITY CASCADE"))
+            await session.commit()
 
 
 @pytest.fixture

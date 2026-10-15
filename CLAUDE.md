@@ -17,6 +17,9 @@ backend/
   app/core/config.py 설정 (pydantic-settings, backend/.env)
   app/db/            base.py(Base·제약 이름 규칙) · session.py(engine, get_db) · models.py(모델 등록)
   app/models/        ORM 모델(설계도 §4 와 일대일). 관계는 모두 lazy="raise", 열거형 값은 enums.py
+  app/auth/          Viewer(보는 사람)·get_viewer — 골격은 개발용 헤더(ENV=dev 전용)
+  app/permissions/   권한 판정 한 곳: load_board_roles(DB) · can/post_mask(순수) · 목록/열람 판정 절(SQL)
+  app/core/problems.py  오류 응답(RFC 9457) — 모든 API 공용
   alembic/           마이그레이션 (env.py 가 settings.database_url 사용)
   tests/             pytest (conftest 가 테스트 DB 를 비우고 마이그레이션을 처음부터 적용한다)
                      schema_spec.py = 설계도 §4 를 옮긴 대조 기준 — §4 를 바꾸면 같이 바꾼다
@@ -37,6 +40,7 @@ cd frontend && npm install && npm run dev
 ```bash
 cd backend && uv run pytest -q              # 테스트 DB: mypage_test (TEST_DATABASE_URL 로 변경)
 python3 scripts/ci/check_neutral_terms.py   # 도메인 중립 검사 (저장소 루트에서, --self-test 는 대조군)
+python3 scripts/ci/check_post_clause.py     # select(Post) 가 판정 절을 거치는지 (--self-test 는 대조군)
 ```
 - 테스트는 개발 DB(`mypage`)를 쓰지 않는다. conftest 는 DB 이름이 `_test` 로 끝나지 않으면 시작을 거부한다.
 - 테스트 DB 만들기(최초 1회): `/Applications/Postgres.app/Contents/Versions/18/bin/createdb -h localhost mypage_test`

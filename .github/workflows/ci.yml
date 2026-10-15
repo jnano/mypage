@@ -64,3 +64,68 @@ jobs:
       - run: npm test
       # 백엔드 없이 빌드한다 — 빌드 시점에 FastAPI 를 부르는 코드가 생기면 여기서 실패한다
       - run: npm run build
+
+  # 접근성 구조 검사(설계도 §13·§16.3-6) — 전체 스택(PostgreSQL·FastAPI·Next)을 띄우고 실제 브라우저로 axe-core 를 돌린다
+  a11y:
+    runs-on: ubuntu-latest
+    needs: [backend, frontend]
+    services:
+      postgres:
+        image: postgres:18
+        env:
+          POSTGRES_USER: mypage
+          POSTGRES_PASSWORD: mypage
+          POSTGRES_DB: mypage
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U mypage"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      # 백엔드(pydantic-settings)와 Next 가 같은 이름을 읽는다. CI 전용 값(비밀 아님)
+      ENV: dev
+      DATABASE_URL: postgresql+asyncpg://mypage:mypage@localhost:5432/mypage
+      DEV_VIEWER_HEADER: "true"
+      DEV_VIEWER_SECRET: ci-dev-viewer-secret-0123456789
+      INTERNAL_API_SECRET: ci-internal-api-secret-0123456789abcdef
+      APP_ENV: dev
+      DEV_VIEWER_LOGIN: "true"
+      BACKEND_URL: http://localhost:8000
+    steps:
+      - uses: actions/checkout@v7
+      - uses: astral-sh/setup-uv@v10.2.0
+      - name: 백엔드 — 마이그레이션·개발 시드·기동
+        working-directory: backend
+        run: |
+          uv sync --locked
+          uv run alembic upgrade head
+          uv run python -m scripts.seed_dev
+          nohup uv run uvicorn app.main:app --port 8000 > ../uvicorn.log 2>&1 &
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+      - name: 프런트 — 빌드·기동
+        working-directory: frontend
+        run: |
+          npm ci
+          npm run build
+          nohup npx next start -p 3000 > ../next.log 2>&1 &
+      - name: 브라우저 설치(Chromium)
+        working-directory: frontend
+        run: npx playwright install --with-deps chromium
+      - name: 기동 확인
+        run: |
+          for i in $(seq 1 60); do curl -sf http://localhost:3000/api/health && exit 0; sleep 1; done
+          cat uvicorn.log next.log; exit 1
+      - name: axe 대조군(틀린 화면에서 위반을 잡는지)
+        working-directory: frontend
+        run: node scripts/a11y-check.mts --self-test
+      - name: axe 검사(비회원·회원·운영자 주요 화면)
+        working-directory: frontend
+        run: node scripts/a11y-check.mts --base http://localhost:3000 --admin 1 --member 3
+      - name: 실패 시 서버 기록
+        if: failure()
+        run: tail -100 uvicorn.log next.log

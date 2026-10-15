@@ -31,6 +31,7 @@ backend/
   app/editor/        본문 파이프라인: tokens(원본) · markdown(서버 변환 한 곳) · sanitize(nh3) · render(읽기용) · content(공용 진입점)
   app/boards/        게시판 JSONB 설정 형식·기본값(settings.py)
   app/posts/         queries(읽기, 판정 절 경유) · service(쓰기) · present(응답 모양) · schemas(요청)
+  app/search/        검색(§9): index(정규화·2글자 토큰, 쓰기·재색인 공용) · backend(SearchBackend/BigramBackend) · reindex(`uv run python -m app.search.reindex`)
   scripts/seed_dev.py  개발용 시드 — `uv run python -m scripts.seed_dev`
   alembic/           마이그레이션 (env.py 가 settings.database_url 사용)
   tests/             pytest (conftest 가 테스트 DB 를 비우고 마이그레이션을 처음부터 적용한다)
@@ -102,6 +103,8 @@ cd frontend && npm run typecheck && npm test && npm run build   # 프런트: 타
 - 개발 툴·개발사가 공식 문서에서 권장하는 방식으로 개발한다. 우회하거나 변칙적인 방법으로 작업·코딩하지 않는다.
   - 금지 예: 내부(비공개) API·패키지 내부 경로 import, 몽키패치, 원인을 고치지 않고 경고·타입 검사를 끄는 주석(`eslint-disable`·`@ts-ignore`·`# type: ignore`), async 세션의 `run_sync`, 문서에 없는 설정 키
 - 근거는 설치된 버전의 공식 문서로 확인한다(Next 는 `frontend/node_modules/next/dist/docs/`).
+- 새 의존성은 설치 시험 후 도입한다. 계획·설계에 넣기 전에 `lab/` 또는 임시 폴더에서 현재 `package.json`·lock(백엔드는 `pyproject.toml`·`uv.lock`) 복사본으로 실제 설치해 보고, 결과를 설계도 §16.1 에 `[실측]` 으로 남긴다.
+  - 도구 판: npm 은 11 이상(npm 10.9.9 는 `vitest@5` 설치에서 내부 오류). 판 목록은 설계도 §16.1.
 - 권장 방식으로는 요구사항을 맞출 수 없으면 우회하지 않는다. 전역 ② 규칙대로 충돌을 보고하고 대안·승인을 거친다.
 
 ### 4. 도메인 중립 (종교·외부 프로젝트와 분리)

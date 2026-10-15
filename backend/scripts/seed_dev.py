@@ -23,6 +23,7 @@ from app.models import (
 )
 from app.posts.schemas import PostCreate
 from app.posts.service import insert_post
+from app.search.index import content_fields, title_fields
 
 POSTS = {
     "notice": [
@@ -101,7 +102,8 @@ async def main() -> None:
                     is_secret=title.startswith("비밀"),
                 )  # fmt: skip
                 content = await build_content(board.editor, body.content)
-                await insert_post(db, viewer, board, body, content)
+                search = title_fields(body.title) | content_fields(content.text)
+                await insert_post(db, viewer, board, body, content, search)
 
         # 자유게시판 첫 글을 고정 글(띠)로
         first = (

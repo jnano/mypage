@@ -4,6 +4,7 @@
 막히는 작업이라 스레드 한도 'sanitize' 안에서 돈다(§3.1-3).
 """
 
+import unicodedata
 from collections.abc import Collection, Mapping
 from dataclasses import dataclass
 from typing import Literal
@@ -29,8 +30,8 @@ class Content:
 
 
 def compact(text: str) -> str:
-    """검색 재확인용 공백 제거본(§9)."""
-    return "".join(text.split())
+    """검색 정규화(§9) — NFKC + casefold + 공백 제거. 색인(공백 제거본·2글자 토큰)과 검색어가 같은 함수를 쓴다."""
+    return "".join(unicodedata.normalize("NFKC", text).casefold().split())
 
 
 def _build(

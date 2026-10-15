@@ -14,11 +14,12 @@ from app.core import idempotency, outbox, rate_limit
 from app.core.invalidation import tags_for
 from app.core.problems import Problem
 from app.db.session import SessionLocal
-from app.editor.content import Content, build_content, compact
+from app.editor.content import Content, build_content
 from app.models import Board, BoardCategory, Member, Post, PostCategory, PostSearch, PostStat
 from app.permissions import can, load_board_role
 from app.posts import queries
 from app.posts.schemas import PostCreate, PostUpdate
+from app.search.index import content_fields, post_open, title_fields
 
 EDITABLE_STATUSES = ("draft", "scheduled", "pending", "published")
 
@@ -28,11 +29,6 @@ class WriteResult:
     status_code: int
     body: dict[str, Any]
     headers: dict[str, str]
-
-
-def post_open(status: str, is_secret: bool, is_blinded: bool, min_view_level: int | None) -> bool:
-    """post_search.post_open — 글 단위 조건만(§4.3, §9). 게시판 조건은 검색 때 조인한다."""
-    return status == "published" and not is_secret and not is_blinded and not min_view_level
 
 
 def _field_error(field: str, message: str) -> Problem:
@@ -71,18 +67,10 @@ def _check_secret(board: Board, is_secret: bool | None) -> None:
 
 
 def _search_row_values(
-    post_id: int, board_id: int, published_at, title: str, content: Content | None, open_: bool
-) -> dict:
-    values: dict[str, Any] = {
-        "post_id": post_id,
-        "board_id": board_id,
-        "published_at": published_at,
-        "post_open": open_,
-        "title_compact": compact(title),
-    }
-    if content is not None:
-        values["content_compact"] = compact(content.text)
-    return values
+    post_id: int, board_id: int, published_at, open_: bool, fields: dict[str, Any]
+) -> dict[str, Any]:
+    """post_search 한 행. fields(공백 제거본·2글자 토큰)는 트랜잭션 밖에서 계산해 넘긴다(§9)."""
+    return {"post_id": post_id, "board_id": board_id, "published_at": published_at, "post_open": open_, **fields}
 
 
 # ── 작성 ─────────────────────────────────────────────────
@@ -115,9 +103,10 @@ async def create_post(
 
     try:
         content = await build_content(board.editor, body.content)  # ① DB 밖
+        search = title_fields(body.title) | content_fields(content.text)  # 검색 토큰도 트랜잭션 밖
         await rate_limit.hit("post.create", f"m:{viewer.member_id}")  # ②
         async with SessionLocal() as db, db.begin():  # ③
-            result = await insert_post(db, viewer, board, body, content)
+            result = await insert_post(db, viewer, board, body, content, search)
             if claim is not None:
                 await idempotency.complete(db, claim, result.status_code, result.body)
         return result
@@ -128,7 +117,12 @@ async def create_post(
 
 
 async def insert_post(
-    db: AsyncSession, viewer: Viewer, board: Board, body: PostCreate, content: Content
+    db: AsyncSession,
+    viewer: Viewer,
+    board: Board,
+    body: PostCreate,
+    content: Content,
+    search: dict[str, Any],
 ) -> WriteResult:
     await _check_categories(db, board.id, body.category_ids)
     author_name = (
@@ -161,12 +155,7 @@ async def insert_post(
     await db.execute(
         insert(PostSearch).values(
             _search_row_values(
-                row.id,
-                board.id,
-                row.published_at,
-                body.title,
-                content,
-                post_open(status, body.is_secret, False, None),
+                row.id, board.id, row.published_at, post_open(status, body.is_secret, False, None), search
             )
         )
     )
@@ -229,6 +218,12 @@ async def update_post(viewer: Viewer, post_id: int, body: PostUpdate, if_match: 
     content = None
     if body.content is not None:
         content = await build_content(post.content_format, body.content)  # 쓴 형식 그대로
+    # 바뀐 칸의 검색 토큰만 트랜잭션 밖에서 계산한다
+    search: dict[str, Any] = {}
+    if body.title is not None:
+        search |= title_fields(body.title)
+    if content is not None:
+        search |= content_fields(content.text)
     await rate_limit.hit("post.update", f"m:{viewer.member_id}")
 
     async with SessionLocal() as db, db.begin():
@@ -267,16 +262,15 @@ async def update_post(viewer: Viewer, post_id: int, body: PostUpdate, if_match: 
             ).scalar_one()
             raise _version_conflict(current)
 
-        search = _search_row_values(
+        search_row = _search_row_values(
             post_id,
             board.id,
             row.published_at,
-            row.title,
-            content,
             post_open(row.status, row.is_secret, row.is_blinded, row.min_view_level),
+            search,
         )
         await db.execute(
-            update(PostSearch).where(PostSearch.post_id == post_id).values(search)
+            update(PostSearch).where(PostSearch.post_id == post_id).values(search_row)
         )
         if body.category_ids is not None:
             await db.execute(delete(PostCategory).where(PostCategory.post_id == post_id))

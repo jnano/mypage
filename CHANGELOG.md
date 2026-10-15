@@ -6,6 +6,7 @@
 ## [Unreleased]
 
 ### Added
+- 검색 최소 구현(설계도 §9): 2글자 토큰 색인(NFKC·casefold·공백 제거, 쓰기 때 갱신), `GET /api/search`(최신순·제목만·게시판 안·300+), 비회원은 비정규화 조건·회원은 열람 판정, `/search` 화면, 전체 재색인 CLI, `/api/health/search`
 - Next 화면(스타일 없음): 게시판 목록·글 보기·글쓰기·수정(마크다운 + 미리보기), `cacheComponents` 공개 캐시 + 쪽 단위 캐시 판정(mask 제목 얹기·hide EXISTS·담당자 요청마다), Server Action 쓰기 후 `updateTag`
 - 개인 조각 `GET /api/me/page-state`, 게시판 응답의 `has_restricted_posts`
 - 개발 로그인(`/dev/login`, ENV=dev 전용 쿠키 → 서버에서 개발 헤더로 변환)과 Next 기동 가드

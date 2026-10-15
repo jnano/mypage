@@ -42,6 +42,7 @@
 - Tailwind 제거 — 골격은 class 없는 시맨틱 HTML + `data-slot`(스킨은 디자인 단계)
 
 ### Fixed
+- 비공개 첨부 파일·썸네일 Route Handler(`/api/attachments/{id}/file|thumb`)가 rewrite 에 가로채여 보는 사람이 전달되지 않던 것(업로더도 자기 임시 파일을 못 받음) — rewrites 를 `fallback` 으로
 - 관리 화면의 단추 하나짜리 폼마다 form 랜드마크가 생겨 겹치던 것 — 이름을 단추에
 - 바뀐 게시판 주소·옮긴 글의 옛 주소가 새 주소로 넘어가지 않고 그 자리에서 그려지던 것
 - 리치 글 본문에 그 글의 첨부가 아닌 그림 id 를 넣을 수 있던 것 — 마크다운 글과 같이 422

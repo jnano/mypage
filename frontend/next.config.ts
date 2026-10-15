@@ -19,18 +19,24 @@ const nextConfig: NextConfig = {
   async headers() {
     return [{ source: "/:path*", headers: [{ key: "X-Accel-Buffering", value: "no" }] }];
   },
+  // fallback — 정적·동적 경로(Route Handler)를 모두 확인한 뒤에 넘긴다. 배열(afterFiles)로 주면 동적 경로보다 먼저라서
+  // /api/attachments/[id]/file 같은 Route Handler 대신 FastAPI 로 가 쿠키가 보는 사람 헤더로 바뀌지 않았다(3단계 실측)
   async rewrites() {
-    return [
-      {
-        source: "/api/:path*",
-        destination: `${BACKEND_URL}/api/:path*`,
-      },
-      // 공개 저장소 — 배포에서는 nginx 가 직접 내준다(§12.2). 개발에서만 FastAPI StaticFiles 로
-      {
-        source: "/media/:path*",
-        destination: `${BACKEND_URL}/media/:path*`,
-      },
-    ];
+    return {
+      beforeFiles: [],
+      afterFiles: [],
+      fallback: [
+        {
+          source: "/api/:path*",
+          destination: `${BACKEND_URL}/api/:path*`,
+        },
+        // 공개 저장소 — 배포에서는 nginx 가 직접 내준다(§12.2). 개발에서만 FastAPI StaticFiles 로
+        {
+          source: "/media/:path*",
+          destination: `${BACKEND_URL}/media/:path*`,
+        },
+      ],
+    };
   },
 };
 

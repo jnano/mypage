@@ -41,12 +41,16 @@ code=$(head -c 60000000 /dev/zero | curl -s -o /dev/null -w '%{http_code}' -X PO
 code=$(curl -s -o /dev/null -w '%{http_code}' -X POST -H 'Origin: http://evil.example' -H 'X-Forwarded-Host: evil.example' -H 'content-type: text/plain' --data-binary 'x' "$BASE/api/uploads?board=free")
 [ "$code" = 403 ] && ok "다른 출처 업로드 403(X-Forwarded-Host 위조 무시)" || bad "다른 출처 업로드 $code"
 
-# 6. 실제 IP — 위조한 X-Forwarded-For 가 앱까지 닿지 않는다(uvicorn --proxy-headers 가 계산한 클라이언트 주소로 본다)
-curl -s -o /dev/null -H 'X-Forwarded-For: 203.0.113.9' "$BASE/api/health"
+# 6. 실제 IP — 위조한 X-Forwarded-For 가 앱까지 닿지 않는다(uvicorn --proxy-headers 가 계산한 클라이언트 주소로 본다).
+#    표지 경로(?smoke=…)로 그 요청의 기록 줄을 찾아, 주소가 실제 연결(nginx 가 본 ::1 또는 127.0.0.1)인지 본다
+TAG="smoke$(date +%s%N)"
+curl -s -o /dev/null -H 'X-Forwarded-For: 203.0.113.9' "$BASE/api/health?$TAG"
 if [ -n "$BACKEND_LOG" ]; then
-  sleep 1
-  if grep -q "203.0.113.9" "$BACKEND_LOG"; then bad "위조 IP 203.0.113.9 가 FastAPI 기록에 있다"; else ok "위조 X-Forwarded-For 무시(FastAPI 기록에 없음)"; fi
-  grep -q '127.0.0.1:[0-9]* - "GET /api/health' "$BACKEND_LOG" && ok "FastAPI 가 본 주소는 실제 연결(127.0.0.1)" || bad "FastAPI 기록에서 /api/health 를 찾지 못함"
+  line=""; for i in $(seq 1 20); do line=$(grep "$TAG" "$BACKEND_LOG" | tail -1); [ -n "$line" ] && break; sleep 0.5; done
+  if [ -z "$line" ]; then bad "FastAPI 기록에서 점검 요청을 찾지 못함"
+  elif echo "$line" | grep -q "203.0.113.9"; then bad "위조 IP 가 FastAPI 까지 닿음: $line"
+  elif echo "$line" | grep -qE '(127\.0\.0\.1|::1):[0-9]+ - '; then ok "FastAPI 가 본 주소는 실제 연결 — 위조 X-Forwarded-For 무시"
+  else bad "예상 밖 주소: $line"; fi
 fi
 
 if [ -n "$MEMBER" ]; then

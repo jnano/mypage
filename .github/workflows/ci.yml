@@ -181,6 +181,7 @@ jobs:
       MEDIA_ROOT: /srv/mypage/shared/media
       PRIVATE_ROOT: /srv/mypage/shared/private
       FILE_SENDER: nginx
+      PYTHONUNBUFFERED: "1"  # 접근 기록을 바로 파일로(점검이 기록을 읽는다)
       APP_ENV: dev
       DEV_VIEWER_LOGIN: "true"
       BACKEND_URL: http://127.0.0.1:8000

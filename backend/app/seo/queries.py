@@ -22,21 +22,23 @@ def description(content_html: str) -> str:
     return text if len(text) <= DESCRIPTION_CHARS else text[: DESCRIPTION_CHARS - 1].rstrip() + "…"
 
 
-async def og_image(db: AsyncSession, post_id: int) -> dict[str, Any] | None:
-    """대표 이미지 — 공개 저장소에 있고 썸네일이 준비된 사진. 대표 지정이 먼저, 그다음 순서."""
-    row = (
-        await db.execute(
-            select(Attachment.storage_key, Attachment.visibility, Attachment.id, Attachment.width, Attachment.height, Attachment.alt_text)
-            .where(
-                Attachment.post_id == post_id,
-                Attachment.is_image.is_(true()),
-                Attachment.thumbs_ready.is_(true()),
-                Attachment.visibility == literal_column("'public'"),
-            )
-            .order_by(Attachment.is_cover.desc(), Attachment.sort_order, Attachment.id)
-            .limit(1)
+def og_image_statement(post_id: int):
+    """대표 이미지 문장 — 공개 저장소에 있고 썸네일이 준비된 사진. 대표 지정이 먼저, 그다음 순서(측정 도구가 EXPLAIN 한다)."""
+    return (
+        select(Attachment.storage_key, Attachment.visibility, Attachment.id, Attachment.width, Attachment.height, Attachment.alt_text)
+        .where(
+            Attachment.post_id == post_id,
+            Attachment.is_image.is_(true()),
+            Attachment.thumbs_ready.is_(true()),
+            Attachment.visibility == literal_column("'public'"),
         )
-    ).one_or_none()
+        .order_by(Attachment.is_cover.desc(), Attachment.sort_order, Attachment.id)
+        .limit(1)
+    )
+
+
+async def og_image(db: AsyncSession, post_id: int) -> dict[str, Any] | None:
+    row = (await db.execute(og_image_statement(post_id))).one_or_none()
     if row is None:
         return None
     scale = min(1.0, OG_WIDTH / row.width) if row.width else 1.0

@@ -40,7 +40,9 @@ def comments_statement(post_id: int, after: Cursor | None, limit: int = PAGE_SIZ
         # 지운 원댓글은 살아 있는 답글이 있을 때만 자리를 남긴다
         and_(
             Comment.parent_id.is_(None),
-            exists().where(reply.parent_id == Comment.id, reply.status == PUBLISHED).correlate_except(reply),
+            # 같은 글 조건으로 ix_comments_post 를 탄다 — parent_id 인덱스가 없어 이 조건이 없으면 지운 원댓글마다
+            # 댓글 표 전체를 훑었다(3단계 측정: 댓글 27만 건·지운 원댓글 20개에 435ms → 1.5ms)
+            exists().where(reply.post_id == Comment.post_id, reply.parent_id == Comment.id, reply.status == PUBLISHED).correlate_except(reply),
         ),
     )
     target = aliased(Comment)

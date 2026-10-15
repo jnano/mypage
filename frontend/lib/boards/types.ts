@@ -1,0 +1,122 @@
+// FastAPI 묶음 응답의 모양(backend/app/posts/present.py, app/api/*.py 와 짝)
+import type { ProblemBody } from "@/lib/api/problem";
+
+export type MaskReason = "secret" | "blinded" | "level";
+
+export interface BoardSummary {
+  id: number;
+  slug: string;
+  name: string;
+  description: string | null;
+  kind: "default" | "gallery" | "line";
+  editor: "rich" | "markdown";
+  display: { views?: string[]; default_view?: string; list_columns?: string[] };
+  hidden_post_listing: "mask" | "hide";
+  pinned_display: "strip" | "inline";
+  allow_secret: boolean;
+  allow_comments: boolean;
+  allow_share: boolean;
+  posts_per_page: number;
+  indexable: boolean;
+  is_public: boolean;
+}
+
+export interface ListRow {
+  id: number;
+  title: string | null;
+  masked: MaskReason | null;
+  title_bold: boolean;
+  title_color: string | null;
+  author_name: string;
+  posted_as: "personal" | "admin";
+  published_at: string | null;
+  edited: boolean;
+  is_secret: boolean;
+  is_pinned: boolean;
+  expired: boolean;
+  category_ids: number[];
+  stats: { views: number; likes: number; comments: number };
+}
+
+export interface BoardPage {
+  board: BoardSummary;
+  categories: { id: number; name: string }[];
+  view: string;
+  pinned: ListRow[];
+  posts: ListRow[];
+  page: {
+    page: number;
+    per_page: number;
+    total: number;
+    total_capped: boolean;
+    last_page: number;
+    category: number | null;
+    archived: boolean;
+    sort: string;
+  };
+  cache: { tags: string[]; has_restricted_posts: boolean };
+}
+
+export interface PostPage {
+  board: BoardSummary;
+  post: {
+    id: number;
+    title: string;
+    title_bold: boolean;
+    title_color: string | null;
+    author_name: string;
+    posted_as: "personal" | "admin";
+    status: string;
+    content_format: "rich" | "markdown";
+    content_html: string;
+    published_at: string | null;
+    content_updated_at: string | null;
+    edited: boolean;
+    expired: boolean;
+    is_pinned: boolean;
+    is_secret: boolean;
+    category_ids: number[];
+    version: number;
+    stats: { views: number; likes: number; comments: number; scraps: number; shares: number };
+    indexable: boolean;
+  };
+  neighbors: { prev: { id: number; title: string | null } | null; next: { id: number; title: string | null } | null };
+  related: { id: number; title: string; board_slug: string }[];
+  attachments: { id: number; name: string; size: number; mime: string; is_image: boolean; alt: string | null }[];
+  cache: { tags: string[] };
+}
+
+export interface PageState {
+  viewer: { member_id: number; level: number; is_admin: boolean } | null;
+  board_role: { is_moderator: boolean };
+  unmasked: { id: number; title: string }[];
+  editable: number[];
+  unread_notifications: number;
+  unread_capped: boolean;
+}
+
+export interface EditablePost {
+  id: number;
+  board_slug: string;
+  title: string;
+  content_format: "rich" | "markdown";
+  content: string;
+  category_ids: number[];
+  is_secret: boolean;
+  status: string;
+  version: number;
+}
+
+export interface Invalidation {
+  now: string[];
+  max: string[];
+}
+
+/** 공개 캐시에 담는 결과 — 오류도 값으로 담아 캐시한다(같은 거부를 매번 묻지 않게) */
+export type Fetched<T> = { ok: true; data: T } | { ok: false; problem: ProblemBody };
+
+export interface BoardQuery {
+  page: number;
+  category: number | null;
+  archived: boolean;
+}

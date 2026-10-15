@@ -13,6 +13,12 @@
 ```
 frontend/            Next.js 앱. /api/* 는 next.config.ts rewrites 로 백엔드에 프록시
   lib/editor/tokens.gen.json  에디터 토큰(생성 파일 — 직접 고치지 않는다, scripts/gen_editor_tokens.py)
+  app/boards/        라우트(목록·글 보기·글쓰기·수정) + actions.ts(Server Action 쓰기 → updateTag)
+  app/dev/login/     개발 로그인(APP_ENV=dev + DEV_VIEWER_LOGIN 전용)
+  components/boards/ 헤드리스 구조 컴포넌트 — 시맨틱 HTML + data-slot, class·스타일 없음(설계도 §13.1)
+  lib/server/        서버 전용: backend.ts(publicGet=쿠키 금지 / personalGet·personalSend) · boards.ts(쪽 단위 캐시 판정) · invalidate.ts
+  lib/boards/        순수 로직(plan.ts 캐시 판정)·응답 타입 — Vitest 대상
+  instrumentation.ts 기동 가드(개발 로그인은 dev 전용, prod 는 INTERNAL_API_SECRET 필수)
 backend/
   app/main.py        FastAPI 앱. 모든 라우터는 prefix="/api"
   app/core/config.py 설정 (pydantic-settings, backend/.env)
@@ -41,6 +47,10 @@ cd backend && uv sync && uv run uvicorn app.main:app --reload --port 8000
 cd frontend && npm install && npm run dev
 ```
 확인: `http://localhost:3000/api/health` · `/api/health/db`
+- 로컬 개발 설정: `backend/.env` 와 `frontend/.env.local` 에 같은 `INTERNAL_API_SECRET`·`DEV_VIEWER_SECRET`, 백엔드 `DEV_VIEWER_HEADER=true`, 프런트 `APP_ENV=dev`·`DEV_VIEWER_LOGIN=true`(각 `.env.example` 참고)
+- 개발 로그인: `http://localhost:3000/dev/login` 에서 회원 번호 입력(시드: `cd backend && uv run python -m scripts.seed_dev`)
+- 캐시 동작 확인은 `next dev` 가 아니라 `npm run build && npx next start`(dev 는 자체 캐시를 따로 쓴다)
+- 쓰기 경계: 브라우저는 FastAPI 에 직접 쓰지 못한다(내부 비밀 헤더 필수). 쓰기는 Server Action / Route Handler 로만
 
 ## 테스트
 ```bash

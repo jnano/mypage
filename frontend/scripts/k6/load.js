@@ -44,10 +44,13 @@ const THRESHOLDS = {
     "http_req_duration{page:upload}": ["p(95)<1500"], // 사진 1장 5MB ≤ 1.5s
     http_req_failed: ["rate<0.01"],
   },
+  // API p95 예산(목록 50·글 보기 30·검색 150ms)은 순차 서버 내부 시간 기준이라(§15.1) 여기서 판정하지 않는다 —
+  // 동시 부하의 API 시간·풀 최고치는 진단값(프로세스 수·CPU·연결 풀). 순차 판정은 backend/scripts/bench_api.py
   api: {
-    "server_app_ms{api:list}": ["p(95)<50"], // 목록 API ≤ 50ms
-    "server_app_ms{api:post}": ["p(95)<30"], // 글 보기 API ≤ 30ms
-    "server_app_ms{api:search}": ["p(95)<150"], // 통합 검색 ≤ 150ms
+    // 아래 세 칸은 판정이 아니라 요약에 p95 를 내려고 둔 넉넉한 경계
+    "server_app_ms{api:list}": ["p(95)<10000"],
+    "server_app_ms{api:post}": ["p(95)<10000"],
+    "server_app_ms{api:search}": ["p(95)<10000"],
     "server_queries": ["max<=8"], // 화면당 쿼리 ≤ 8
     http_req_failed: ["rate<0.01"],
   },

@@ -129,3 +129,26 @@ jobs:
       - name: 실패 시 서버 기록
         if: failure()
         run: tail -n 100 uvicorn.log next.log
+
+  # 배포 구성 검사(설계도 §17) — Mac 에서는 systemd 를 돌릴 수 없어 Ubuntu 에서 문법·참조를 확인한다
+  deploy-check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - name: nginx 설정 검사(nginx -t)
+        run: |
+          sudo apt-get update -q && sudo apt-get install -y -q nginx
+          sudo install -m 644 deploy/nginx/mypage-security-headers.conf /etc/nginx/snippets/
+          sudo install -m 644 deploy/nginx/mypage.conf /etc/nginx/conf.d/
+          sudo nginx -t
+      - name: systemd 유닛 검사(systemd-analyze verify)
+        run: |
+          # 유닛이 가리키는 실행 파일·폴더·환경 파일 자리를 만든다(실제 앱은 설치하지 않는다)
+          sudo mkdir -p /srv/mypage/app/backend/.venv/bin /srv/mypage/app/frontend/.next/standalone /srv/mypage/shared /etc/mypage
+          for f in uvicorn python; do printf '#!/bin/sh\n' | sudo tee /srv/mypage/app/backend/.venv/bin/$f > /dev/null; sudo chmod +x /srv/mypage/app/backend/.venv/bin/$f; done
+          [ -x /usr/bin/node ] || { printf '#!/bin/sh\n' | sudo tee /usr/bin/node > /dev/null; sudo chmod +x /usr/bin/node; }
+          sudo cp deploy/env/backend.env.example /etc/mypage/backend.env
+          sudo cp deploy/env/frontend.env.example /etc/mypage/frontend.env
+          getent passwd mypage || sudo useradd --system --no-create-home mypage
+          sudo install -m 644 deploy/systemd/*.service /etc/systemd/system/
+          sudo systemd-analyze verify /etc/systemd/system/mypage-*.service

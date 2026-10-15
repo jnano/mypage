@@ -42,6 +42,7 @@ backend/
   tests/             pytest (conftest 가 테스트 DB 를 비우고 마이그레이션을 처음부터 적용한다)
                      schema_spec.py = 설계도 §4 를 옮긴 대조 기준 — §4 를 바꾸면 같이 바꾼다
 scripts/ci/          CI 검사 스크립트 (도메인 중립 등)
+deploy/              배포(설계도 §17): nginx·systemd·환경 변수 틀·build.sh·README.md(운영자 설명서)
 .github/workflows/   GitHub Actions — 금지어 검사 + 백엔드 테스트(postgres:18)
 ```
 

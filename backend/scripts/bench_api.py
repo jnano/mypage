@@ -27,7 +27,7 @@ from app.models import Board, Member, Post
 SEED = 7
 WARMUP = 30
 PER_KIND = 200
-TIMING = re.compile(r'app;dur=([\d.]+), db;dur=([\d.]+);desc="q=(\d+)"')
+TIMING = re.compile(r'app;dur=([\d.]+), db;dur=([\d.]+);desc="q=(\d+)"(?:, pool;desc="peak=\d+/\d+")?')
 
 BUDGET_MS = {"목록": 50.0, "글 보기": 30.0, "검색": 150.0, "개인 조각": 50.0}
 SEARCH_WORDS = ["회의", "안내", "모집", "분기결산", "회의 자료", "장비대여", "노트북", "주간일정", "시설 점검"]

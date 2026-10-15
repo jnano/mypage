@@ -6,6 +6,7 @@
 ## [Unreleased]
 
 ### Added
+- 배포 구성(설계도 §17): nginx 사이트 설정·보안 헤더, systemd 유닛 3개(backend·worker·frontend), 환경 변수 틀, 빌드 스크립트, 운영자 설명서 `deploy/README.md`, CI `deploy-check`(nginx -t·systemd-analyze verify). Next standalone 출력·스트리밍 버퍼링 끄기 헤더. 요청 계측에 DB 연결 풀 최고치
 - 접근성 구조 검사(axe-core): 비회원·회원·운영자 주요 화면 20곳 WCAG 2.2 AA + 구조 규칙, 대조군, CI 작업 `a11y`(전체 스택)
 - SEO(설계도 §10): 글·목록·사이트 메타(canonical·OG·Twitter·검색엔진 확인), 구조화 데이터(DiscussionForumPosting·Article·BreadcrumbList), sitemap(게시판 + 글 5만 건씩)·robots·RSS(전체·게시판), 비공개 글·게시판 noindex, 검색엔진 봇에는 옛 주소 308·없는 글 404 실제 상태 코드
 - 사이트 설정 `/admin/settings`(SEO·검색엔진 확인 값·등급 이름표·스팸 기본·추천 검색어), 스팸 정책 적용(길이·링크 수·금지어·작성 간격, 사이트 기본 + 게시판 덮어쓰기, 담당자 제외), 관리 화면 전체 재색인, 실패 작업 `/admin/jobs`(목록·다시 시도)

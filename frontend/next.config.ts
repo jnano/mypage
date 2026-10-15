@@ -4,6 +4,8 @@ import type { NextConfig } from "next";
 const BACKEND_URL = process.env.BACKEND_URL ?? "http://localhost:8000";
 
 const nextConfig: NextConfig = {
+  // 배포(§17): systemd 가 standalone 의 server.js 를 띄운다. 정적 파일은 빌드 뒤 복사(deploy/build.sh)
+  output: "standalone",
   // 공개 데이터는 'use cache' + cacheTag, 요청 시점 데이터는 <Suspense> 안(설계도 §3.3)
   cacheComponents: true,
   // 'use cache' 런타임 저장소(인스턴스 메모리 LRU) 크기를 명시한다 — 기본 50MB, 시작값 256MB(§3.3, 적중률 측정 뒤 조정)
@@ -13,6 +15,10 @@ const nextConfig: NextConfig = {
   htmlLimitedBots:
     /Googlebot|Google-InspectionTool|Storebot-Google|bingbot|Yeti|Daum|DuckDuckBot|Baiduspider|YandexBot|Applebot|facebookexternalhit|Twitterbot|Slackbot|LinkedInBot|kakaotalk-scrap|Discordbot|TelegramBot|WhatsApp/i,
   // /api/* 는 FastAPI 로 전달한다. 쓰기는 FastAPI 가 내부 비밀 헤더로 막으므로 브라우저 직접 쓰기는 통하지 않는다
+  // nginx 가 응답을 모아 두지 않게 — Suspense 스트리밍이 그대로 흘러가야 한다(Next self-hosting 문서 'Streaming and Suspense')
+  async headers() {
+    return [{ source: "/:path*", headers: [{ key: "X-Accel-Buffering", value: "no" }] }];
+  },
   async rewrites() {
     return [
       {

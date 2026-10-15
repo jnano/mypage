@@ -1,0 +1,24 @@
+# 작업자(설계도 §3.2) — outbox·예약 발행·주기 작업. 화면 서버와 따로 재시작할 수 있다. SIGTERM 으로 정상 종료
+[Unit]
+Description=mypage worker (outbox · schedules)
+After=network-online.target postgresql.service mypage-backend.service
+Wants=network-online.target
+
+[Service]
+Type=exec
+User=mypage
+Group=mypage
+WorkingDirectory=/srv/mypage/app/backend
+EnvironmentFile=/etc/mypage/backend.env
+ExecStart=/srv/mypage/app/backend/.venv/bin/python -m app.worker
+Restart=on-failure
+RestartSec=5
+TimeoutStopSec=60
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=/srv/mypage/shared
+
+[Install]
+WantedBy=multi-user.target

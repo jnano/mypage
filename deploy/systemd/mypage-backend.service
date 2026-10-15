@@ -1,0 +1,24 @@
+# FastAPI(설계도 §17) — uvicorn 프로세스 2개로 시작해 k6 측정으로 조정한다
+[Unit]
+Description=mypage backend (FastAPI)
+After=network-online.target postgresql.service
+Wants=network-online.target
+
+[Service]
+Type=exec
+User=mypage
+Group=mypage
+WorkingDirectory=/srv/mypage/app/backend
+EnvironmentFile=/etc/mypage/backend.env
+ExecStart=/srv/mypage/app/backend/.venv/bin/uvicorn app.main:app --host 127.0.0.1 --port 8000 --workers 2 --proxy-headers --forwarded-allow-ips 127.0.0.1 --no-access-log
+Restart=on-failure
+RestartSec=3
+TimeoutStopSec=20
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=/srv/mypage/shared
+
+[Install]
+WantedBy=multi-user.target

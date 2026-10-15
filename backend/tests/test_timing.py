@@ -29,8 +29,10 @@ async def test_server_timing_counts_queries() -> None:
             header = (await c.get("/three")).headers["server-timing"]
     finally:
         timing.uninstall()
-    m = re.fullmatch(r'app;dur=([\d.]+), db;dur=([\d.]+);desc="q=(\d+)"', header)
+    m = re.fullmatch(r'app;dur=([\d.]+), db;dur=([\d.]+);desc="q=(\d+)", pool;desc="peak=(\d+)/(\d+)"', header)
     assert m and m.group(3) == "3" and float(m.group(1)) >= float(m.group(2)) > 0
+    # 연결 하나를 썼다 — 풀 최고치는 1 이상, 용량은 설정값
+    assert 1 <= int(m.group(4)) <= int(m.group(5))
 
 
 async def test_off_by_default(client: AsyncClient) -> None:

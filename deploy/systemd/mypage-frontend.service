@@ -1,0 +1,24 @@
+# Next(설계도 §17) — standalone server.js. 'use cache' 저장소는 이 프로세스 메모리라 프로세스는 하나
+[Unit]
+Description=mypage frontend (Next.js standalone)
+After=network-online.target mypage-backend.service
+Wants=network-online.target
+
+[Service]
+Type=exec
+User=mypage
+Group=mypage
+WorkingDirectory=/srv/mypage/app/frontend/.next/standalone
+EnvironmentFile=/etc/mypage/frontend.env
+Environment=NODE_ENV=production HOSTNAME=127.0.0.1 PORT=3000
+ExecStart=/usr/bin/node server.js
+Restart=on-failure
+RestartSec=3
+TimeoutStopSec=20
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+
+[Install]
+WantedBy=multi-user.target

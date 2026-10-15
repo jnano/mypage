@@ -52,6 +52,7 @@ async function WriteScreen({ params }: PageProps<"/boards/[slug]/write">) {
         allowSecret={data.board.allow_secret}
         categories={data.categories}
         submitLabel="등록"
+        boardSlug={slug}
       />
     </section>
   );

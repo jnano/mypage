@@ -2,6 +2,12 @@ import Link from "next/link";
 import type { PostPage } from "@/lib/boards/types";
 import { formatDateTime } from "@/lib/format/time";
 
+function formatSize(bytes: number): string {
+  if (bytes < 1024) return `${bytes}B`;
+  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(0)}KB`;
+  return `${(bytes / (1024 * 1024)).toFixed(1)}MB`;
+}
+
 // 글 보기 — 헤드리스 구조(§13.1). h1 = 글 제목(§13). 본문은 서버가 정화·렌더한 HTML(content_rendered)
 
 export function PostView({ data, canEdit }: { data: PostPage; canEdit: boolean }) {
@@ -37,7 +43,13 @@ export function PostView({ data, canEdit }: { data: PostPage; canEdit: boolean }
         <section data-slot="attachments" aria-label="첨부 파일">
           <ul>
             {data.attachments.map((a) => (
-              <li key={a.id}>{a.name}</li>
+              <li key={a.id} data-slot="attachment-item" data-image={a.is_image || undefined}>
+                {a.thumb && <img src={a.thumb} alt={a.alt ?? ""} width={a.width ?? undefined} height={a.height ?? undefined} loading="lazy" />}
+                <a href={a.url} download={a.is_image ? undefined : a.name}>
+                  {a.name}
+                </a>{" "}
+                <span data-slot="post-meta">({formatSize(a.size)})</span>
+              </li>
             ))}
           </ul>
         </section>

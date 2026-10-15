@@ -82,9 +82,24 @@ export interface PostPage {
   };
   neighbors: { prev: { id: number; title: string | null } | null; next: { id: number; title: string | null } | null };
   related: { id: number; title: string; board_slug: string }[];
-  attachments: { id: number; name: string; size: number; mime: string; is_image: boolean; alt: string | null }[];
+  attachments: AttachmentItem[];
   comments: CommentPage;
   cache: { tags: string[] };
+}
+
+export interface AttachmentItem {
+  id: number;
+  name: string;
+  size: number;
+  mime: string;
+  is_image: boolean;
+  width: number | null;
+  height: number | null;
+  alt: string | null;
+  is_cover: boolean;
+  role: "attachment" | "inline";
+  url: string;
+  thumb: string | null;
 }
 
 export interface CommentItem {
@@ -125,6 +140,7 @@ export interface EditablePost {
   is_secret: boolean;
   status: string;
   version: number;
+  attachments: AttachmentItem[];
 }
 
 export interface Invalidation {

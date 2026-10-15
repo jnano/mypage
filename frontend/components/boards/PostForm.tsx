@@ -3,6 +3,7 @@
 import { useActionState, useState, useTransition } from "react";
 import type { PostFormState, PostFormValues } from "@/app/boards/actions";
 import { previewAction } from "@/app/boards/actions";
+import { AttachmentPanel, type AttachmentDraft } from "./AttachmentPanel";
 
 // 글쓰기·수정 폼 — 마크다운 원문 + 미리보기 탭(§8.4). 오류는 aria-invalid·aria-describedby·aria-live(§13)
 // 리치 에디터(Lexical 이식)는 2단계 — 그 전까지 리치 게시판도 같은 textarea(HTML 로 받아 서버가 정화)
@@ -14,11 +15,22 @@ interface Props {
   categories: { id: number; name: string }[];
   initial?: PostFormValues;
   submitLabel: string;
+  boardSlug: string;
+  initialAttachments?: AttachmentDraft[];
 }
 
 const EMPTY: PostFormValues = { title: "", content: "", category_ids: [], is_secret: false };
 
-export function PostForm({ action, format, allowSecret, categories, initial = EMPTY, submitLabel }: Props) {
+export function PostForm({
+  action,
+  format,
+  allowSecret,
+  categories,
+  initial = EMPTY,
+  submitLabel,
+  boardSlug,
+  initialAttachments = [],
+}: Props) {
   const [state, formAction, pending] = useActionState(action, {});
   const values = state.values ?? initial;
   const errors = new Map((state.problem?.errors ?? []).map((e) => [e.field.replace(/^body\./, ""), e.message]));
@@ -69,6 +81,26 @@ export function PostForm({ action, format, allowSecret, categories, initial = EM
           <input type="checkbox" name="is_secret" defaultChecked={values.is_secret} /> 비밀글
         </label>
       )}
+
+      <AttachmentPanel
+        boardSlug={boardSlug}
+        format={format}
+        initial={initialAttachments}
+        onInsert={(snippet) => setContent((c) => c + snippet)}
+        onRemove={(id) =>
+          setContent((c) =>
+            c
+              .replace(new RegExp(`\\n*!\\[[^\\]]*\\]\\(attachment:${id}\\)\\n?`, "g"), "")
+              .replace(new RegExp(`<figure data-attachment-id="${id}"[^>]*>[\\s\\S]*?</figure>`, "g"), ""),
+          )
+        }
+        onAlt={(id, alt) => {
+          // 본문 이미지의 대체 텍스트는 본문 문법이 정본 — 패널에서 적으면 본문도 고친다
+          const safe = alt.replace(/[\\[\\]]/g, "");
+          setContent((c) => c.replace(new RegExp(`!\\[[^\\]]*\\]\\(attachment:${id}\\)`, "g"), `![${safe}](attachment:${id})`));
+        }}
+      />
+      {errors.has("attachments") && <p role="alert">{errors.get("attachments")}</p>}
 
       <div role="tablist" aria-label="본문 편집">
         <button type="button" role="tab" aria-selected={tab === "write"} onClick={() => setTab("write")}>

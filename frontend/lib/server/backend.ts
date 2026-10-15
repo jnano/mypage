@@ -14,7 +14,7 @@ export async function publicGet<T>(path: string): Promise<T> {
   return readJson<T>(res);
 }
 
-async function personalContext() {
+export async function personalContext() {
   const config = serverConfig();
   const devMemberId = config.devViewerLogin ? ((await cookies()).get(DEV_MEMBER_COOKIE)?.value ?? null) : null;
   return {
@@ -53,4 +53,13 @@ export async function personalSend<T>(
     cache: "no-store",
   });
   return { data: await readJson<T>(res), headers: res.headers };
+}
+
+/** Route Handler 가 FastAPI 로 그대로 넘길 때 — 보는 사람(개발 로그인)과, 쓰기면 내부 비밀 */
+export async function proxyHeaders(opts: { write: boolean }, extra?: HeadersInit): Promise<Headers> {
+  return personalHeaders(await personalContext(), opts, extra);
+}
+
+export function backendUrl(path: string): string {
+  return `${serverConfig().backendUrl}${path}`;
 }

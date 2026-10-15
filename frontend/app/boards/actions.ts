@@ -15,6 +15,24 @@ export interface PostFormValues {
   is_secret: boolean;
 }
 
+interface AttachmentRefBody {
+  id: number;
+  alt_text: string | null;
+  is_cover: boolean;
+}
+
+function readAttachments(formData: FormData): AttachmentRefBody[] {
+  try {
+    const raw = JSON.parse(String(formData.get("attachments") ?? "[]")) as unknown;
+    if (!Array.isArray(raw)) return [];
+    return raw
+      .filter((a): a is AttachmentRefBody => typeof a === "object" && a !== null && Number.isInteger((a as AttachmentRefBody).id))
+      .map((a) => ({ id: a.id, alt_text: typeof a.alt_text === "string" ? a.alt_text : null, is_cover: a.is_cover === true }));
+  } catch {
+    return [];
+  }
+}
+
 export interface PostFormState {
   problem?: ProblemBody;
   values?: PostFormValues;
@@ -54,7 +72,7 @@ export async function createPostAction(
     const { data } = await personalSend<WriteResponse>(
       "POST",
       `/api/boards/${encodeURIComponent(slug)}/posts`,
-      values,
+      { ...values, attachments: readAttachments(formData) },
       { "Idempotency-Key": idempotencyKey },
     );
     applyInvalidation(data.invalidate);
@@ -74,9 +92,12 @@ export async function updatePostAction(
 ): Promise<PostFormState> {
   const values = readForm(formData);
   try {
-    const { data } = await personalSend<WriteResponse>("PATCH", `/api/posts/${postId}`, values, {
-      "If-Match": `"${version}"`,
-    });
+    const { data } = await personalSend<WriteResponse>(
+      "PATCH",
+      `/api/posts/${postId}`,
+      { ...values, attachments: readAttachments(formData) },
+      { "If-Match": `"${version}"` },
+    );
     applyInvalidation(data.invalidate);
   } catch (e) {
     return { problem: asProblem(e), values };
@@ -170,4 +191,9 @@ export async function saveNotificationPrefsAction(types: string[], formData: For
 export async function setSubscriptionAction(slug: string, subscribe: boolean): Promise<void> {
   await personalSend(subscribe ? "PUT" : "DELETE", `/api/boards/${encodeURIComponent(slug)}/subscription`);
   redirect(`/boards/${slug}`);
+}
+
+/** 아직 글에 붙지 않은 내 임시 업로드 지우기 */
+export async function deleteTempAttachmentAction(id: number): Promise<void> {
+  await personalSend("DELETE", `/api/attachments/${id}`);
 }

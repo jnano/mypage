@@ -15,6 +15,11 @@ const nextConfig: NextConfig = {
         source: "/api/:path*",
         destination: `${BACKEND_URL}/api/:path*`,
       },
+      // 공개 저장소 — 배포에서는 nginx 가 직접 내준다(§12.2). 개발에서만 FastAPI StaticFiles 로
+      {
+        source: "/media/:path*",
+        destination: `${BACKEND_URL}/media/:path*`,
+      },
     ];
   },
 };

@@ -33,6 +33,7 @@ backend/
   app/posts/         queries(읽기, 판정 절 경유) · service(쓰기) · present(응답 모양) · schemas(요청)
   app/search/        검색(§9): index(정규화·2글자 토큰, 쓰기·재색인 공용) · backend(SearchBackend/BigramBackend) · reindex(`uv run python -m app.search.reindex`)
   scripts/seed_dev.py  개발용 시드 — `uv run python -m scripts.seed_dev`
+  app/files/         첨부: detect(형식) · metadata(위치 정보 제거) · storage(공개/비공개 폴더 backend/var/) · uploads · attach(공개 여부) · sender
   app/worker/        작업자(별도 프로세스): core(outbox 처리·재시도) · handlers(이벤트별) · jobs(주기 작업) · schedules · main(LISTEN + 폴링)
   alembic/           마이그레이션 (env.py 가 settings.database_url 사용)
   tests/             pytest (conftest 가 테스트 DB 를 비우고 마이그레이션을 처음부터 적용한다)

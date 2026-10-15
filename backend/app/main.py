@@ -5,7 +5,7 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI
 
 from app.api import boards, editor, health, me, posts, search
-from app.core import csrf, problems
+from app.core import csrf, problems, timing
 from app.core.config import settings
 from app.db.session import engine
 
@@ -23,6 +23,8 @@ async def lifespan(_: FastAPI) -> AsyncIterator[None]:
 app = FastAPI(title=settings.app_name, debug=settings.debug, lifespan=lifespan)
 problems.install(app)
 csrf.install(app)
+if settings.server_timing:
+    timing.install(app)
 
 # 모든 API 는 /api 아래에 둔다 — 프론트엔드가 /api/* 를 그대로 프록시한다
 app.include_router(health.router, prefix="/api")

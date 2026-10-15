@@ -25,6 +25,9 @@ class Settings(BaseSettings):
     # 비어 있으면 모든 쓰기를 거부한다(fail closed). Next 의 같은 이름 환경 변수와 같은 값
     internal_api_secret: str = ""
 
+    # 요청 계측(§15.3) — 응답에 Server-Timing(app·db 시간, 쿼리 수). 측정할 때만 켠다
+    server_timing: bool = False
+
     # 개발용 Viewer 헤더(설계도 §5.1, §11) — 인증을 붙이기 전 골격 전용
     dev_viewer_header: bool = False
     dev_viewer_secret: str = ""

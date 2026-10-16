@@ -1,5 +1,6 @@
 import { resetPasswordAction } from "@/app/auth/actions";
 import { ResetForm } from "@/components/auth/ResetForm";
+import { DynamicMarker } from "@/components/DynamicMarker";
 
 export const metadata = { title: "비밀번호 재설정", robots: { index: false } };
 
@@ -9,6 +10,7 @@ export default function ResetPage() {
     <section data-slot="reset">
       <h1>비밀번호 재설정</h1>
       <ResetForm action={resetPasswordAction} />
+      <DynamicMarker />
     </section>
   );
 }

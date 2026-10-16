@@ -52,6 +52,10 @@ code=$(head -c 60000000 /dev/zero | curl -s -o /dev/null -w '%{http_code}' -X PO
 code=$(curl -s -o /dev/null -w '%{http_code}' -X POST -H 'Origin: http://evil.example' -H 'X-Forwarded-Host: evil.example' -H 'content-type: text/plain' --data-binary 'x' "$BASE/api/uploads?board=free")
 [ "$code" = 403 ] && ok "다른 출처 업로드 403(X-Forwarded-Host 위조 무시)" || bad "다른 출처 업로드 $code"
 
+# 5-2. 관리 화면 1차 차단 — 로그인 쿠키 없이 /admin 이면 로그인으로, 넘기는 주소는 바깥 주소(127.0.0.1:3000 이 아님)
+res=$(curl -s -o /dev/null -w '%{http_code} %{redirect_url}' "$BASE/admin/members?q=a")
+[ "$res" = "307 $BASE/login?next=%2Fadmin%2Fmembers%3Fq%3Da" ] && ok "비로그인 /admin → 로그인(바깥 주소)" || bad "비로그인 /admin: $res"
+
 # 6. 실제 IP — 위조한 X-Forwarded-For 가 앱까지 닿지 않는다(uvicorn --proxy-headers 가 계산한 클라이언트 주소로 본다).
 #    표지 경로(?smoke=…)로 그 요청의 기록 줄을 찾아, 주소가 실제 연결(nginx 가 본 ::1 또는 127.0.0.1)인지 본다
 TAG="smoke$(date +%s%N)"

@@ -125,7 +125,8 @@ async def consent(db: AsyncSession, *, token: str, user_agent: str | None) -> di
             select(Member).where(Member.id == member_id, Member.status == literal_column("'active'")).with_for_update()
         )
     ).scalar_one_or_none()
-    if member is None:
+    # 잠근 뒤 다시 본다 — 동의가 기록되는 순간 조건이 사라지므로 같은 토큰은 한 번만 효과가 있다(재사용 = 세션 반복 발급 방지)
+    if member is None or not await needs_reconsent(db, member):
         raise Problem(401, "consent_expired", "동의 시간이 지났습니다. 다시 로그인해 주세요")
     latest = await latest_notice(db)
     if latest is None:

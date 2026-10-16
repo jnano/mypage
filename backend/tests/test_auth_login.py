@@ -282,6 +282,11 @@ async def test_reconsent_withholds_session_until_agreed(committed_db, client) ->
     assert current["version"] == "v-next" and current["requires_reconsent"] is True
     agreed = (await client.post("/api/auth/privacy-consent", json={"consent_token": r["consent_token"]})).json()
     assert await whoami(client, agreed["session_token"]) == 200
+    # 같은 토큰은 한 번만 — 두 번째는 401 이고 세션은 하나(검토 v3 R-1)
+    again = await client.post("/api/auth/privacy-consent", json={"consent_token": r["consent_token"]})
+    assert again.status_code == 401 and again.json()["code"] == "consent_expired"
+    sessions_made = await committed_db.execute(select(LoginSession.id).where(LoginSession.member_id == m.id))
+    assert len(sessions_made.all()) == 1
     assert agreed["device_token"] is not None  # 로그인 때 고른 '유지'를 이어받는다
     member_id, email = m.id, m.email or ""
     committed_db.expire_all()

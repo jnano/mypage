@@ -133,6 +133,7 @@ cd frontend && npm run typecheck && npm test && npm run build   # 프런트: 타
   - 설계 근거로 faithandme 를 인용하지 않는다. 필요한 사실은 이 프로젝트에서 다시 확인해 적는다.
 - CI 금지어 검사(`scripts/ci/check_neutral_terms.py`)가 저장소 전체에서 금지어를 찾는다. 금지어 목록은 그 스크립트 한 곳에 둔다.
   - 이 CLAUDE.md 의 이 절과 스크립트 자신은 검사에서 제외한다.
+  - 바깥에서 가져온 보안 데이터 파일 `backend/app/auth/data/common_passwords.txt`(출처 `common_passwords.SOURCE.md`)도 제외한다 — 우리가 쓴 문구가 아니다. 파일 예외는 스크립트의 `EXEMPT_FILES` 한 곳에 같은 목록으로 둔다.
   - 한국어는 부분 일치 오탐이 있다(예: '미사용'·'미리보기도'). 그런 말은 스크립트의 예외 목록에 넣는다.
 
 ## 백업 시 (전역 ③ 규칙 보정)

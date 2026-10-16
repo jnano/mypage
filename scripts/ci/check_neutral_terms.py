@@ -46,6 +46,15 @@ _allowed_re = re.compile("|".join(ALLOWED_PATTERNS))
 # 금지어를 설명하는 구간: (파일, 시작 제목). 그 제목부터 같은 수준 이상의 다음 제목 전까지 뺀다.
 EXEMPT_SECTIONS = [("CLAUDE.md", "### 4. 도메인 중립")]
 
+# 파일 통째 예외 — 우리가 쓴 문구가 아닌 바깥 데이터만(CLAUDE.md '4. 도메인 중립'에 같은 목록). 저장소 기준 경로로만 맞춘다
+EXEMPT_FILES = {
+    "backend/app/auth/data/common_passwords.txt": "바깥 보안 데이터(흔한 비밀번호 목록) — 출처 common_passwords.SOURCE.md",
+}
+
+
+def is_exempt_file(path: Path) -> bool:
+    return path.is_relative_to(REPO_ROOT) and path.relative_to(REPO_ROOT).as_posix() in EXEMPT_FILES
+
 
 def tracked_files() -> list[Path]:
     out = subprocess.run(
@@ -112,6 +121,15 @@ def self_test() -> int:
             if got != expected:
                 ok = False
                 print(f"self-test 실패: case{i} 기대 {expected}건, 실제 {got}건", file=sys.stderr)
+        # 파일 예외는 정한 경로에만 — 같은 이름이라도 다른 곳의 파일은 여전히 검사한다
+        elsewhere = Path(d) / "common_passwords.txt"
+        elsewhere.write_text(f"{FORBIDDEN_EN[1]}123\n", encoding="utf-8")
+        if is_exempt_file(elsewhere) or len(scan(elsewhere)) != 1:
+            ok = False
+            print("self-test 실패: 예외 경로 밖의 같은 단어를 잡지 못함", file=sys.stderr)
+        if not all(is_exempt_file(REPO_ROOT / rel) for rel in EXEMPT_FILES):
+            ok = False
+            print("self-test 실패: 예외 경로가 맞지 않음", file=sys.stderr)
     print("self-test 통과" if ok else "self-test 실패")
     return 0 if ok else 1
 
@@ -122,7 +140,7 @@ def main(argv: list[str]) -> int:
     paths = [Path(a).resolve() for a in argv] if argv else tracked_files()
     found = 0
     for path in paths:
-        if path == SELF:
+        if path == SELF or is_exempt_file(path):
             continue
         for lineno, word, line in scan(path):
             found += 1

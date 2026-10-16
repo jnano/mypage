@@ -1,13 +1,18 @@
 import "server-only";
 import { ApiError, type ProblemBody } from "@/lib/api/problem";
 import { personalGet } from "@/lib/server/backend";
+import { redirectIfExpired } from "@/lib/server/session";
 
 // 관리 화면 읽기 — 개인 데이터(요청 시점). 401·403 은 화면이 안내 문구로 바꾸도록 문제 본문을 돌려준다
+// (401 인데 세션 쿠키가 있으면 만료·폐기된 쿠키를 지우러 /auth/expired 로 — 인증 설계도 §4.4.1)
 export async function adminGet<T>(path: string): Promise<{ data: T; problem?: undefined } | { data?: undefined; problem: ProblemBody }> {
   try {
     return { data: await personalGet<T>(path) };
   } catch (e) {
-    if (e instanceof ApiError) return { problem: e.problem };
+    if (e instanceof ApiError) {
+      if (e.problem.status === 401) await redirectIfExpired("personal"); // 쿠키는 있는데 비회원 — 지우고 로그인으로
+      return { problem: e.problem };
+    }
     throw e;
   }
 }

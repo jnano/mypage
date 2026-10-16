@@ -43,6 +43,16 @@ class Settings(BaseSettings):
     # 요청 계측(§15.3) — 응답에 Server-Timing(app·db 시간, 쿼리 수). 측정할 때만 켠다
     server_timing: bool = False
 
+    # 인증(인증 설계도 §3.7) — 용도별 파생 키의 바탕 비밀 하나(app/auth/keys.py). 본 설계서 §11 의 IP 해시 비밀과 따로 둔다.
+    # 바꾸면 탈퇴 표시·기기 쿠키·폼 토큰·재동의 토큰이 무효가 된다. dev·test 에서 비우면 고정 개발용 값
+    email_hmac_secret: str = ""
+    # 세션 만료(§3.2.1) — 유지 안 함은 브라우저 세션 쿠키 + 서버 12시간
+    session_hours: int = 12
+    session_member_days: int = 30
+    session_admin_days: int = 7
+    device_cookie_days: int = 365  # 잠금 면제 기기 쿠키(§4.3.1)
+    consent_token_seconds: int = 300  # 재동의 토큰(§3.6)
+
     # 개발용 Viewer 헤더(설계도 §5.1, §11) — 인증을 붙이기 전 골격 전용
     dev_viewer_header: bool = False
     dev_viewer_secret: str = ""
@@ -56,6 +66,10 @@ class Settings(BaseSettings):
             raise ValueError("DEV_VIEWER_HEADER 를 켜려면 DEV_VIEWER_SECRET(16자 이상)이 필요합니다")
         if self.env == "prod" and len(self.internal_api_secret) < 32:
             raise ValueError("ENV=prod 에서는 INTERNAL_API_SECRET(32자 이상)이 필요합니다")
+        if self.env == "prod" and len(self.email_hmac_secret) < 32:
+            raise ValueError("ENV=prod 에서는 EMAIL_HMAC_SECRET(32자 이상)이 필요합니다")
+        if not self.email_hmac_secret:
+            self.email_hmac_secret = "dev-only-email-hmac-secret-not-for-prod"
         return self
 
 

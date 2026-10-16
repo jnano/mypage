@@ -22,6 +22,7 @@ export class ApiError extends Error {
 }
 
 export async function readJson<T>(res: Response): Promise<T> {
+  if (res.status === 204) return undefined as T; // 본문 없음(로그아웃 등)
   if (res.ok) return (await res.json()) as T;
   const type = res.headers.get("content-type") ?? "";
   if (type.includes("json")) throw new ApiError((await res.json()) as ProblemBody);

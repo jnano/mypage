@@ -8,7 +8,7 @@ export function AdminProblem({ problem }: { problem: ProblemBody }) {
       <h2>{problem.title}</h2>
       {problem.status === 401 && (
         <p>
-          <Link href="/dev/login">로그인</Link> 한 뒤 다시 시도해 주세요.
+          <Link href="/login">로그인</Link> 한 뒤 다시 시도해 주세요.
         </p>
       )}
     </section>

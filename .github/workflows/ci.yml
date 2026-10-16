@@ -167,6 +167,7 @@ jobs:
           sudo cp deploy/env/backend.env.example /etc/mypage/backend.env
           sudo sed -i -e 's|^ENV=$|ENV=prod|' -e 's|^DATABASE_URL=$|DATABASE_URL=postgresql+asyncpg://mypage@127.0.0.1:5432/mypage|' \
             -e 's|^INTERNAL_API_SECRET=$|INTERNAL_API_SECRET=ci-deploy-check-secret-0123456789abcdef|' \
+            -e 's|^EMAIL_HMAC_SECRET=$|EMAIL_HMAC_SECRET=ci-deploy-check-email-hmac-0123456789abcdef|' \
             -e 's|^DB_POOL_SIZE=$|DB_POOL_SIZE=5|' -e 's|^DB_MAX_OVERFLOW=$|DB_MAX_OVERFLOW=5|' \
             -e 's|^MEDIA_ROOT=$|MEDIA_ROOT=/srv/mypage/shared/media|' -e 's|^PRIVATE_ROOT=$|PRIVATE_ROOT=/srv/mypage/shared/private|' \
             -e 's|^FILE_SENDER=$|FILE_SENDER=nginx|' /etc/mypage/backend.env

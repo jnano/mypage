@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { connection } from "next/server";
 import { Suspense } from "react";
+import { AccountNav } from "@/components/auth/AccountNav";
 import { siteMetadata } from "@/lib/seo/meta";
 import { getSite } from "@/lib/server/seo";
 import "./globals.css";
@@ -31,6 +32,9 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
           <nav aria-label="사이트">
             <Link href="/">처음</Link> <Link href="/search">검색</Link> <Link href="/me/notifications">알림</Link>
           </nav>
+          <Suspense fallback={null}>
+            <AccountNav />
+          </Suspense>
         </header>
         <main id="main" data-slot="site-main">
           {children}

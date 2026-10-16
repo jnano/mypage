@@ -167,3 +167,18 @@ def test_fill_allowed_only_in_dev_test_with_matching_db(env: str) -> None:
 def test_fill_refused_in_prod_even_with_matching_db() -> None:
     with pytest.raises(SystemExit, match="ENV=prod"):
         check_target("prod", "mypage_bench", "mypage_bench")
+
+
+# ── 기동 가드(§3.7) ─────────────────────────────────────────
+
+
+def test_prod_requires_email_hmac_secret() -> None:
+    from pydantic import ValidationError
+
+    from app.core.config import Settings
+
+    base = {"env": "prod", "internal_api_secret": "x" * 32}
+    with pytest.raises(ValidationError, match="EMAIL_HMAC_SECRET"):
+        Settings(**base, email_hmac_secret="short")
+    assert Settings(**base, email_hmac_secret="y" * 32).email_hmac_secret == "y" * 32
+    assert Settings(env="test").email_hmac_secret  # dev·test 에서 비우면 개발용 고정 값

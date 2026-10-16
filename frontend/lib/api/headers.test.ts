@@ -3,6 +3,7 @@ import { assertSafeConfig, parseServerConfig } from "./config";
 import { PRIVATE_HEADERS, personalHeaders, publicHeaders } from "./headers";
 
 const ctx = {
+  sessionToken: "t".repeat(43),
   devMemberId: "3",
   devViewerLogin: true,
   devViewerSecret: "dev-secret-0123456789",
@@ -26,6 +27,13 @@ describe("개인 fetch 도구(인증 설계도 §2.2·§2.3)", () => {
     expect(h.get("x-dev-member")).toBe("3; key=dev-secret-0123456789");
     expect(h.get("x-client-ip")).toBe("203.0.113.9");
     expect(h.get("x-internal-secret")).toBe("internal-secret");
+    expect(h.get("x-session")).toBe("t".repeat(43));
+  });
+
+  it("세션 쿠키가 없거나 토큰 모양이 아니면 X-Session 을 싣지 않는다", () => {
+    expect(personalHeaders({ ...ctx, sessionToken: null }).has("x-session")).toBe(false);
+    expect(personalHeaders({ ...ctx, sessionToken: "short" }).has("x-session")).toBe(false);
+    expect(personalHeaders({ ...ctx, sessionToken: "a".repeat(30) + "\r\nx: 1" }).has("x-session")).toBe(false);
   });
 
   it("개발 로그인이 꺼져 있거나 쿠키가 이상하면 비회원으로 보낸다", () => {

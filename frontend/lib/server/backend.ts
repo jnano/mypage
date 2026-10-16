@@ -2,6 +2,7 @@ import "server-only";
 import { cookies, headers } from "next/headers";
 import { personalHeaders, publicHeaders } from "@/lib/api/headers";
 import { readJson } from "@/lib/api/problem";
+import { cookieNames } from "@/lib/auth/cookies";
 import { serverConfig } from "@/lib/server/config";
 
 // FastAPI 호출 도구 두 개(설계도 §2.2 P1). 공개 도구는 'use cache' 함수 안에서, 개인 도구는 Suspense 안·Server Action 에서 쓴다.
@@ -16,8 +17,10 @@ export async function publicGet<T>(path: string): Promise<T> {
 
 export async function personalContext() {
   const config = serverConfig();
-  const devMemberId = config.devViewerLogin ? ((await cookies()).get(DEV_MEMBER_COOKIE)?.value ?? null) : null;
+  const jar = await cookies();
+  const devMemberId = config.devViewerLogin ? (jar.get(DEV_MEMBER_COOKIE)?.value ?? null) : null;
   return {
+    sessionToken: jar.get(cookieNames(config.appEnv).session)?.value ?? null,
     devMemberId,
     devViewerLogin: config.devViewerLogin,
     devViewerSecret: config.devViewerSecret,
@@ -26,9 +29,15 @@ export async function personalContext() {
   };
 }
 
-/** 보는 사람이 있는지 — 공개 캐시를 쓸지 정할 때 */
+/** 보는 사람이 있는지 — 공개 캐시를 쓸지 정할 때. 쿠키 유무만 본다(유효성은 FastAPI 가 판정) */
 export async function hasViewer(): Promise<boolean> {
-  return (await personalContext()).devMemberId !== null;
+  const ctx = await personalContext();
+  return ctx.sessionToken !== null || ctx.devMemberId !== null;
+}
+
+/** 세션 쿠키가 있는지 — '쿠키는 있는데 비회원'(만료·폐기)을 가릴 때(인증 설계도 §4.4.1) */
+export async function hasSessionCookie(): Promise<boolean> {
+  return (await personalContext()).sessionToken !== null;
 }
 
 /** 개인 읽기 — 보는 사람 기준(요청 시점, 캐시하지 않음). 내부 비밀도 싣는다(보는 사람 머리를 FastAPI 가 믿도록) */

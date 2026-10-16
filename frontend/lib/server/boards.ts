@@ -4,6 +4,7 @@ import { ApiError } from "@/lib/api/problem";
 import { applyUnmask, boardQueryString, maskedIds, planBoard, planPost } from "@/lib/boards/plan";
 import type { BoardPage, BoardQuery, CommentPage, Fetched, PageState, PostPage } from "@/lib/boards/types";
 import { hasViewer, personalGet, publicGet } from "@/lib/server/backend";
+import { redirectIfExpired } from "@/lib/server/session";
 
 // 화면 데이터 — 화면 하나당 FastAPI 호출: 공개 ≤ 2, 로그인 ≤ 3(§3.6, §15)
 // 공개 결과는 비회원 기준 캐시(태그는 §3.4 무효화 표와 같은 이름), 개인 결과는 요청 시점(캐시 안 함)
@@ -51,6 +52,7 @@ export async function loadBoardScreen(slug: string, query: BoardQuery): Promise<
     return { result: pub, state: null, plan: "public" };
   }
   const state = await personalGet<PageState>(pageStatePath(slug, pub.ok ? maskedIds(pub.data) : []));
+  if (state.viewer === null) await redirectIfExpired("public"); // 쿠키는 있는데 비회원(만료·폐기) — 지우고 같은 화면으로
   const plan = planBoard(pub, state);
   if (plan === "personal") {
     const mine = await settle(() =>
@@ -77,6 +79,7 @@ export async function loadPostScreen(slug: string, id: number): Promise<PostScre
   }
   const boardSlug = pub.ok ? pub.data.board.slug : slug;
   const state = await personalGet<PageState>(pageStatePath(boardSlug, [id]));
+  if (state.viewer === null) await redirectIfExpired("public");
   const result = planPost(pub.ok, state) === "personal" ? await settle(() => personalGet<PostPage>(`/api/posts/${id}/page`)) : pub;
   // 글이 화면 게시판의 목록 대상이 아니면(예: 임시 글) 개인 조각의 editable 에 없다 — 열람 가능하면 작성자 여부로 다시 본다
   const canEdit = state.editable.includes(id) || (result.ok && result.data.post.status !== "published" && state.viewer !== null);

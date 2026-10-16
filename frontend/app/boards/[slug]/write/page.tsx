@@ -26,7 +26,7 @@ async function WriteScreen({ params }: PageProps<"/boards/[slug]/write">) {
       <section data-slot="error" role="alert">
         <h1>로그인이 필요합니다</h1>
         <p>
-          <Link href="/dev/login">로그인</Link> 한 뒤 다시 시도해 주세요.
+          <Link href="/login">로그인</Link> 한 뒤 다시 시도해 주세요.
         </p>
       </section>
     );

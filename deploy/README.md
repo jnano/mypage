@@ -69,6 +69,7 @@ sudo -u postgres createdb -O mypage mypage
 | `DB_POOL_SIZE` · `DB_MAX_OVERFLOW` | `5` · `5`(부하 측정으로 조정 — `doc/측정/`) |
 | `WEB_CONCURRENCY` | uvicorn 프로세스 수 — 코어 수의 절반(최소 2), 2절 '연결 수' 표와 맞춘다. 적지 않으면 유닛 기본 2, 빈 값은 금지 |
 | `INTERNAL_API_SECRET` | 32자 이상 무작위(`python3 -c "import secrets; print(secrets.token_urlsafe(32))"`). frontend.env 와 같은 값 |
+| `EMAIL_HMAC_SECRET` | 32자 이상 무작위(만드는 법은 위와 같음, `INTERNAL_API_SECRET` 과 **다른 값**). 인증의 파생 키 바탕(이메일 제한 키·탈퇴 표시·기기 쿠키·폼 토큰·재동의 토큰). 바꾸면 그것들이 모두 무효가 된다(로그인 세션은 그대로) |
 | `NEXT_REVALIDATE_URL` | `http://127.0.0.1:3000/api/revalidate` |
 | `MEDIA_ROOT` · `PRIVATE_ROOT` | `/srv/mypage/shared/media` · `/srv/mypage/shared/private` |
 | `FILE_SENDER` | `nginx`(비공개 파일을 X-Accel-Redirect 로) |

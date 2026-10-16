@@ -28,6 +28,8 @@ export function publicHeaders(extra?: HeadersInit): Headers {
 }
 
 export interface PersonalContext {
+  /** 세션 쿠키의 토큰(없으면 null) — X-Session(인증 설계도 §2.2) */
+  sessionToken: string | null;
   /** 개발 로그인 쿠키의 회원 id(없으면 비회원) */
   devMemberId: string | null;
   devViewerLogin: boolean;
@@ -40,6 +42,9 @@ export interface PersonalContext {
 export function personalHeaders(ctx: PersonalContext, extra?: HeadersInit): Headers {
   const headers = new Headers(extra);
   headers.set("accept", "application/json");
+  if (ctx.sessionToken && /^[A-Za-z0-9_-]{20,100}$/.test(ctx.sessionToken)) {
+    headers.set("x-session", ctx.sessionToken);
+  }
   if (ctx.devViewerLogin && ctx.devMemberId && /^[1-9][0-9]{0,17}$/.test(ctx.devMemberId)) {
     headers.set("x-dev-member", `${ctx.devMemberId}; key=${ctx.devViewerSecret}`);
   }

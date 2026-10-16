@@ -137,7 +137,7 @@ export function CommentThread({
         />
       ) : (
         <p>
-          <Link href="/dev/login">로그인</Link> 하면 댓글을 쓸 수 있습니다.
+          <Link href="/login">로그인</Link> 하면 댓글을 쓸 수 있습니다.
         </p>
       )}
     </section>

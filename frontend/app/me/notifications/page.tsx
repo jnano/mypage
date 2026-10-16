@@ -3,6 +3,7 @@ import { Suspense } from "react";
 import { markNotificationsReadAction, saveNotificationPrefsAction } from "@/app/boards/actions";
 import { ApiError } from "@/lib/api/problem";
 import { hasViewer, personalGet } from "@/lib/server/backend";
+import { redirectIfExpired } from "@/lib/server/session";
 import { formatDateTime } from "@/lib/format/time";
 
 // 알림함 — 개인 데이터(요청 시점, 캐시 안 함). 열 수 없게 된 글은 서버가 제목을 가려 보낸다(§7)
@@ -52,7 +53,7 @@ async function Inbox({ searchParams }: PageProps<"/me/notifications">) {
   if (!(await hasViewer())) {
     return (
       <p>
-        <Link href="/dev/login">로그인</Link> 하면 알림을 볼 수 있습니다.
+        <Link href="/login">로그인</Link> 하면 알림을 볼 수 있습니다.
       </p>
     );
   }
@@ -63,7 +64,10 @@ async function Inbox({ searchParams }: PageProps<"/me/notifications">) {
   try {
     [inbox, prefs] = await Promise.all([personalGet<Inbox>(`/api/me/notifications${q}`), personalGet<Prefs>("/api/me/notification-prefs")]);
   } catch (e) {
-    if (e instanceof ApiError) return <p role="alert">{e.problem.title}</p>;
+    if (e instanceof ApiError) {
+      if (e.status === 401) await redirectIfExpired("personal");
+      return <p role="alert">{e.problem.title}</p>;
+    }
     throw e;
   }
   const types = prefs.items.map((p) => p.type);

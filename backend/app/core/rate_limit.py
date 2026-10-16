@@ -33,6 +33,15 @@ LIMITS: dict[str, Limit] = {
     "report.create": Limit(10, 600),
     # 비회원 검색은 실제 IP 를 믿을 수 있는 배포 구성(§17 nginx real_ip) 뒤에 붙인다
     "search": Limit(30, 60),
+    # 인증(인증 설계도 §7.5) — IP 는 client_ip(), 이메일은 HMAC(원문을 키에 넣지 않는다). 검증 전에 세므로 성공도 센다
+    "auth.login": Limit(10, 900),  # 이메일 + IP
+    "auth.login_account": Limit(100, 900),  # 이메일 단독 — 이 이메일의 유효한 기기 쿠키면 건너뛴다
+    "auth.login_device": Limit(10, 900),  # 기기 쿠키로 면제받은 요청(쿠키 서명 값 기준)
+    "auth.login_ip": Limit(60, 900),  # IP 단독 — 이동통신·회사망은 많은 사람이 IP 하나를 쓴다
+    "auth.signup": Limit(5, 3600),
+    "auth.reset": Limit(10, 900),
+    "auth.reauth": Limit(5, 900),
+    "level.request": Limit(3, 86400),
 }
 
 

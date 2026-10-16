@@ -11,7 +11,7 @@ fail() { echo "build.sh: $*" >&2; exit 1; }
 from_file=""
 if [ -e "$FRONTEND_ENV_FILE" ]; then
   [ -r "$FRONTEND_ENV_FILE" ] || fail "$FRONTEND_ENV_FILE 을 읽을 수 없습니다 — 빌드하는 사용자(mypage)가 읽게 권한을 640 root:mypage 로(deploy/README.md 3절)"
-  from_file="$(sed -n 's/^BACKEND_URL=//p' "$FRONTEND_ENV_FILE" | tail -n 1)"
+  from_file="$(sed -n 's/^[[:space:]]*BACKEND_URL=//p' "$FRONTEND_ENV_FILE" | tail -n 1)"  # 키 앞 공백은 systemd 처럼 받는다
 fi
 if [ -n "${BACKEND_URL:-}" ] && [ -n "$from_file" ] && [ "$BACKEND_URL" != "$from_file" ]; then
   fail "환경 변수 BACKEND_URL($BACKEND_URL)과 $FRONTEND_ENV_FILE 의 값($from_file)이 다릅니다 — 실행 때는 파일 값을 쓰므로 하나로 맞추세요"

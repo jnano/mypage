@@ -18,7 +18,7 @@ from app.models.boards import (
     BoardSlugHistory,
     BoardSubscription,
 )
-from app.models.comments import Attachment, Comment
+from app.models.comments import TEMP_UPLOAD, Attachment, Comment
 from app.models.members import Member, MemberGroup, MemberGroupMember, SiteSetting
 from app.models.moderation import MemberSanction, ModerationLog, Report
 from app.models.notifications import Notification, NotificationPref
@@ -89,6 +89,7 @@ __all__ = [
     "SearchSynonym",
     "SearchTerm",
     "SiteSetting",
+    "TEMP_UPLOAD",
     "WithdrawnEmailMark",
     "WorkerSchedule",
 ]

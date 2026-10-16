@@ -21,8 +21,7 @@ from app.core import outbox
 from app.core.problems import Problem
 from app.editor.render import ImageSource, inline_ids, render_content
 from app.files import storage
-from app.models import Attachment, Board, Post
-from app.models.comments import TEMP_UPLOAD
+from app.models import TEMP_UPLOAD, Attachment, Board, Post
 from app.search.index import post_open
 
 ROW_COLUMNS = (
@@ -122,6 +121,7 @@ async def apply(
                 role="inline" if item.id in used_inline else "attachment",
             )
         )
+        # 남의 임시·없는 id 는 load_attachable 이 먼저 다른 말로 거른다 — 여기 오는 것은 그 사이의 경합뿐
         if result.rowcount != 1:
             raise Problem(
                 422, "attachment_unavailable", "이미 다른 곳에 붙은 첨부입니다",

@@ -15,6 +15,7 @@ from app.admin.logs import redact_log_payload
 from app.core.outbox import Event, enqueue
 from app.files import storage
 from app.models import (
+    TEMP_UPLOAD,
     Attachment,
     Board,
     BoardDailyStat,
@@ -33,7 +34,6 @@ from app.models import (
     Report,
     WithdrawnEmailMark,
 )
-from app.models.comments import TEMP_UPLOAD
 from app.posts import reactions
 from app.posts.purge import purge_posts
 

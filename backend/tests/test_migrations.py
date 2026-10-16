@@ -138,3 +138,32 @@ def test_member_checks_fail_with_hint_until_filled(scratch_db: str) -> None:
         # 정규화 키가 겹치면 이름 뒤에 #id
         ("회원 하나#2", "회원하나#2", "m2@example.test", "dev-notice", True),
     ]
+
+
+# ── 마이그레이션 ↔ 모델: DB 가 정규화한 정의끼리 대조(코드 검토 v2 N-2) ──
+# alembic check 는 CHECK 식·부분 인덱스 조건·INCLUDE 를 비교하지 않는다. 그래서 모델로 바로 만든 DB(create_all)와
+# 마이그레이션으로 만든 시험 DB 의 제약·인덱스 정의를 PostgreSQL 이 정규화한 문자열(pg_get_constraintdef·indexdef)로 맞춘다.
+
+DEFINITIONS = (
+    "SELECT 'constraint ' || conrelid::regclass::text || '.' || conname, pg_get_constraintdef(oid) FROM pg_constraint"
+    " WHERE connamespace = 'public'::regnamespace AND conrelid::regclass::text <> 'alembic_version'"
+    " UNION ALL SELECT 'index ' || indexname, indexdef FROM pg_indexes"
+    " WHERE schemaname = 'public' AND tablename <> 'alembic_version'"
+)
+
+
+async def _create_all(url: str) -> None:
+    eng = create_async_engine(url, poolclass=NullPool)
+    try:
+        async with eng.begin() as conn:
+            await conn.run_sync(Base.metadata.create_all)
+    finally:
+        await eng.dispose()
+
+
+def test_migrated_definitions_match_models(migrated_db: None, scratch_db: str) -> None:
+    asyncio.run(_create_all(scratch_db))
+    from_models = dict(asyncio.run(_execute(scratch_db, DEFINITIONS)))
+    migrated = dict(asyncio.run(_execute(TEST_DATABASE_URL, DEFINITIONS)))
+    assert {k: v for k, v in migrated.items() if from_models.get(k) != v} == {}
+    assert from_models.keys() == migrated.keys()

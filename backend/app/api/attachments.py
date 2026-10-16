@@ -17,8 +17,7 @@ from app.core.problems import Problem
 from app.db.session import get_db
 from app.files import storage, uploads
 from app.files.sender import sender
-from app.models import Attachment
-from app.models.comments import TEMP_UPLOAD
+from app.models import TEMP_UPLOAD, Attachment
 from app.permissions import can, load_board_role
 from app.posts import queries as post_queries
 

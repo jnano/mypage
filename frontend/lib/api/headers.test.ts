@@ -7,6 +7,7 @@ const ctx = {
   devViewerLogin: true,
   devViewerSecret: "dev-secret-0123456789",
   internalApiSecret: "internal-secret",
+  clientIp: "203.0.113.9",
 };
 
 describe("공개 fetch 도구(§2.2 P1)", () => {
@@ -19,18 +20,24 @@ describe("공개 fetch 도구(§2.2 P1)", () => {
   });
 });
 
-describe("개인 fetch 도구", () => {
-  it("읽기는 보는 사람만, 쓰기는 내부 비밀까지 싣는다", () => {
-    const read = personalHeaders(ctx, { write: false });
-    expect(read.get("x-dev-member")).toBe("3; key=dev-secret-0123456789");
-    expect(read.has("x-internal-secret")).toBe(false);
-    expect(personalHeaders(ctx, { write: true }).get("x-internal-secret")).toBe("internal-secret");
+describe("개인 fetch 도구(인증 설계도 §2.2·§2.3)", () => {
+  it("읽기·쓰기 모두 보는 사람·클라이언트 IP·내부 비밀을 싣는다", () => {
+    const h = personalHeaders(ctx);
+    expect(h.get("x-dev-member")).toBe("3; key=dev-secret-0123456789");
+    expect(h.get("x-client-ip")).toBe("203.0.113.9");
+    expect(h.get("x-internal-secret")).toBe("internal-secret");
   });
 
   it("개발 로그인이 꺼져 있거나 쿠키가 이상하면 비회원으로 보낸다", () => {
-    expect(personalHeaders({ ...ctx, devViewerLogin: false }, { write: false }).has("x-dev-member")).toBe(false);
-    expect(personalHeaders({ ...ctx, devMemberId: null }, { write: false }).has("x-dev-member")).toBe(false);
-    expect(personalHeaders({ ...ctx, devMemberId: "1; key=x" }, { write: false }).has("x-dev-member")).toBe(false);
+    expect(personalHeaders({ ...ctx, devViewerLogin: false }).has("x-dev-member")).toBe(false);
+    expect(personalHeaders({ ...ctx, devMemberId: null }).has("x-dev-member")).toBe(false);
+    expect(personalHeaders({ ...ctx, devMemberId: "1; key=x" }).has("x-dev-member")).toBe(false);
+  });
+
+  it("X-Real-IP 가 없거나 IP 모양이 아니면 클라이언트 IP 를 싣지 않는다", () => {
+    expect(personalHeaders({ ...ctx, clientIp: null }).has("x-client-ip")).toBe(false);
+    expect(personalHeaders({ ...ctx, clientIp: "1.2.3.4\r\nx-evil: 1" }).has("x-client-ip")).toBe(false);
+    expect(personalHeaders({ ...ctx, clientIp: "1.2.3.4, 5.6.7.8" }).has("x-client-ip")).toBe(false);
   });
 });
 

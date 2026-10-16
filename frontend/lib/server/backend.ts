@@ -1,5 +1,5 @@
 import "server-only";
-import { cookies } from "next/headers";
+import { cookies, headers } from "next/headers";
 import { personalHeaders, publicHeaders } from "@/lib/api/headers";
 import { readJson } from "@/lib/api/problem";
 import { serverConfig } from "@/lib/server/config";
@@ -22,6 +22,7 @@ export async function personalContext() {
     devViewerLogin: config.devViewerLogin,
     devViewerSecret: config.devViewerSecret,
     internalApiSecret: config.internalApiSecret,
+    clientIp: (await headers()).get("x-real-ip"),
   };
 }
 
@@ -30,21 +31,20 @@ export async function hasViewer(): Promise<boolean> {
   return (await personalContext()).devMemberId !== null;
 }
 
-/** 개인 읽기 — 보는 사람 기준(요청 시점, 캐시하지 않음) */
+/** 개인 읽기 — 보는 사람 기준(요청 시점, 캐시하지 않음). 내부 비밀도 싣는다(보는 사람 머리를 FastAPI 가 믿도록) */
 export async function personalGet<T>(path: string): Promise<T> {
-  const headers = personalHeaders(await personalContext(), { write: false });
-  const res = await fetch(`${serverConfig().backendUrl}${path}`, { headers, cache: "no-store" });
+  const res = await fetch(`${serverConfig().backendUrl}${path}`, { headers: personalHeaders(await personalContext()), cache: "no-store" });
   return readJson<T>(res);
 }
 
-/** 쓰기 — Server Action·Route Handler 전용. 내부 비밀을 싣는다(FastAPI 쓰기 경계) */
+/** 쓰기 — Server Action·Route Handler 전용(FastAPI 쓰기 경계는 내부 비밀) */
 export async function personalSend<T>(
   method: "POST" | "PATCH" | "PUT" | "DELETE",
   path: string,
   body?: unknown,
   extraHeaders?: HeadersInit,
 ): Promise<{ data: T; headers: Headers }> {
-  const headers = personalHeaders(await personalContext(), { write: true }, extraHeaders);
+  const headers = personalHeaders(await personalContext(), extraHeaders);
   if (body !== undefined) headers.set("content-type", "application/json");
   const res = await fetch(`${serverConfig().backendUrl}${path}`, {
     method,
@@ -55,9 +55,9 @@ export async function personalSend<T>(
   return { data: await readJson<T>(res), headers: res.headers };
 }
 
-/** Route Handler 가 FastAPI 로 그대로 넘길 때 — 보는 사람(개발 로그인)과, 쓰기면 내부 비밀 */
-export async function proxyHeaders(opts: { write: boolean }, extra?: HeadersInit): Promise<Headers> {
-  return personalHeaders(await personalContext(), opts, extra);
+/** Route Handler 가 FastAPI 로 그대로 넘길 때 — 개인 도구와 같은 머리(보는 사람·클라이언트 IP·내부 비밀) */
+export async function proxyHeaders(extra?: HeadersInit): Promise<Headers> {
+  return personalHeaders(await personalContext(), extra);
 }
 
 export function backendUrl(path: string): string {

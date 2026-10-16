@@ -5,7 +5,7 @@ import { backendUrl, proxyHeaders } from "@/lib/server/backend";
 const PASS = ["content-type", "content-length", "content-disposition", "x-content-type-options", "cache-control", "x-accel-redirect", "etag", "last-modified"];
 
 export async function proxyFile(path: string): Promise<Response> {
-  const res = await fetch(backendUrl(path), { headers: await proxyHeaders({ write: false }), cache: "no-store" });
+  const res = await fetch(backendUrl(path), { headers: await proxyHeaders(), cache: "no-store" });
   const headers = new Headers();
   for (const name of PASS) {
     const v = res.headers.get(name);

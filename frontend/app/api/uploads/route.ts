@@ -18,7 +18,7 @@ export async function POST(request: Request) {
   }
   const res = await fetch(backendUrl(`/api/uploads?board=${encodeURIComponent(board)}`), {
     method: "POST",
-    headers: await proxyHeaders({ write: true }, pass),
+    headers: await proxyHeaders(pass),
     body: request.body,
     duplex: "half",
     cache: "no-store",

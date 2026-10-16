@@ -7,7 +7,7 @@ from urllib.parse import quote
 import pytest
 from httpx import AsyncClient
 from PIL import Image, PngImagePlugin
-from sqlalchemy import select, update
+from sqlalchemy import select, text, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import settings
@@ -272,6 +272,26 @@ async def test_temp_upload_delete_and_purge_cleanup(dev_header, committed_db, cl
     await process_available(50)
     assert not any(storage.file_path(v, key).exists() for v in ("public", "private"))
     assert not storage.thumb_path("public", key, 320).exists()
+
+
+async def test_block_image_is_not_temp(dev_header, committed_db, client) -> None:
+    """블록에 붙은 그림은 임시가 아니다 — 임시 삭제·글에 붙이기 모두 안 된다(홈블록 §4.7)"""
+    mid, _, _ = await _setup(committed_db)
+    att = (await _upload(client, mid, jpeg_with_gps(), "배너.jpg")).json()["attachment"]["id"]
+    page_id = (await committed_db.execute(text("INSERT INTO pages (path, title) VALUES ('/about', '소개') RETURNING id"))).scalar_one()
+    block_id = (
+        await committed_db.execute(
+            text("INSERT INTO blocks (page_id, type, config) VALUES (:p, 'image', '{}') RETURNING id"), {"p": page_id}
+        )
+    ).scalar_one()
+    await committed_db.execute(update(Attachment).where(Attachment.id == att).values(block_id=block_id))
+    await committed_db.commit()
+    assert (await client.delete(f"/api/attachments/{att}", headers=as_member(mid))).status_code == 404
+    res = await client.post(
+        "/api/boards/free/posts", json={"title": "글", "content": "본문", "attachments": [{"id": att}]}, headers=as_member(mid)
+    )
+    assert res.status_code == 422
+    assert (await _attachment(committed_db, att)).block_id == block_id
 
 
 async def test_non_image_attachment_downloads(dev_header, committed_db, client) -> None:

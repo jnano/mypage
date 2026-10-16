@@ -1,4 +1,4 @@
-"""설계도 §4(v3.0.1)·인증 설계도 §3 을 옮겨 적은 스키마 명세 — test_schema_contract.py 의 대조 기준.
+"""설계도 §4(v3.0.1)·인증 설계도 §3·홈블록 설계도 §4 를 옮겨 적은 스키마 명세 — test_schema_contract.py 의 대조 기준.
 
 설계도 §4 를 바꾸면 이 파일도 같이 바꾼다. 모델에서 베껴 오지 않는다(설계도에서 옮긴다).
 
@@ -13,6 +13,9 @@ indexes: {이름: "칸, … [| where 조건] [| using 방식] [| include 칸, �
 """
 
 from dataclasses import dataclass, field
+
+# 블록 종류는 목록이 코드와 함께 바뀌므로 원본(홈블록 §4.3 — app/blocks/types)과 대조한다(D-706)
+from app.blocks.types import STORED_BLOCK_TYPES
 
 
 @dataclass(frozen=True)
@@ -190,8 +193,9 @@ SPEC: dict[str, T] = {
             "display jsonb",
             CREATED,
             UPDATED,
+            "layout_id bigint null",  # 홈블록 §4.2
         ],
-        fks={"group_id": "board_groups SET NULL"},
+        fks={"group_id": "board_groups SET NULL", "layout_id": "layouts SET NULL"},
         uniques=[("slug",)],
     ),
     "board_categories": T(
@@ -434,13 +438,18 @@ SPEC: dict[str, T] = {
             "alt_text varchar(300) null",
             "download_count integer =0",
             CREATED,
+            "block_id bigint null",  # 홈블록 §4.7
         ],
-        fks={"post_id": "posts CASCADE", "uploader_id": "members SET NULL"},
-        checks={"dimensions": "(width IS NULL) = (height IS NULL)"},
+        fks={"post_id": "posts CASCADE", "uploader_id": "members SET NULL", "block_id": "blocks SET NULL"},
+        checks={
+            "dimensions": "(width IS NULL) = (height IS NULL)",
+            "one_owner": "post_id IS NULL OR block_id IS NULL",
+        },
         uniques=[("storage_key",)],
         indexes={
             "ix_attachments_post": "post_id, sort_order",
-            "ix_attachments_temp": "created_at | where post_id IS NULL",
+            "ix_attachments_block": "block_id | where block_id IS NOT NULL",
+            "ix_attachments_temp": "created_at | where post_id IS NULL AND block_id IS NULL",
         },
     ),
     # ── §4.5 운영·알림·기반 표 ─────────────────────────────
@@ -474,7 +483,7 @@ SPEC: dict[str, T] = {
             "actor_id bigint null",
             "board_id bigint null",
             "action varchar(40)",
-            "target_type varchar(10) in(board,post,comment,report,member,sanction,setting,group)",
+            "target_type varchar(10) in(board,post,comment,report,member,sanction,setting,group,layout,page,menu)",
             "target_id bigint",
             "before jsonb null",
             "after jsonb null",
@@ -597,5 +606,125 @@ SPEC: dict[str, T] = {
     "search_synonyms": T(
         cols=["term varchar(100)", "synonym varchar(100)"],
         pk=("term", "synonym"),
+    ),
+    # ── 홈블록 설계도 §4.1~§4.5 ─────────────────────────────
+    "layouts": T(
+        cols=[
+            ID,
+            "name varchar(50)",
+            "is_default boolean =false",
+            "version integer =1",
+            CREATED,
+            UPDATED,
+            "updated_by bigint null",
+        ],
+        fks={"updated_by": "members SET NULL"},
+        uniques=[("name",)],
+        indexes={"uq_layouts_is_default": "is_default | where is_default | unique"},
+    ),
+    "layout_bindings": T(
+        cols=["route_class varchar(10) in(board,search,member,auth)", "layout_id bigint"],
+        pk=("route_class",),
+        fks={"layout_id": "layouts CASCADE"},
+    ),
+    "pages": T(
+        cols=[
+            ID,
+            "path varchar(160)",
+            "title varchar(100)",
+            "description varchar(300) null",
+            "layout_id bigint null",
+            "status varchar(10) ='draft' in(draft,published)",
+            "is_home boolean =false",
+            f"view_level smallint =0 {LV}",
+            "indexable boolean =true",
+            "version integer =1",
+            "published_at timestamptz null",
+            "content_updated_at timestamptz null",
+            CREATED,
+            UPDATED,
+            "updated_by bigint null",
+        ],
+        fks={"layout_id": "layouts SET NULL", "updated_by": "members SET NULL"},
+        checks={
+            "path_format": "path ~ '^/([a-z0-9-]{1,50}(/[a-z0-9-]{1,50}){0,2})?$'",
+            "home_path": "NOT is_home OR path = '/'",
+            "published_at": "status <> 'published' OR published_at IS NOT NULL",
+        },
+        uniques=[("path",)],
+        indexes={"uq_pages_is_home": "is_home | where is_home | unique"},
+    ),
+    "page_path_history": T(
+        cols=["old_path varchar(160)", "page_id bigint", "changed_at timestamptz =now()"],
+        pk=("old_path",),
+        fks={"page_id": "pages CASCADE"},
+        indexes={"ix_page_path_history_page": "page_id, changed_at"},
+    ),
+    "blocks": T(
+        cols=[
+            ID,
+            "layout_id bigint null",
+            "page_id bigint null",
+            "region varchar(8) null in(header,nav,top,aside,bottom,footer)",
+            "parent_id bigint null",
+            "column_index smallint null range(0,3)",
+            "sort_order integer =0",
+            f"type varchar(20) in({','.join(STORED_BLOCK_TYPES)})",
+            "config jsonb",
+            "audience varchar(6) ='all' in(all,guest,member)",
+            f"min_level smallint =0 {LV}",
+            "is_active boolean =true",
+            CREATED,
+            UPDATED,
+        ],
+        fks={"layout_id": "layouts CASCADE", "page_id": "pages CASCADE", "parent_id": "blocks CASCADE"},
+        checks={
+            "owner": "(layout_id IS NULL) <> (page_id IS NULL)",
+            "layout_region": "layout_id IS NULL OR region IS NOT NULL OR parent_id IS NOT NULL",
+            "page_region": "page_id IS NULL OR region IS NULL",
+            "column_parent": "column_index IS NULL OR parent_id IS NOT NULL",
+        },
+        indexes={
+            "ix_blocks_layout": "layout_id, region, sort_order | where layout_id IS NOT NULL",
+            "ix_blocks_page": "page_id, sort_order | where page_id IS NOT NULL",
+            "ix_blocks_parent": "parent_id | where parent_id IS NOT NULL",
+        },
+    ),
+    "menus": T(
+        cols=[ID, "name varchar(50)", CREATED, UPDATED, "version integer =1"],
+        uniques=[("name",)],
+    ),
+    "menu_items": T(
+        cols=[
+            ID,
+            "menu_id bigint",
+            "parent_id bigint null",
+            "sort_order integer =0",
+            "label varchar(50)",
+            "link_kind varchar(6) in(page,board,url,none)",
+            "page_id bigint null",
+            "board_id bigint null",
+            "url varchar(500) null",
+            "new_window boolean =false",
+            f"min_level smallint =0 {LV}",
+            "is_active boolean =true",
+        ],
+        fks={
+            "menu_id": "menus CASCADE",
+            "parent_id": "menu_items CASCADE",
+            "page_id": "pages RESTRICT",
+            "board_id": "boards RESTRICT",
+        },
+        checks={
+            "link": "(link_kind = 'page') = (page_id IS NOT NULL)"
+            " AND (link_kind = 'board') = (board_id IS NOT NULL)"
+            " AND (link_kind = 'url') = (url IS NOT NULL)",
+        },
+        indexes={
+            "ix_menu_items_tree": "menu_id, parent_id, sort_order",
+            "ix_menu_items_parent": "parent_id | where parent_id IS NOT NULL",
+            "ix_menu_items_page": "page_id | where page_id IS NOT NULL",
+            "ix_menu_items_board": "board_id | where board_id IS NOT NULL",
+        },
     ),
 }

@@ -18,6 +18,7 @@ from app.db.session import get_db
 from app.files import storage, uploads
 from app.files.sender import sender
 from app.models import Attachment
+from app.models.comments import TEMP_UPLOAD
 from app.permissions import can, load_board_role
 from app.posts import queries as post_queries
 
@@ -104,13 +105,13 @@ async def get_thumb(
 
 @router.delete("/attachments/{attachment_id}")
 async def delete_temp(attachment_id: int, viewer: Viewer = Depends(get_viewer), db: AsyncSession = Depends(get_db)):
-    """글에 붙기 전의 내 임시 업로드만 지운다(붙은 첨부는 글 수정의 attachments 목록으로)."""
+    """글·블록에 붙기 전의 내 임시 업로드만 지운다(붙은 첨부는 글 수정의 attachments 목록으로)."""
     if viewer.member_id is None:
         raise Problem(401, "login_required", "로그인이 필요합니다")
     key = (
         await db.execute(
             delete(Attachment)
-            .where(Attachment.id == attachment_id, Attachment.post_id.is_(None), Attachment.uploader_id == viewer.member_id)
+            .where(Attachment.id == attachment_id, TEMP_UPLOAD, Attachment.uploader_id == viewer.member_id)
             .returning(Attachment.storage_key)
         )
     ).scalar_one_or_none()

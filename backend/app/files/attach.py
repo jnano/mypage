@@ -13,7 +13,7 @@
 from collections.abc import Sequence
 from typing import Any
 
-from sqlalchemy import Row, delete, select, true, update
+from sqlalchemy import Row, and_, delete, or_, select, true, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.auth.viewer import Viewer
@@ -22,11 +22,13 @@ from app.core.problems import Problem
 from app.editor.render import ImageSource, inline_ids, render_content
 from app.files import storage
 from app.models import Attachment, Board, Post
+from app.models.comments import TEMP_UPLOAD
 from app.search.index import post_open
 
 ROW_COLUMNS = (
     Attachment.id,
     Attachment.post_id,
+    Attachment.block_id,
     Attachment.uploader_id,
     Attachment.role,
     Attachment.storage_key,
@@ -72,13 +74,13 @@ async def load_for_post(db: AsyncSession, post_id: int) -> list[Row]:
 
 
 async def load_attachable(db: AsyncSession, viewer: Viewer, ids: Sequence[int], post_id: int | None) -> list[Row]:
-    """붙일 수 있는 첨부 — 내 임시 업로드이거나 이미 이 글의 것. 아니면 422."""
+    """붙일 수 있는 첨부 — 내 임시 업로드이거나 이미 이 글의 것. 아니면 422. 최종 판정은 apply() 의 UPDATE 조건."""
     if not ids:
         return []
     rows = {r.id: r for r in await db.execute(select(*ROW_COLUMNS).where(Attachment.id.in_(list(ids))))}  # post-clause: exempt — 첨부 칸(글 아님)
     for i in ids:
         r = rows.get(i)
-        mine_temp = r is not None and r.post_id is None and r.uploader_id == viewer.member_id
+        mine_temp = r is not None and r.post_id is None and r.block_id is None and r.uploader_id == viewer.member_id
         this_post = r is not None and post_id is not None and r.post_id == post_id
         if not (mine_temp or this_post):
             raise Problem(
@@ -89,16 +91,29 @@ async def load_attachable(db: AsyncSession, viewer: Viewer, ids: Sequence[int], 
 
 
 async def apply(
-    db: AsyncSession, post_id: int, items: Sequence[Any], *, used_inline: set[int], remove_others: bool
+    db: AsyncSession,
+    post_id: int,
+    items: Sequence[Any],
+    *,
+    uploader_id: int | None,
+    used_inline: set[int],
+    remove_others: bool,
 ) -> None:
-    """순서·대체 텍스트·대표 사진·역할을 적용한다. remove_others 면 목록에 없는 이 글의 첨부를 지운다."""
+    """순서·대체 텍스트·대표 사진·역할을 적용한다. remove_others 면 목록에 없는 이 글의 첨부를 지운다.
+
+    붙이기의 최종 판정은 이 UPDATE 의 조건이다(홈블록 §4.7, G-17): 이 글의 것이거나 저장하는 사람의 임시 업로드.
+    load_attachable 뒤에 같은 임시 파일을 다른 글·블록이 먼저 붙였으면 영향 행이 0 이라 422 — 트랜잭션 전체를 되돌린다.
+    """
     cover_taken = False
     for index, item in enumerate(items):
         cover = bool(item.is_cover) and not cover_taken
         cover_taken |= cover
-        await db.execute(
+        result = await db.execute(
             update(Attachment)
-            .where(Attachment.id == item.id)
+            .where(
+                Attachment.id == item.id,
+                or_(Attachment.post_id == post_id, and_(TEMP_UPLOAD, Attachment.uploader_id == uploader_id)),
+            )
             .values(
                 post_id=post_id,
                 sort_order=index,
@@ -107,6 +122,11 @@ async def apply(
                 role="inline" if item.id in used_inline else "attachment",
             )
         )
+        if result.rowcount != 1:
+            raise Problem(
+                422, "attachment_unavailable", "이미 다른 곳에 붙은 첨부입니다",
+                errors=[{"field": "attachments", "message": f"붙일 수 없는 첨부입니다: {item.id}"}],
+            )  # fmt: skip
     if remove_others:
         keep = [i.id for i in items]
         gone = (

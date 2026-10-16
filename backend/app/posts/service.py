@@ -187,7 +187,7 @@ async def insert_post(
             )
         )
     if has_files:
-        await attach.apply(db, row.id, body.attachments, used_inline=attach.inline_ids(content.html), remove_others=False)
+        await attach.apply(db, row.id, body.attachments, uploader_id=viewer.member_id, used_inline=attach.inline_ids(content.html), remove_others=False)
         await attach.reconcile(db, row.id)
     await outbox.enqueue(
         db,
@@ -321,7 +321,7 @@ async def update_post(viewer: Viewer, post_id: int, body: PostUpdate, if_match: 
                 )
         if body.attachments is not None:
             html = content.html if content is not None else post.content_html
-            await attach.apply(db, post_id, body.attachments, used_inline=attach.inline_ids(html), remove_others=True)
+            await attach.apply(db, post_id, body.attachments, uploader_id=viewer.member_id, used_inline=attach.inline_ids(html), remove_others=True)
         if body.attachments is not None or content is not None or body.is_secret is not None:
             await attach.reconcile(db, post_id)  # 공개 여부가 바뀌었을 수 있다(§12.1)
         await outbox.enqueue(

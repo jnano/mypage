@@ -114,6 +114,8 @@ class Board(Base):
     display: Mapped[dict[str, Any]] = mapped_column(JSONB)
     created_at: Mapped[datetime] = created_at()
     updated_at: Mapped[datetime] = updated_at()
+    # 이 게시판 화면의 틀(홈블록 §4.2). NULL = 화면 종류 board 의 틀 → 기본 틀
+    layout_id: Mapped[int | None] = mapped_column(BigInteger, ForeignKey("layouts.id", ondelete="SET NULL"))
 
     # 관계는 모두 lazy="raise" — 필요한 곳에서 selectinload/joinedload 로 명시한다(§3.1-2)
     categories: Mapped[list["BoardCategory"]] = relationship(

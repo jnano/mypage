@@ -33,6 +33,7 @@ from app.models import (
     Report,
     WithdrawnEmailMark,
 )
+from app.models.comments import TEMP_UPLOAD
 from app.posts import reactions
 from app.posts.purge import purge_posts
 
@@ -101,14 +102,14 @@ async def cleanup_notifications(db: AsyncSession) -> int:
 
 
 async def cleanup_temp_uploads(db: AsyncSession) -> int:
-    """글에 붙지 않은 채 24시간 지난 임시 업로드(§3.2). 행을 지우고 파일은 files.delete 이벤트로."""
+    """글·블록에 붙지 않은 채 24시간 지난 임시 업로드(§3.2, 홈블록 §4.7). 행을 지우고 파일은 files.delete 이벤트로."""
     keys = (
         await db.execute(
             delete(Attachment)
             .where(
                 Attachment.id.in_(
                     select(Attachment.id)
-                    .where(Attachment.post_id.is_(None), Attachment.created_at < func.now() - text("interval '24 hours'"))
+                    .where(TEMP_UPLOAD, Attachment.created_at < func.now() - text("interval '24 hours'"))
                     .limit(DELETE_BATCH)
                 )
             )

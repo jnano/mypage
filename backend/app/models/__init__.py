@@ -7,6 +7,7 @@ from app.models.auth import (
     PrivacyNotice,
     WithdrawnEmailMark,
 )
+from app.models.blocks import Block, Layout, LayoutBinding, Menu, MenuItem, Page, PagePathHistory
 from app.models.boards import (
     Board,
     BoardAccess,
@@ -44,6 +45,7 @@ from app.models.system import (
 
 __all__ = [
     "Attachment",
+    "Block",
     "Board",
     "BoardAccess",
     "BoardCategory",
@@ -54,16 +56,22 @@ __all__ = [
     "BoardSubscription",
     "Comment",
     "IdempotencyKey",
+    "Layout",
+    "LayoutBinding",
     "LevelRequest",
     "LoginSession",
     "Member",
     "MemberGroup",
     "MemberGroupMember",
     "MemberSanction",
+    "Menu",
+    "MenuItem",
     "ModerationLog",
     "Notification",
     "NotificationPref",
     "OutboxEvent",
+    "Page",
+    "PagePathHistory",
     "PasswordResetToken",
     "Post",
     "PostCategory",

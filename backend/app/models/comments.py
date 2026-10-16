@@ -14,6 +14,7 @@ from sqlalchemy import (
     SmallInteger,
     String,
     Text,
+    and_,
     text,
 )
 from sqlalchemy.orm import Mapped, mapped_column, relationship
@@ -69,16 +70,21 @@ Index("ix_comments_parent", Comment.parent_id, postgresql_where=text("parent_id 
 Index("ix_comments_reply_to", Comment.reply_to_comment_id, postgresql_where=text("reply_to_comment_id IS NOT NULL"))
 
 
+# 임시 업로드의 정의(홈블록 §4.7) — 정리 작업·인덱스 부분 조건·붙이기·임시 삭제가 모두 이것을 쓴다
+TEMP_UPLOAD_SQL = "post_id IS NULL AND block_id IS NULL"
+
+
 class Attachment(Base):
     __tablename__ = "attachments"
     __table_args__ = (
         enum_check("role", ATTACHMENT_ROLES),
         enum_check("visibility", ATTACHMENT_VISIBILITIES),
         CheckConstraint("(width IS NULL) = (height IS NULL)", name="dimensions"),
+        CheckConstraint("post_id IS NULL OR block_id IS NULL", name="one_owner"),
     )
 
     id: Mapped[int] = pk_id()
-    # NULL = 글에 붙기 전 임시 업로드(24시간 뒤 정리)
+    # post_id·block_id 둘 다 NULL = 어디에도 붙기 전 임시 업로드(24시간 뒤 정리, TEMP_UPLOAD)
     post_id: Mapped[int | None] = mapped_column(
         BigInteger, ForeignKey("posts.id", ondelete="CASCADE")
     )
@@ -102,9 +108,15 @@ class Attachment(Base):
     alt_text: Mapped[str | None] = mapped_column(String(300))
     download_count: Mapped[int] = mapped_column(Integer, server_default=ZERO)
     created_at: Mapped[datetime] = created_at()
+    # 블록 그림(홈블록 §4.7). 블록이 지워지면 NULL → 임시가 되어 정리된다
+    block_id: Mapped[int | None] = mapped_column(BigInteger, ForeignKey("blocks.id", ondelete="SET NULL"))
 
     post: Mapped[Post | None] = relationship(lazy="raise")
 
 
 Index("ix_attachments_post", Attachment.post_id, Attachment.sort_order)
-Index("ix_attachments_temp", Attachment.created_at, postgresql_where=text("post_id IS NULL"))
+# ORM 쪽 같은 조건
+TEMP_UPLOAD = and_(Attachment.post_id.is_(None), Attachment.block_id.is_(None))
+
+Index("ix_attachments_block", Attachment.block_id, postgresql_where=text("block_id IS NOT NULL"))
+Index("ix_attachments_temp", Attachment.created_at, postgresql_where=text(TEMP_UPLOAD_SQL))

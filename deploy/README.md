@@ -39,8 +39,21 @@ sudo -u postgres createdb -O mypage mypage
 ```
 같은 서버라 연결은 유닉스 소켓(peer 인증)으로 한다: `DATABASE_URL=postgresql+asyncpg:///mypage?host=/var/run/postgresql`.
 
-연결 수 계산(§17): `uvicorn 프로세스 수 × (DB_POOL_SIZE + DB_MAX_OVERFLOW) + 작업자 풀 + LISTEN 1 + 여유 ≤ max_connections`.
-기본값으로 2 × (5 + 5) + (5 + 5) + 1 + 여유 ≈ 40 — PostgreSQL 기본 `max_connections`(100) 안이다. PgBouncer 는 쓰지 않는다(§17).
+### uvicorn 프로세스 수와 연결 수
+
+- **시작 규칙(§17)**: uvicorn 프로세스 수 = **서버 코어 수의 절반**(최소 2). 같은 서버에 PostgreSQL·Next·작업자가 함께 돌기 때문이다. 배포 뒤 k6(`frontend/scripts/k6/load.js`, `SCENARIO=api` 와 `guest`)로 처리량이 더 오르지 않는 지점을 찾아 조정한다.
+  - 근거(3단계 측정, 8코어 노트북): 2개 → 4개에서 처리량 160 → 216 요청/s(+35%). CPU 유휴 48% → 14%. 2개는 CPU 가 남는데 막힌 프로세스 수 병목이었고, 4개는 CPU 포화에 가까웠다.
+  - 값은 `backend.env` 의 `WEB_CONCURRENCY`. uvicorn 은 `--workers` 가 없으면 이 값을 쓴다.
+- **연결 수 계산**: `uvicorn 프로세스 수 × (DB_POOL_SIZE + DB_MAX_OVERFLOW) + 작업자 (DB_POOL_SIZE + DB_MAX_OVERFLOW) + LISTEN 1 + 여유 ≤ max_connections`. 풀은 프로세스마다 따로다.
+
+  | uvicorn | 계산(풀 5 + 5) | 합 | PostgreSQL 기본 `max_connections` 100 |
+  |---:|---|---:|---|
+  | 2 | 2 × 10 + 10 + 1 | 31 + 여유 | 안 |
+  | **4** | **4 × 10 + 10 + 1** | **51 + 여유(관리 접속·psql 등 10) ≈ 61** | 안 |
+  | 8 | 8 × 10 + 10 + 1 | 91 + 여유 | 넘을 수 있음 → 풀을 줄이거나 `max_connections` 를 올린다 |
+
+  풀 최고치는 측정 때 Server-Timing(`pool;desc="peak=N/용량"`)으로 본다. 최고치가 용량에 닿으면 풀 대기를 판정할 수 없다(§15.4).
+- PgBouncer 는 쓰지 않는다(§17).
 
 ## 3. 환경 변수
 
@@ -52,6 +65,7 @@ sudo -u postgres createdb -O mypage mypage
 | `DEBUG` | `false` |
 | `DATABASE_URL` | 위 2 |
 | `DB_POOL_SIZE` · `DB_MAX_OVERFLOW` | `5` · `5`(부하 측정으로 조정 — `doc/측정/`) |
+| `WEB_CONCURRENCY` | uvicorn 프로세스 수 — 코어 수의 절반(최소 2), 2절 '연결 수' 표와 맞춘다 |
 | `INTERNAL_API_SECRET` | 32자 이상 무작위(`python3 -c "import secrets; print(secrets.token_urlsafe(32))"`). frontend.env 와 같은 값 |
 | `NEXT_REVALIDATE_URL` | `http://127.0.0.1:3000/api/revalidate` |
 | `MEDIA_ROOT` · `PRIVATE_ROOT` | `/srv/mypage/shared/media` · `/srv/mypage/shared/private` |

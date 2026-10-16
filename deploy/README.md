@@ -89,6 +89,7 @@ sudo -u postgres createdb -O mypage mypage
 
 ```bash
 cd /srv/mypage/app
+# BACKEND_URL 은 /etc/mypage/frontend.env 에서 읽어 빌드에 넘긴다 — rewrites 가 빌드 때 이 주소로 굳는다(값을 바꾸면 다시 빌드)
 sudo -u mypage ./deploy/build.sh
 sudo -u mypage bash -c 'set -a; . /etc/mypage/backend.env; cd backend && .venv/bin/alembic upgrade head'
 # 처음 한 번 — 첫 운영자와 첫 개인정보 고지 판(인증 설계도 §4.12). 고지문 파일은 실제 문구로 준비한다.
@@ -127,6 +128,7 @@ TLS: `sudo certbot --nginx -d 실제.도메인` — certbot 이 server 블록에
 
 ```bash
 cd /srv/mypage/app && sudo -u mypage git pull
+# BACKEND_URL 은 /etc/mypage/frontend.env 에서 읽어 빌드에 넘긴다 — rewrites 가 빌드 때 이 주소로 굳는다(값을 바꾸면 다시 빌드)
 sudo -u mypage ./deploy/build.sh
 sudo -u mypage bash -c 'set -a; . /etc/mypage/backend.env; cd backend && .venv/bin/alembic upgrade head'
 sudo systemctl restart mypage-backend mypage-worker mypage-frontend

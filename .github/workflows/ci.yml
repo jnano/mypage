@@ -20,6 +20,10 @@ jobs:
         run: python3 scripts/ci/check_post_clause.py
       - name: 에디터 토큰 생성 파일 비교
         run: python3 scripts/gen_editor_tokens.py --check
+      - name: 환경 변수 대조 — 대조군(설정 칸 ↔ 틀·README, 사이트 시간대 한 값, BACKEND_URL 기본값)
+        run: python3 scripts/ci/check_env_keys.py --self-test
+      - name: 환경 변수 대조
+        run: python3 scripts/ci/check_env_keys.py
 
   backend:
     runs-on: ubuntu-latest
@@ -155,6 +159,18 @@ jobs:
           getent passwd mypage || sudo useradd --system --no-create-home mypage
           sudo install -m 644 deploy/systemd/*.service /etc/systemd/system/
           sudo systemd-analyze verify /etc/systemd/system/mypage-*.service
+      - name: build.sh 의 BACKEND_URL — 환경이 이기고, 없으면 frontend.env, 둘 다 없거나 비면 멈춤(설계도 §17.1)
+        run: |
+          T=$(mktemp -d)
+          printf 'APP_ENV=prod\nBACKEND_URL=http://127.0.0.1:9000\n' > "$T/f.env"
+          out=$(env -u BACKEND_URL FRONTEND_ENV_FILE="$T/f.env" ./deploy/build.sh --resolve-only)
+          [ "$out" = "BACKEND_URL=http://127.0.0.1:9000 (빌드 때 rewrites 에 굳는다)" ] || { echo "✗ 파일 값: $out"; exit 1; }
+          out=$(BACKEND_URL=http://127.0.0.1:7000 FRONTEND_ENV_FILE="$T/f.env" ./deploy/build.sh --resolve-only)
+          [ "$out" = "BACKEND_URL=http://127.0.0.1:7000 (빌드 때 rewrites 에 굳는다)" ] || { echo "✗ 환경 값: $out"; exit 1; }
+          if env -u BACKEND_URL FRONTEND_ENV_FILE="$T/none" ./deploy/build.sh --resolve-only; then echo "✗ 값이 없는데 멈추지 않음"; exit 1; fi
+          sed 's/^BACKEND_URL=.*/BACKEND_URL=/' deploy/env/frontend.env.example > "$T/empty.env"
+          if env -u BACKEND_URL FRONTEND_ENV_FILE="$T/empty.env" ./deploy/build.sh --resolve-only; then echo "✗ 틀 그대로(빈 값)인데 멈추지 않음"; exit 1; fi
+          echo "✓ 환경 > frontend.env > 멈춤"
       - uses: astral-sh/setup-uv@v10.2.0
       - name: 환경 변수 틀을 복사해 백엔드 유닛을 실제로 기동(WEB_CONCURRENCY 기본 2 · 설정값 · 빈 값 실패 · 선택 칸 주석 풀기)
         env:
@@ -237,6 +253,14 @@ jobs:
         run: sudo mkdir -p /srv/mypage/shared/media /srv/mypage/shared/private && sudo chown -R "$USER" /srv/mypage && sudo chmod 755 /srv /srv/mypage /srv/mypage/shared
       - name: 빌드(deploy/build.sh)
         run: ./deploy/build.sh
+      - name: rewrites 가 빌드 때의 BACKEND_URL 로 굳었는지(기본값 localhost:8000 이 아니라 job 의 127.0.0.1:8000)
+        run: |
+          python3 - <<'PY'
+          import json, sys
+          dests = [r["destination"] for r in json.load(open("frontend/.next/routes-manifest.json"))["rewrites"]["fallback"]]
+          print(dests)
+          sys.exit(0 if all(d.startswith("http://127.0.0.1:8000/") for d in dests) and dests else "✗ rewrites 주소가 빌드 때 값이 아니다")
+          PY
       - name: 마이그레이션·개발 시드·기동(유닛과 같은 실행 인자, 측정을 위해 접근 기록만 켬)
         run: |
           cd backend && uv run --no-sync alembic upgrade head && uv run --no-sync python -m scripts.seed_dev

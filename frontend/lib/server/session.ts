@@ -14,7 +14,7 @@ export async function setCookies(specs: CookieSpec[]): Promise<void> {
   for (const c of specs) jar.set(c.name, c.value, c.options);
 }
 
-export async function deleteCookie(kind: "session" | "device" | "consent"): Promise<void> {
+export async function deleteCookie(kind: "session" | "device" | "consent" | "role"): Promise<void> {
   const config = serverConfig();
   (await cookies()).delete({ name: cookieNames(config.appEnv)[kind], path: "/", secure: config.appEnv === "prod" });
 }

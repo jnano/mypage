@@ -41,6 +41,7 @@ export async function withdrawAction(_prev: AdminFormState, f: FormData): Promis
     throw e;
   }
   await deleteCookie("session");
+  await deleteCookie("role");
   redirect("/");
 }
 

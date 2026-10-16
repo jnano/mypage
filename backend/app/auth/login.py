@@ -99,6 +99,8 @@ async def start_session(db: AsyncSession, member: Member, persistent: bool, user
         "session_expires_at": expires_at.isoformat() if persistent else None,
         "device_token": keys.device_token(member.email or "") if persistent else None,
         "notices": notices,
+        # 화면 표시용(사이트 머리의 '관리' 링크) — 권한이 아니다. 관리 화면의 판정은 늘 FastAPI 가 한다
+        "is_admin": member.is_admin,
     }
 
 

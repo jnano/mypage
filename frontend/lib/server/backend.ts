@@ -35,6 +35,12 @@ export async function hasViewer(): Promise<boolean> {
   return ctx.sessionToken !== null || ctx.devMemberId !== null;
 }
 
+/** 운영자 표시 쿠키가 있는지 — 사이트 머리의 '관리' 링크용(권한 아님, 판정은 FastAPI) */
+export async function hasAdminHint(): Promise<boolean> {
+  const ctx = await personalContext();
+  return ctx.sessionToken !== null && (await cookies()).get(cookieNames(serverConfig().appEnv).role)?.value === "admin";
+}
+
 /** 세션 쿠키가 있는지 — '쿠키는 있는데 비회원'(만료·폐기)을 가릴 때(인증 설계도 §4.4.1) */
 export async function hasSessionCookie(): Promise<boolean> {
   return (await personalContext()).sessionToken !== null;

@@ -1,11 +1,11 @@
 import { describe, expect, it } from "vitest";
 import { consentCookie, cookieNames, failureState, sessionCookies } from "./cookies";
 
-const data = { session_token: "s".repeat(43), session_expires_at: null, device_token: null, notices: [] };
+const data = { session_token: "s".repeat(43), session_expires_at: null, device_token: null, notices: [], is_admin: false };
 
 describe("인증 쿠키(인증 설계도 §2.1·§4.3-7)", () => {
   it("운영은 __Host- + Secure, 개발은 접두어 없음", () => {
-    expect(cookieNames("prod")).toEqual({ session: "__Host-session", device: "__Host-device", consent: "__Host-consent" });
+    expect(cookieNames("prod")).toEqual({ session: "__Host-session", device: "__Host-device", consent: "__Host-consent", role: "__Host-role" });
     expect(cookieNames("dev").session).toBe("session");
     const [prod] = sessionCookies("prod", data);
     expect(prod.options).toMatchObject({ httpOnly: true, sameSite: "lax", path: "/", secure: true });
@@ -24,6 +24,15 @@ describe("인증 쿠키(인증 설계도 §2.1·§4.3-7)", () => {
     const cookies = sessionCookies("prod", { ...data, session_expires_at: at, device_token: "d.1.x" });
     expect(cookies[0].options.expires?.toISOString()).toBe(new Date(at).toISOString());
     expect(cookies[1]).toMatchObject({ name: "__Host-device", value: "d.1.x", options: { maxAge: 31536000, httpOnly: true } });
+  });
+
+  it("운영자면 표시 쿠키를 세션과 같은 수명으로, 아니면 심지 않는다", () => {
+    const at = "2026-10-23T00:00:00+00:00";
+    const admin = sessionCookies("prod", { ...data, is_admin: true, session_expires_at: at });
+    const role = admin.find((c) => c.name === "__Host-role");
+    expect(role?.value).toBe("admin");
+    expect(role?.options).toEqual(admin[0].options);
+    expect(sessionCookies("prod", data).some((c) => c.name === "__Host-role")).toBe(false);
   });
 
   it("재동의 쿠키는 5분", () => {

@@ -7,11 +7,13 @@ export interface CookieNames {
   session: string;
   device: string;
   consent: string;
+  /** 운영자 표시(값 "admin") — 사이트 머리의 '관리' 링크용. 권한이 아니다(판정은 FastAPI) */
+  role: string;
 }
 
 export function cookieNames(appEnv: AppEnv): CookieNames {
   const prefix = appEnv === "prod" ? "__Host-" : "";
-  return { session: `${prefix}session`, device: `${prefix}device`, consent: `${prefix}consent` };
+  return { session: `${prefix}session`, device: `${prefix}device`, consent: `${prefix}consent`, role: `${prefix}role` };
 }
 
 export interface CookieSpec {
@@ -29,6 +31,8 @@ export interface SessionResponse {
   session_expires_at: string | null;
   device_token: string | null;
   notices: string[];
+  /** 표시용 — 운영자면 role 쿠키를 세션 쿠키와 같은 수명으로 둔다 */
+  is_admin: boolean;
 }
 
 /** 로그인·재동의 응답 → 심을 쿠키. 토큰은 쿠키로만 간다(Action 반환값에 싣지 않는다) */
@@ -42,6 +46,8 @@ export function sessionCookies(appEnv: AppEnv, data: SessionResponse): CookieSpe
       options: data.session_expires_at ? { ...base, expires: new Date(data.session_expires_at) } : { ...base },
     },
   ];
+  // 운영자 표시 — 세션 쿠키와 같은 수명(유지 안 함이면 브라우저 세션 쿠키). 운영자가 아니면 심지 않는다(지우는 쪽은 Action)
+  if (data.is_admin) out.push({ name: names.role, value: "admin", options: { ...out[0].options } });
   if (data.device_token) out.push({ name: names.device, value: data.device_token, options: { ...base, maxAge: DEVICE_MAX_AGE } });
   return out;
 }

@@ -62,6 +62,7 @@ async def test_login_issues_session_cookie_values(committed_db, client) -> None:
     assert r.status_code == 200 and r.headers["cache-control"] == "private, no-store"
     body = r.json()
     assert body["session_expires_at"] is None and body["device_token"] is None  # 유지 안 함
+    assert body["is_admin"] is False  # 표시용 — 머리의 '관리' 링크
     row = (await committed_db.execute(select(LoginSession).where(LoginSession.member_id == m.id))).scalar_one()
     assert row.token_hash == hash_token(body["session_token"]) and row.user_agent == "시험 브라우저"
     assert timedelta(hours=11, minutes=59) < row.expires_at - row.created_at <= timedelta(hours=12)

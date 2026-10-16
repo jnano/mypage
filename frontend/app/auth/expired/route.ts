@@ -15,6 +15,7 @@ export async function GET(request: NextRequest) {
   // 다른 사이트가 이 주소를 불렀으면 지우지 않고 보내기만 한다(로그아웃 유도 방지, 검토 v3 R-5).
   // 쿠키가 정말 무효면 돌아간 화면이 같은 출처로 다시 여기로 보내 그때 지워진다
   if (!selfInitiated(request.headers)) return response;
-  response.cookies.delete({ name: cookieNames(config.appEnv).session, path: "/", secure: config.appEnv === "prod" });
+  const names = cookieNames(config.appEnv);
+  for (const name of [names.session, names.role]) response.cookies.delete({ name, path: "/", secure: config.appEnv === "prod" });
   return response;
 }

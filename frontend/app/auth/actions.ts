@@ -49,6 +49,7 @@ export async function loginAction(next: string, _prev: AuthFormState, formData: 
     redirect(`/me/consent?next=${encodeURIComponent(target)}`);
   }
   await setCookies(sessionCookies(appEnv, data));
+  if (!data.is_admin) await deleteCookie("role"); // 이 브라우저에서 전에 운영자였던 표시가 남지 않게
   redirect(afterLogin(data, target));
 }
 
@@ -67,6 +68,7 @@ export async function consentAction(next: string, _prev: AuthFormState): Promise
     throw e;
   }
   await setCookies(sessionCookies(appEnv, data));
+  if (!data.is_admin) await deleteCookie("role");
   await deleteCookie("consent");
   redirect(afterLogin(data, safeNextPath(next)));
 }
@@ -77,6 +79,7 @@ export async function logoutAction(): Promise<void> {
     await personalSend("POST", "/api/auth/logout");
   } finally {
     await deleteCookie("session");
+    await deleteCookie("role");
   }
   redirect("/");
 }
@@ -89,6 +92,7 @@ export async function logoutAllAction(): Promise<void> {
     if (!(e instanceof ApiError)) throw e;
   } finally {
     await deleteCookie("session");
+    await deleteCookie("role");
   }
   redirect("/");
 }

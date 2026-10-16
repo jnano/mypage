@@ -21,7 +21,7 @@
 
 ## 1. 서버 준비
 
-1. Ubuntu LTS, 시간대는 UTC 그대로(사이트 시간대는 앱 설정 `SITE_TIME_ZONE`).
+1. Ubuntu LTS, 시간대는 UTC 그대로. 사이트 시간대(화면의 날짜·시각, 관리 화면의 '하루')는 `Asia/Seoul` 로 코드에 정해져 있고 **운영 환경 변수로 바꾸지 않는다** — 프런트의 값(`frontend/lib/format/time.ts`)은 빌드에 들어가므로 백엔드만 바꾸면 둘이 갈라진다. 바꾸려면 `time.ts` 상수와 `backend/app/core/config.py` 의 `site_time_zone` 기본값을 함께 고쳐 다시 빌드한다(CI `check_env_keys.py` 가 두 값을 대조한다).
 2. 패키지: `nginx`, PostgreSQL 18(PGDG 저장소), Node.js 22(22.22.2 이상 — `frontend/package.json` `engines`), `uv`(Astral 설치 스크립트), `certbot`·`python3-certbot-nginx`, `git`.
 3. 사용자와 폴더:
    ```bash
@@ -73,9 +73,8 @@ sudo -u postgres createdb -O mypage mypage
 | `NEXT_REVALIDATE_URL` | `http://127.0.0.1:3000/api/revalidate` |
 | `MEDIA_ROOT` · `PRIVATE_ROOT` | `/srv/mypage/shared/media` · `/srv/mypage/shared/private` |
 | `FILE_SENDER` | `nginx`(비공개 파일을 X-Accel-Redirect 로) |
-| `SITE_TIME_ZONE` | `Asia/Seoul` |
 
-`/etc/mypage/frontend.env` — 키는 `env/frontend.env.example`:
+`/etc/mypage/frontend.env`(권한 640, 소유 root:mypage — 빌드(`deploy/build.sh`)가 `mypage` 사용자로 `BACKEND_URL` 을 읽는다). 키는 `env/frontend.env.example`. 값은 따옴표·줄 끝 공백·주석 없이 적는다(`build.sh` 가 그런 `BACKEND_URL` 을 거부한다):
 
 | 키 | 값 |
 |---|---|

@@ -159,18 +159,34 @@ jobs:
           getent passwd mypage || sudo useradd --system --no-create-home mypage
           sudo install -m 644 deploy/systemd/*.service /etc/systemd/system/
           sudo systemd-analyze verify /etc/systemd/system/mypage-*.service
-      - name: build.sh 의 BACKEND_URL — 환경이 이기고, 없으면 frontend.env, 둘 다 없거나 비면 멈춤(설계도 §17.1)
+      - name: build.sh 의 BACKEND_URL — 환경 > frontend.env > 멈춤, 다르면 멈춤, systemd 와 읽는 법이 갈리는 값은 거부(설계도 §17.1)
         run: |
           T=$(mktemp -d)
-          printf 'APP_ENV=prod\nBACKEND_URL=http://127.0.0.1:9000\n' > "$T/f.env"
-          out=$(env -u BACKEND_URL FRONTEND_ENV_FILE="$T/f.env" ./deploy/build.sh --resolve-only)
-          [ "$out" = "BACKEND_URL=http://127.0.0.1:9000 (빌드 때 rewrites 에 굳는다)" ] || { echo "✗ 파일 값: $out"; exit 1; }
-          out=$(BACKEND_URL=http://127.0.0.1:7000 FRONTEND_ENV_FILE="$T/f.env" ./deploy/build.sh --resolve-only)
-          [ "$out" = "BACKEND_URL=http://127.0.0.1:7000 (빌드 때 rewrites 에 굳는다)" ] || { echo "✗ 환경 값: $out"; exit 1; }
+          resolve() { env -u BACKEND_URL FRONTEND_ENV_FILE="$1" ./deploy/build.sh --resolve-only 2>/dev/null | sed -n 's/^BACKEND_URL=\(.*\) (빌드 때 rewrites 에 굳는다)$/\1/p'; }
+          # systemd EnvironmentFile 이 실제로 주는 값과 build.sh 가 굳힐 값 — 같거나, build.sh 가 거부해야 한다
+          i=0
+          for line in 'BACKEND_URL=http://127.0.0.1:9000' 'BACKEND_URL="http://127.0.0.1:9000"' "BACKEND_URL='http://127.0.0.1:9000'" \
+                      'BACKEND_URL=http://127.0.0.1:9000 ' $'BACKEND_URL=http://127.0.0.1:9000\r' 'BACKEND_URL=http://127.0.0.1:9000 # 주석' \
+                      '  BACKEND_URL=http://127.0.0.1:9000' 'BACKEND_URL=127.0.0.1:9000'; do
+            i=$((i+1)); printf 'APP_ENV=prod\n%s\n' "$line" > "$T/c$i.env"
+            sys=$(sudo systemd-run --quiet --wait --pipe -p EnvironmentFile="$T/c$i.env" printenv BACKEND_URL || true)
+            got=$(resolve "$T/c$i.env")
+            if [ -z "$got" ]; then echo "✓ 거부 [$line] (systemd: [$sys])"
+            elif [ "$got" = "$sys" ]; then echo "✓ 같음 [$line] → $got"
+            else echo "✗ [$line] build.sh=[$got] systemd=[$sys]"; exit 1; fi
+          done
+          [ "$(resolve "$T/c1.env")" = "http://127.0.0.1:9000" ] || { echo "✗ 정상 값을 거부"; exit 1; }
+          out=$(BACKEND_URL=http://127.0.0.1:9000 FRONTEND_ENV_FILE="$T/c1.env" ./deploy/build.sh --resolve-only)
+          [ "$out" = "BACKEND_URL=http://127.0.0.1:9000 (빌드 때 rewrites 에 굳는다)" ] || { echo "✗ 같은 값의 환경 변수: $out"; exit 1; }
+          if BACKEND_URL=http://127.0.0.1:7000 FRONTEND_ENV_FILE="$T/c1.env" ./deploy/build.sh --resolve-only; then echo "✗ 환경 변수와 파일이 다른데 멈추지 않음"; exit 1; fi
+          out=$(BACKEND_URL=http://127.0.0.1:7000 FRONTEND_ENV_FILE="$T/none" ./deploy/build.sh --resolve-only)
+          [ "$out" = "BACKEND_URL=http://127.0.0.1:7000 (빌드 때 rewrites 에 굳는다)" ] || { echo "✗ 파일이 없을 때 환경 변수: $out"; exit 1; }
           if env -u BACKEND_URL FRONTEND_ENV_FILE="$T/none" ./deploy/build.sh --resolve-only; then echo "✗ 값이 없는데 멈추지 않음"; exit 1; fi
-          sed 's/^BACKEND_URL=.*/BACKEND_URL=/' deploy/env/frontend.env.example > "$T/empty.env"
-          if env -u BACKEND_URL FRONTEND_ENV_FILE="$T/empty.env" ./deploy/build.sh --resolve-only; then echo "✗ 틀 그대로(빈 값)인데 멈추지 않음"; exit 1; fi
-          echo "✓ 환경 > frontend.env > 멈춤"
+          if env -u BACKEND_URL FRONTEND_ENV_FILE=deploy/env/frontend.env.example ./deploy/build.sh --resolve-only; then echo "✗ 틀 그대로(빈 값)인데 멈추지 않음"; exit 1; fi
+          chmod 000 "$T/c1.env"
+          if env -u BACKEND_URL FRONTEND_ENV_FILE="$T/c1.env" ./deploy/build.sh --resolve-only 2> "$T/err"; then echo "✗ 읽을 수 없는 파일인데 멈추지 않음"; exit 1; fi
+          grep -q '읽을 수 없습니다' "$T/err" || { echo "✗ 읽을 수 없음 안내가 아님: $(cat "$T/err")"; exit 1; }
+          echo "✓ 환경 > frontend.env > 멈춤, 다르면 멈춤, 읽을 수 없으면 따로 알림"
       - uses: astral-sh/setup-uv@v10.2.0
       - name: 환경 변수 틀을 복사해 백엔드 유닛을 실제로 기동(WEB_CONCURRENCY 기본 2 · 설정값 · 빈 값 실패 · 선택 칸 주석 풀기)
         env:
@@ -251,9 +267,11 @@ jobs:
           cache-dependency-path: frontend/package-lock.json
       - name: 운영 배치의 폴더
         run: sudo mkdir -p /srv/mypage/shared/media /srv/mypage/shared/private && sudo chown -R "$USER" /srv/mypage && sudo chmod 755 /srv /srv/mypage /srv/mypage/shared
-      - name: 빌드(deploy/build.sh)
-        run: ./deploy/build.sh
-      - name: rewrites 가 빌드 때의 BACKEND_URL 로 굳었는지(기본값 localhost:8000 이 아니라 job 의 127.0.0.1:8000)
+      - name: 빌드(deploy/build.sh — 운영처럼 BACKEND_URL 을 frontend.env 에서 읽는다)
+        run: |
+          printf 'APP_ENV=dev\nBACKEND_URL=%s\n' "$BACKEND_URL" > "$RUNNER_TEMP/frontend.env"
+          env -u BACKEND_URL FRONTEND_ENV_FILE="$RUNNER_TEMP/frontend.env" ./deploy/build.sh
+      - name: rewrites 가 frontend.env 의 BACKEND_URL 로 굳었는지(기본값 localhost:8000 이 아니라 127.0.0.1:8000)
         run: |
           python3 - <<'PY'
           import json, sys

@@ -43,7 +43,10 @@ async def flush() -> int:
     try:
         async with SessionLocal() as db, db.begin():
             await db.execute(stmt)
-    except Exception:
+    except BaseException as e:
+        if not isinstance(e, Exception):  # 취소(종료) — 묶음을 되돌리고 그대로 올린다. 마지막 flush 가 다시 반영한다(검토 묶음A N-4)
+            _pending.update(dict(batch))
+            raise
         _attempts += 1
         if _attempts >= MAX_ATTEMPTS:
             logger.warning("조회수 버퍼 반영이 %d번 실패해 %d개 글의 조회를 버립니다", _attempts, len(batch))
@@ -59,4 +62,7 @@ async def flush() -> int:
 async def run_forever() -> None:
     while True:
         await asyncio.sleep(INTERVAL_SEC)
-        await flush()
+        try:
+            await flush()
+        except Exception:  # flush 가 잡지 못한 것(예: 문장 만들기)이 배경 작업을 끝내지 않게
+            logger.exception("조회수 버퍼 반영 작업 오류")

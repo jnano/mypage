@@ -265,3 +265,51 @@ async def test_share_off_board_does_not_count(dev_header, committed_db, client) 
 
 async def test_flush_runs_against_real_session_factory() -> None:
     assert view_buffer.SessionLocal is SessionLocal
+
+
+async def test_admin_view_of_unpublished_post_is_not_counted(dev_header, committed_db, client) -> None:
+    """운영자는 can() 을 맨 앞에서 통과한다 — 초안·대기 글의 조회는 공개 상태 확인으로 거른다(검토 묶음A N-2)"""
+    author, _, board, _ = await _world(committed_db, view_count_mode="once")
+    admin = await make_member(committed_db, level=9, is_admin=True)
+    draft = await make_post(committed_db, board, author, status="draft")
+    committed_db.add(PostStat(post_id=draft.id))
+    await committed_db.commit()
+    await _view(client, draft.id, member=admin.id)
+    await client.post(f"/api/posts/{draft.id}/share", headers=as_member(admin.id))
+    stat = await _stat(committed_db, draft.id)
+    assert (stat.view_count, stat.share_count) == (0, 0)
+
+
+async def test_turn_off_missing_post_does_not_warn(dev_header, committed_db, client, caplog) -> None:
+    """없는 글의 끄기는 지금 값을 읽지 않는다 — 경고가 쌓이지 않게(검토 묶음A N-3)"""
+    _, reader, _, _ = await _world(committed_db)
+    with caplog.at_level("WARNING"):
+        for _ in range(3):
+            assert (await client.delete("/api/posts/999999/like", headers=as_member(reader.id))).json() == {"liked": False}
+    assert not [r for r in caplog.records if "post_stats" in r.getMessage()]
+
+
+async def test_flush_cancelled_mid_statement_keeps_batch(monkeypatch) -> None:
+    """반영 도중 취소(종료)되면 묶음을 되돌리고 취소를 그대로 올린다(검토 묶음A N-4)"""
+    view_buffer._pending.clear()
+    view_buffer.add(5)
+    view_buffer.add(5)
+
+    class Hangs:
+        async def __aenter__(self):
+            await asyncio.sleep(10)
+
+        async def __aexit__(self, *exc):
+            return False
+
+        def begin(self):  # pragma: no cover — __aenter__ 에서 멈춘다
+            return self
+
+    monkeypatch.setattr(view_buffer, "SessionLocal", lambda: Hangs())
+    task = asyncio.create_task(view_buffer.flush())
+    await asyncio.sleep(0.05)
+    task.cancel()
+    with pytest.raises(asyncio.CancelledError):
+        await task
+    assert view_buffer.pending() == {5: 2}
+    view_buffer._pending.clear()

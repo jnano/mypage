@@ -28,7 +28,7 @@ const DEVICE_MAX_AGE = 365 * 24 * 60 * 60;
 const CONSENT_MAX_AGE = 5 * 60;
 const VIEW_MAX_AGE = 365 * 24 * 60 * 60;
 
-/** 조회 쿠키 값 — 임의 32바이트의 base64url(패딩 없음) 43자. FastAPI 도 같은 꼴만 받는다(app/posts/reactions.VIEW_TOKEN) */
+/** 조회 쿠키 값 — 임의 32바이트의 base64url(패딩 없음) 43자. FastAPI 도 같은 꼴만 받는다(app/posts/reactions.VIEW_TOKEN — 바꾸면 둘을 함께, 시험 표본도 같은 꼴) */
 export const VIEW_TOKEN = /^[A-Za-z0-9_-]{43}$/;
 
 export interface SessionResponse {

@@ -5,6 +5,7 @@
 export const KNOWN_BOTS =
   /Googlebot|Google-InspectionTool|Storebot-Google|bingbot|Yeti|Daum|DuckDuckBot|Baiduspider|YandexBot|Applebot|facebookexternalhit|Twitterbot|Slackbot|LinkedInBot|kakaotalk-scrap|Discordbot|TelegramBot|WhatsApp/i;
 
+// 'bot' 부분 일치는 이름에 bot 이 든 기기(예: CUBOT 휴대폰)도 봇으로 본다 — 그 기기의 조회는 세지 않는다. 받아들인다(조회수는 '대략', §6.1).
 const GENERIC_BOT = /bot|crawl|spider|slurp/i;
 
 export function isCrawler(userAgent: string | null): boolean {

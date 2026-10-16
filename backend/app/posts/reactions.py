@@ -27,7 +27,8 @@ logger = logging.getLogger(__name__)
 
 Kind = Literal["like", "scrap"]
 
-# 조회 쿠키 값 — 임의 32바이트의 base64url(패딩 없음) 43자. Route Handler 가 만든다(§6.1)
+# 조회 쿠키 값 — 임의 32바이트의 base64url(패딩 없음) 43자. Route Handler 가 만든다(§6.1).
+# 같은 규칙이 프런트 lib/auth/cookies.ts 의 VIEW_TOKEN 에도 있다 — 바꾸면 둘을 함께(시험 표본도 같은 꼴)
 VIEW_TOKEN = re.compile(r"^[A-Za-z0-9_-]{43}$")
 
 # 판정에 필요한 칸만 — 조회 신호마다 본문을 읽지 않는다
@@ -130,10 +131,11 @@ async def turn_off(viewer: Viewer, post_id: int, kind: Kind) -> dict:
     member_id = _require_member(viewer)
     await rate_limit.hit("post.react", f"m:{member_id}")
     table, column = _table(kind)
-    stmt = delete(table).where(table.post_id == post_id, table.member_id == member_id).returning(table.post_id)
-    count = await _write_and_count(stmt, post_id, column, -1)
     judged = await _judge(viewer, post_id)
     readable = judged is not None and can(viewer, judged[2], "post.read", judged[1], judged[0])
+    stmt = delete(table).where(table.post_id == post_id, table.member_id == member_id).returning(table.post_id)
+    # 읽을 수 없는(또는 없는) 글은 지금 값을 읽지 않는다 — 없는 글마다 'post_stats 행 없음' 경고가 쌓이지 않게(검토 묶음A N-3)
+    count = await _write_and_count(stmt, post_id, column, -1, current=readable)
     return _body(kind, False, count if readable else None)
 
 
@@ -160,6 +162,9 @@ async def _countable(viewer: Viewer, post_id: int) -> Board | None:
     if judged is None:
         return None
     post, board, role = judged
+    # 운영자는 can() 을 맨 앞에서 통과하므로 공개 상태를 여기서 따로 본다 — 초안·대기 글의 조회를 세지 않는다(검토 묶음A N-2)
+    if post.status != "published":
+        return None
     return board if can(viewer, role, "post.count", board, post) else None
 
 

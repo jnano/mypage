@@ -1,4 +1,5 @@
 import { connection, type NextRequest, NextResponse } from "next/server";
+import { selfInitiated } from "@/lib/api/origin";
 import { cookieNames } from "@/lib/auth/cookies";
 import { safeNextPath } from "@/lib/auth/next";
 import { serverConfig } from "@/lib/server/config";
@@ -10,8 +11,10 @@ export async function GET(request: NextRequest) {
   const config = serverConfig();
   const next = safeNextPath(request.nextUrl.searchParams.get("next"));
   // 상대 경로 Location — 앞단(nginx)의 호스트·스킴을 다시 계산하지 않는다
-  const response = new NextResponse(null, { status: 303, headers: { Location: next } });
+  const response = new NextResponse(null, { status: 303, headers: { Location: next, "Cache-Control": "private, no-store" } });
+  // 다른 사이트가 이 주소를 불렀으면 지우지 않고 보내기만 한다(로그아웃 유도 방지, 검토 v3 R-5).
+  // 쿠키가 정말 무효면 돌아간 화면이 같은 출처로 다시 여기로 보내 그때 지워진다
+  if (!selfInitiated(request.headers)) return response;
   response.cookies.delete({ name: cookieNames(config.appEnv).session, path: "/", secure: config.appEnv === "prod" });
-  response.headers.set("Cache-Control", "private, no-store");
   return response;
 }

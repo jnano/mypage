@@ -39,15 +39,17 @@ LIMITS: dict[str, Limit] = {
     "auth.login_device": Limit(10, 900),  # 기기 쿠키로 면제받은 요청(쿠키 서명 값 기준)
     "auth.login_ip": Limit(60, 900),  # IP 단독 — 이동통신·회사망은 많은 사람이 IP 하나를 쓴다
     "auth.signup": Limit(5, 3600),  # IP
-    "auth.signup_all": Limit(20, 3600),  # 사이트 전체 — 횟수는 설정 signup.hourly_limit 이 정한다(count 인자)
+    "auth.signup_all": Limit(20, 3600),
+    # 사이트 전체 로그인 실패 — 막지 않고 경보만(§7.5). 분당 이 수를 처음 넘는 순간 운영 기록 한 줄
+    "auth.login_failed_site": Limit(100, 60),  # 사이트 전체 — 횟수는 설정 signup.hourly_limit 이 정한다(count 인자)
     "auth.reset": Limit(10, 900),
     "auth.reauth": Limit(5, 900),
     "level.request": Limit(3, 86400),
 }
 
 
-async def hit(action: str, subject: str, count: int | None = None) -> None:
-    """한 번 센다. 한도를 넘으면 429 + Retry-After. count 는 설정값으로 정하는 한도(창 길이는 LIMITS 그대로)."""
+async def tally(action: str, subject: str, count: int | None = None) -> tuple[int, Limit, float]:
+    """한 번 세고 (지금 창의 횟수, 한도, 창 시작 시각)을 돌려준다 — 막지 않는다(경보 판정용)."""
     limit = LIMITS[action] if count is None else Limit(count, LIMITS[action].window_sec)
     now = time.time()
     start = math.floor(now / limit.window_sec) * limit.window_sec
@@ -65,13 +67,25 @@ async def hit(action: str, subject: str, count: int | None = None) -> None:
         .returning(RateLimitCounter.count)
     )
     async with SessionLocal() as db:
-        count = (await db.execute(stmt)).scalar_one()
+        n = (await db.execute(stmt)).scalar_one()
         await db.commit()
-    if count > limit.count:
-        retry_after = max(1, math.ceil(start + limit.window_sec - now))
-        raise Problem(
-            429,
-            "rate_limited",
-            "요청이 너무 많습니다. 잠시 뒤에 다시 시도해 주세요",
-            headers={"Retry-After": str(retry_after)},
-        )
+    return n, limit, start
+
+
+def exceeded(limit: Limit, start: float) -> Problem:
+    retry_after = max(1, math.ceil(start + limit.window_sec - time.time()))
+    return Problem(
+        429,
+        "rate_limited",
+        "요청이 너무 많습니다. 잠시 뒤에 다시 시도해 주세요",
+        headers={"Retry-After": str(retry_after)},
+    )
+
+
+async def hit(action: str, subject: str, count: int | None = None) -> int:
+    """한 번 센다. 한도를 넘으면 429 + Retry-After. count 는 설정값으로 정하는 한도(창 길이는 LIMITS 그대로).
+    돌려주는 값은 지금 창의 횟수."""
+    n, limit, start = await tally(action, subject, count)
+    if n > limit.count:
+        raise exceeded(limit, start)
+    return n

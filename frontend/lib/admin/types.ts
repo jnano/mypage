@@ -10,6 +10,7 @@ export interface AdminSummary {
     dead_jobs: number | null;
     signups: number | null;
     level_requests: number | null;
+    alerts: number | null;
   };
 }
 

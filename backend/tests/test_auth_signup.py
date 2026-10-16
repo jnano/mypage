@@ -291,3 +291,22 @@ async def test_ip_counted_first(committed_db, client, monkeypatch) -> None:
         await login(client, m.email or "", "wrong password here", ip="192.0.2.77")
     # 이메일 단독 키는 IP 한도까지만(2번) 셌다 — 다른 IP 의 피해자는 들어온다
     assert (await login(client, m.email or "", TEST_PASSWORD, ip="203.0.113.77")).status_code == 200
+
+
+# ── 경보(§7.5) ──────────────────────────────────────────────
+
+
+async def test_alerts_once_per_window(committed_db, client, monkeypatch) -> None:
+    monkeypatch.setitem(rate_limit.LIMITS, "auth.login_failed_site", Limit(2, 60))
+    await open_signup(committed_db, hourly_limit=1)
+    m = await make_member(committed_db, is_admin=True)
+    await committed_db.commit()
+    for i in range(4):  # 사이트 전체 실패 4번 — 기준 2를 처음 넘는 3번째에만 경보
+        await login(client, f"nobody{i}@example.com", "wrong password here", ip=f"198.51.100.{30 + i}")
+    await apply(client, email="cap1@example.com", ip="198.51.100.40")
+    for i in range(2):  # 시간당 상한 1 — 넘는 접수는 429, 경보는 한 번
+        assert (await apply(client, email=f"cap{i + 2}@example.com", ip=f"198.51.100.{41 + i}")).status_code == 429
+    actions = (await committed_db.execute(select(ModerationLog.action).where(ModerationLog.action.like("alert.%")))).scalars().all()
+    assert sorted(actions) == ["alert.login_failures", "alert.signup_cap"]
+    token = (await login(client, m.email or "", TEST_PASSWORD, ip="203.0.113.250")).json()["session_token"]
+    assert (await client.get("/api/admin/summary", headers=_session(token))).json()["badges"]["alerts"] == 2

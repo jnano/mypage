@@ -14,6 +14,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.admin import settings as site_settings
 from app.admin.settings import SignupSettings
+from app.auth import alerts
 from app.auth import login as login_service
 from app.auth.emails import checked_email
 from app.auth.names import clean_display_name, display_name_key
@@ -101,7 +102,7 @@ async def signup(db: AsyncSession, body: SignupBody, ip: str) -> dict[str, Any]:
         raise Problem(409, "privacy_notice_changed", "개인정보 고지가 바뀌었습니다. 화면을 새로 고친 뒤 다시 확인해 주세요")
     # ② 제한 — 막히는 일 전에
     await rate_limit.hit("auth.signup", ip)
-    await rate_limit.hit("auth.signup_all", "site", count=config.hourly_limit)
+    await alerts.signup_received(config.hourly_limit)
     # 활동 회원과 이름이 겹치면 알려 준다(대기 신청과는 비교하지 않는다 — 선점 방지)
     taken = (
         await db.execute(

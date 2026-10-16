@@ -4,7 +4,7 @@ from datetime import date, datetime, time
 from zoneinfo import ZoneInfo
 
 from fastapi import APIRouter, Depends, Query
-from sqlalchemy import func, literal_column, select
+from sqlalchemy import func, literal_column, select, text
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.admin.scope import StaffScope, load_staff_scope
@@ -62,7 +62,14 @@ async def summary(scope: StaffScope = Depends(staff_scope), db: AsyncSession = D
         level_reqs = (
             select(func.count()).select_from(LevelRequest).where(LevelRequest.status == literal_column("'pending'")).scalar_subquery()
         )
-        columns += [signups.label("signups"), level_reqs.label("level_requests")]
+        # 인증 경보(§7.5) — 지난 24시간
+        alerts = (
+            select(func.count())
+            .select_from(ModerationLog)
+            .where(ModerationLog.action.like("alert.%"), ModerationLog.created_at > func.now() - text("interval '24 hours'"))
+            .scalar_subquery()
+        )
+        columns += [signups.label("signups"), level_reqs.label("level_requests"), alerts.label("alerts")]
     row = (await db.execute(select(*columns))).one()  # post-clause: exempt — 위 관리 집계 부분질의를 한 번에 읽음
     boards = (
         await db.execute(select(Board.id, Board.slug, Board.name).where(scope.board_clause(Board.id)).order_by(Board.sort_order, Board.id))
@@ -77,6 +84,7 @@ async def summary(scope: StaffScope = Depends(staff_scope), db: AsyncSession = D
             "dead_jobs": row.dead_jobs if scope.is_admin else None,
             "signups": row.signups if scope.is_admin else None,
             "level_requests": row.level_requests if scope.is_admin else None,
+            "alerts": row.alerts if scope.is_admin else None,
         },
     }
 

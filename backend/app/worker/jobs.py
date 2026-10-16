@@ -20,6 +20,7 @@ from app.models import (
     BoardDailyStat,
     Comment,
     IdempotencyKey,
+    LoginSession,
     Member,
     ModerationLog,
     Notification,
@@ -28,7 +29,9 @@ from app.models import (
     PostViewDaily,
     PostViewOnce,
     RateLimitCounter,
+    PasswordResetToken,
     Report,
+    WithdrawnEmailMark,
 )
 from app.posts.purge import purge_posts
 
@@ -190,7 +193,7 @@ REDACT_BATCH = 500
 
 
 async def redact_moderation_logs(db: AsyncSession) -> int:
-    """운영 기록 개인 칸 가림(§14.4) — 기록에 나오는 회원(행위자·작성자)이 탈퇴했거나 3년 지난 행."""
+    """운영 기록 개인 칸 가림(§14.4) — 기록에 나오는 회원(행위자·작성자·대상 회원)이 탈퇴했거나 3년 지난 행."""
     withdrawn = Member.status == literal_column("'withdrawn'")
 
     def author_withdrawn(payload):
@@ -204,6 +207,11 @@ async def redact_moderation_logs(db: AsyncSession) -> int:
                 or_(
                     ModerationLog.created_at < func.now() - text("interval '3 years'"),
                     exists().where(Member.id == ModerationLog.actor_id, withdrawn),
+                    # 회원이 대상인 기록(가입 승인·이메일 변경 등)도 — 인증 설계도 §3.8
+                    and_(
+                        ModerationLog.target_type == literal_column("'member'"),
+                        exists().where(Member.id == ModerationLog.target_id, withdrawn),
+                    ),
                     author_withdrawn(ModerationLog.before),
                     author_withdrawn(ModerationLog.after),
                 ),
@@ -225,6 +233,34 @@ async def redact_moderation_logs(db: AsyncSession) -> int:
     return len(rows)
 
 
+# ── 인증 정리(인증 설계도 §8) ──
+
+
+async def cleanup_sessions(db: AsyncSession) -> int:
+    """만료·폐기 후 7일 지난 세션"""
+    cutoff = func.now() - text("interval '7 days'")
+    return await _delete_limited(
+        db, LoginSession, or_(LoginSession.expires_at < cutoff, and_(LoginSession.revoked_at.is_not(None), LoginSession.revoked_at < cutoff))
+    )
+
+
+async def cleanup_reset_tokens(db: AsyncSession) -> int:
+    """쓴·만료된 재설정 토큰"""
+    return await _delete_limited(db, PasswordResetToken, or_(PasswordResetToken.used_at.is_not(None), PasswordResetToken.expires_at < func.now()))
+
+
+async def cleanup_pending_signups(db: AsyncSession) -> int:
+    """30일 지난 가입 대기(승인·거부되지 않은 신청)"""
+    return await _delete_limited(
+        db, Member, Member.status == literal_column("'pending'"), Member.created_at < func.now() - text("interval '30 days'")
+    )
+
+
+async def cleanup_withdrawn_marks(db: AsyncSession) -> int:
+    """만료된 제재 회피 표시"""
+    return await _delete_limited(db, WithdrawnEmailMark, WithdrawnEmailMark.expires_at < func.now())
+
+
 JOBS: dict[str, Job] = {
     j.name: j
     for j in [
@@ -237,5 +273,9 @@ JOBS: dict[str, Job] = {
         Job("outbox.cleanup", DAY, cleanup_outbox),
         Job("board_daily_stats", HOUR, aggregate_board_daily_stats),
         Job("moderation_logs.redact", DAY, redact_moderation_logs),
+        Job("sessions.cleanup", DAY, cleanup_sessions),
+        Job("reset_tokens.cleanup", DAY, cleanup_reset_tokens),
+        Job("pending_signups.cleanup", DAY, cleanup_pending_signups),
+        Job("withdrawn_marks.cleanup", DAY, cleanup_withdrawn_marks),
     ]
 }

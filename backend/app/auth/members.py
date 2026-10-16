@@ -1,6 +1,6 @@
 """가입 승인·거부(운영자) — 인증 설계도 §4.2. 운영 기록에는 이메일 원문을 넣지 않는다(가린 값만, §3.8)."""
 
-from datetime import UTC, datetime, timedelta
+from datetime import UTC, datetime
 from typing import Any
 
 from sqlalchemy import delete, exists, literal_column, select
@@ -123,12 +123,3 @@ async def reject(db: AsyncSession, viewer: Viewer, member_ids: list[int], reason
     )
     return len(rows)
 
-
-async def purge_stale_pending(db: AsyncSession, days: int = 30) -> int:
-    """30일 지난 가입 대기 삭제(§8 — 작업자의 정리 작업이 부른다)"""
-    result = await db.execute(
-        delete(Member).where(
-            Member.status == literal_column("'pending'"), Member.created_at < datetime.now(UTC) - timedelta(days=days)
-        )
-    )
-    return result.rowcount or 0

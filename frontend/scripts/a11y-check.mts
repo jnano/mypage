@@ -91,7 +91,7 @@ try {
   await guest.goto(base + "/boards/free");
   await settle(guest);
   const postPath = await guest.locator('[data-slot="post-title"] a, [data-slot="post-list"] a[href^="/boards/free/"]').first().getAttribute("href");
-  for (const path of ["/", "/boards/free", "/boards/notice", ...(postPath ? [postPath] : []), "/search?q=회의", "/dev/login"]) {
+  for (const path of ["/", "/boards/free", "/boards/notice", ...(postPath ? [postPath] : []), "/search?q=회의", "/dev/login", "/login", "/signup", "/privacy", "/reset"]) {
     findings.push(...(await check(guest, path, "비회원")));
   }
   // 회원 — 글쓰기(마크다운·리치)·알림·글 보기(댓글 폼)
@@ -100,6 +100,7 @@ try {
   findings.push(...(await check(member, "/boards/meeting/write", "회원", '[data-slot="editor-content"]')));
   if (postPath) findings.push(...(await check(member, postPath, "회원")));
   findings.push(...(await check(member, "/me/notifications", "회원")));
+  findings.push(...(await check(member, "/me/account", "회원")));
   // 운영자 — 관리 화면
   const admin = await open(browser, values.admin!);
   for (const path of [
@@ -113,6 +114,11 @@ try {
     "/admin/logs",
     "/admin/settings",
     "/admin/jobs",
+    "/admin/members",
+    "/admin/members/pending",
+    "/admin/member-groups",
+    "/admin/level-requests",
+    "/admin/privacy-notices",
   ]) {
     findings.push(...(await check(admin, path, "운영자")));
   }

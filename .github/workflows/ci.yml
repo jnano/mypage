@@ -126,6 +126,9 @@ jobs:
       - name: axe 검사(비회원·회원·운영자 주요 화면)
         working-directory: frontend
         run: node scripts/a11y-check.mts --base http://localhost:3000 --admin 1 --member 3
+      - name: 인증 점검(실제 IP 전달·만료 쿠키 정리·/auth/expired 출처) — 인증 설계도 §1 운영 공개 조건, 검토 v3 R-5·R-6
+        working-directory: frontend
+        run: node scripts/auth-check.mts --base http://localhost:3000 --db postgresql://mypage:mypage@localhost:5432/mypage
       - name: 실패 시 서버 기록
         if: failure()
         run: tail -n 100 uvicorn.log next.log

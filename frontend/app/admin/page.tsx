@@ -28,6 +28,7 @@ async function Dashboard() {
     ["실패 작업", b.dead_jobs, "/admin/jobs"],
     ["가입 대기", b.signups, "/admin/members/pending"],
     ["승급 대기", b.level_requests, "/admin/level-requests"],
+    ["경보(24시간)", b.alerts, "/admin/logs"],
   ];
   return (
     <>

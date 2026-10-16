@@ -14,7 +14,7 @@ from sqlalchemy import exists, literal_column, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import aliased
 
-from app.auth import keys, sessions
+from app.auth import alerts, keys, sessions
 from app.auth.emails import normalize_email
 from app.auth.passwords import hash_password, needs_rehash, verify_password
 from app.core import rate_limit
@@ -118,6 +118,7 @@ async def login(
     stored = member.password_hash if member is not None and member.password_hash else await argon2(dummy_hash)
     ok = await argon2(verify_password, stored, password)
     if member is None or not ok:
+        await alerts.login_failed()
         raise login_failed()
     if member.status == "pending":  # 비밀번호가 맞을 때만 알려 준다(§4.3-5)
         raise Problem(403, "signup_pending", "가입 승인을 기다리고 있습니다. 승인되면 로그인할 수 있습니다")

@@ -122,6 +122,7 @@ TLS: `sudo certbot --nginx -d 실제.도메인` — certbot 이 server 블록에
 - 관리 → 사이트 설정: 사이트 주소(`https://도메인`), 사이트 이름·설명, 검색엔진 확인 값, 색인 허용
 - 검색엔진에 `https://도메인/sitemap.xml` 과 `/posts/sitemap/0.xml`… 제출(robots.txt 에 모두 적혀 있다), RSS `/rss.xml`
 - 백업: `pg_dump` 일 1회 + `/srv/mypage/shared` 파일 백업(데이터는 저장소에 없다)
+- 개인정보 고지문에 '쿠키' 문단(조회수 중복 판정용 `view_id` 쿠키 1년, 서버에는 해시만 30일)이 있는지 — 없으면 관리 → 개인정보 고지에서 **재동의 불필요** 새 판으로 게시한다(설계도 §6.1. 코드가 강제하지 않는다)
 
 ## 7. 갱신·되돌리기
 
@@ -133,6 +134,8 @@ sudo -u mypage bash -c 'set -a; . /etc/mypage/backend.env; cd backend && .venv/b
 sudo systemctl restart mypage-backend mypage-worker mypage-frontend
 ```
 운영자 비밀번호를 잊었을 때: `… .venv/bin/python -m app.auth.admin_cli reset-password --email <주소>`(그 회원의 세션도 모두 폐기). 운영자 계정은 화면에서 재설정 링크를 받을 수 없다.
+
+갱신에 새 쿠키·수집 항목이 생기면 **배포 전에** 고지문 새 판을 먼저 게시한다(예: 글 반응 — 조회 쿠키 `view_id`, §6 체크리스트).
 
 되돌리기: 이전 커밋으로 `git checkout <커밋>` 뒤 같은 순서. 마이그레이션을 되돌려야 하면 `alembic downgrade <리비전>` 을 먼저 한다.
 Next 의 `'use cache'` 저장소는 프로세스 메모리라 재시작 직후 1분은 '차가운 캐시'다(§15.1 — 부하 측정 보고서에 따로 기록).

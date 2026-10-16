@@ -233,3 +233,28 @@ export async function setSubscriptionAction(slug: string, subscribe: boolean): P
 export async function deleteTempAttachmentAction(id: number): Promise<void> {
   await personalSend("DELETE", `/api/attachments/${id}`);
 }
+
+// ── 글 반응(§6.1) — 추천·스크랩 상태 지정. 수는 무효화하지 않는다(§3.4) — 누른 화면은 응답의 수로 맞춘다 ──
+
+export interface ReactionResult {
+  on?: boolean;
+  /** 읽을 수 없게 된 글의 끄기에는 수가 없다 */
+  count?: number;
+  problem?: ProblemBody;
+}
+
+interface ReactionResponse {
+  liked?: boolean;
+  scrapped?: boolean;
+  like_count?: number;
+  scrap_count?: number;
+}
+
+export async function setReactionAction(postId: number, kind: "like" | "scrap", on: boolean): Promise<ReactionResult> {
+  try {
+    const { data } = await personalSend<ReactionResponse>(on ? "PUT" : "DELETE", `/api/posts/${postId}/${kind}`);
+    return kind === "like" ? { on: data.liked === true, count: data.like_count } : { on: data.scrapped === true, count: data.scrap_count };
+  } catch (e) {
+    return { problem: asProblem(e) };
+  }
+}

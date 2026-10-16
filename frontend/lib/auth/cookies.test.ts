@@ -1,11 +1,11 @@
 import { describe, expect, it } from "vitest";
-import { consentCookie, cookieNames, failureState, sessionCookies } from "./cookies";
+import { VIEW_TOKEN, consentCookie, cookieNames, failureState, sessionCookies, viewCookie } from "./cookies";
 
 const data = { session_token: "s".repeat(43), session_expires_at: null, device_token: null, notices: [], is_admin: false };
 
 describe("인증 쿠키(인증 설계도 §2.1·§4.3-7)", () => {
   it("운영은 __Host- + Secure, 개발은 접두어 없음", () => {
-    expect(cookieNames("prod")).toEqual({ session: "__Host-session", device: "__Host-device", consent: "__Host-consent", role: "__Host-role" });
+    expect(cookieNames("prod")).toEqual({ session: "__Host-session", device: "__Host-device", consent: "__Host-consent", role: "__Host-role", view: "__Host-view_id" });
     expect(cookieNames("dev").session).toBe("session");
     const [prod] = sessionCookies("prod", data);
     expect(prod.options).toMatchObject({ httpOnly: true, sameSite: "lax", path: "/", secure: true });
@@ -44,5 +44,20 @@ describe("인증 쿠키(인증 설계도 §2.1·§4.3-7)", () => {
     const state = failureState(leaky, { email: "a@example.test", persistent: true });
     expect(Object.keys(state).sort()).toEqual(["email", "persistent", "problem"]);
     expect(JSON.stringify(state)).not.toMatch(/session_token|device_token|consent_token/);
+  });
+});
+
+describe("조회 쿠키(설계도 §6.1)", () => {
+  it("1년, HttpOnly·Lax, 운영은 __Host- + Secure", () => {
+    const v = "a".repeat(43);
+    expect(viewCookie("prod", v)).toEqual({ name: "__Host-view_id", value: v, options: { httpOnly: true, sameSite: "lax", path: "/", secure: true, maxAge: 31536000 } });
+    expect(viewCookie("dev", v).name).toBe("view_id");
+    expect(viewCookie("dev", v).options.secure).toBe(false);
+  });
+
+  it("값의 꼴은 base64url 43자만", () => {
+    expect(VIEW_TOKEN.test("A".repeat(42) + "_")).toBe(true);
+    expect(VIEW_TOKEN.test("A".repeat(42))).toBe(false);
+    expect(VIEW_TOKEN.test("A".repeat(42) + "=")).toBe(false);
   });
 });

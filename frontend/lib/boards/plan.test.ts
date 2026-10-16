@@ -32,6 +32,8 @@ const state = (over: Partial<PageState> = {}): PageState => ({
   board_role: { is_moderator: false },
   unmasked: [],
   editable: [],
+  liked: [],
+  scrapped: [],
   unread_notifications: 0,
   unread_capped: false,
   subscribed: false,

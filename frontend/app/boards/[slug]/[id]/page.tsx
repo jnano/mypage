@@ -3,9 +3,11 @@ import { notFound, permanentRedirect } from "next/navigation";
 import { connection } from "next/server";
 import { Suspense } from "react";
 import { CommentThread, type CommentViewer } from "@/components/boards/CommentThread";
+import { PostReactions } from "@/components/boards/PostReactions";
 import { PostView } from "@/components/boards/PostView";
 import { ReportForm } from "@/components/boards/ReportForm";
 import { ProblemNotice } from "@/components/boards/ProblemNotice";
+import { ViewBeacon } from "@/components/boards/ViewBeacon";
 import { reportAction } from "@/app/boards/actions";
 import { breadcrumbJsonLd, postJsonLd, postMetadata } from "@/lib/seo/meta";
 import { jsonLd } from "@/lib/seo/site";
@@ -81,6 +83,21 @@ async function PostScreen({ params, searchParams }: PageProps<"/boards/[slug]/[i
         <script key={i} type="application/ld+json" dangerouslySetInnerHTML={{ __html: jsonLd(d) }} />
       ))}
       <PostView data={data} canEdit={canEdit} />
+      {data.post.status === "published" && (
+        <>
+          <ViewBeacon postId={postId} />
+          <PostReactions
+            postId={postId}
+            path={`/boards/${data.board.slug}/${postId}`}
+            title={data.post.title}
+            likeCount={data.post.stats.likes}
+            liked={state?.liked.includes(postId) ?? false}
+            scrapped={state?.scrapped.includes(postId) ?? false}
+            member={state?.viewer != null}
+            allowShare={data.board.allow_share}
+          />
+        </>
+      )}
       {viewer && !canEdit && <ReportForm action={reportAction.bind(null, "post", postId, `${viewer.idempotencyKey}-report`)} label="글 신고" />}
       <CommentThread
         page={comments}

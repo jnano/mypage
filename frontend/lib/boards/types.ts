@@ -132,6 +132,9 @@ export interface PageState {
   board_role: { is_moderator: boolean };
   unmasked: { id: number; title: string }[];
   editable: number[];
+  /** 요청한 글 가운데 추천·스크랩한 글(§6.1) */
+  liked: number[];
+  scrapped: number[];
   unread_notifications: number;
   unread_capped: boolean;
   subscribed: boolean;

@@ -82,9 +82,28 @@ try {
   const cleared = (res.headers()["set-cookie"] ?? "").includes("session=");
   check(res.status() === 303 && !cleared, "다른 사이트에서 부른 /auth/expired 는 쿠키를 지우지 않는다");
   await ctx.close();
+
+  // 5. 조회 신호(설계도 §6.1) — 서로 다른 실제 IP 의 비회원이 Route Handler 를 거쳐 따로 세어지고, 조회 쿠키가 심어진다.
+  //    자동화 브라우저는 ViewBeacon 이 보내지 않으므로(navigator.webdriver) 화면에서 직접 한 번 부른다
+  const postId = sql(
+    "SELECT p.id FROM posts p JOIN boards b ON b.id = p.board_id WHERE b.slug = 'free' AND p.status = 'published' AND NOT p.is_secret AND NOT p.is_blinded ORDER BY p.id LIMIT 1",
+  );
+  check(postId !== "", "조회 점검용 공개 글이 시드에 있다");
+  for (const viewer of ["203.0.113.81", "203.0.113.82"]) {
+    const vctx = await browser.newContext({ extraHTTPHeaders: { "x-real-ip": viewer } });
+    const vp = await vctx.newPage();
+    await vp.goto(`${base}/boards/free/${postId}`);
+    const status = await vp.evaluate((id) => fetch(`/api/posts/${id}/view`, { method: "POST" }).then((r) => r.status), postId);
+    const n = Number(sql(`SELECT coalesce(sum(count), 0) FROM rate_limit_counters WHERE key = 'post.view:${viewer}'`));
+    const hasCookie = (await vctx.cookies()).some((c) => c.name.endsWith("view_id") && c.httpOnly);
+    check(status === 204 && n === 1 && hasCookie, `조회: IP ${viewer} 가 따로 세어지고 조회 쿠키(HttpOnly)가 심어진다`);
+    const cross = await vctx.request.post(`${base}/api/posts/${postId}/view`, { headers: { origin: "https://elsewhere.example", "sec-fetch-site": "cross-site" } });
+    check(cross.status() === 403, "조회: 다른 사이트가 부르면 403");
+    await vctx.close();
+  }
 } finally {
   await browser.close();
-  sql("DELETE FROM rate_limit_counters WHERE key LIKE 'auth.%'");
+  sql("DELETE FROM rate_limit_counters WHERE key LIKE 'auth.%' OR key LIKE 'post.view:%'");
 }
 console.log(failed ? `\n인증 점검 실패 ${failed}건` : "\n인증 점검 통과");
 process.exitCode = failed ? 1 : 0;

@@ -14,6 +14,7 @@ export const PRIVATE_HEADERS = [
   "x-session",
   "x-device",
   "x-client-ip",
+  "x-view-token",
 ] as const;
 
 export function publicHeaders(extra?: HeadersInit): Headers {

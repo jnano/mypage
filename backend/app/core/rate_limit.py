@@ -39,9 +39,9 @@ LIMITS: dict[str, Limit] = {
     "auth.login_device": Limit(10, 900),  # 기기 쿠키로 면제받은 요청(쿠키 서명 값 기준)
     "auth.login_ip": Limit(60, 900),  # IP 단독 — 이동통신·회사망은 많은 사람이 IP 하나를 쓴다
     "auth.signup": Limit(5, 3600),  # IP
-    "auth.signup_all": Limit(20, 3600),
+    "auth.signup_all": Limit(20, 3600),  # 사이트 전체 — 횟수는 설정 signup.hourly_limit 이 정한다(count 인자)
     # 사이트 전체 로그인 실패 — 막지 않고 경보만(§7.5). 분당 이 수를 처음 넘는 순간 운영 기록 한 줄
-    "auth.login_failed_site": Limit(100, 60),  # 사이트 전체 — 횟수는 설정 signup.hourly_limit 이 정한다(count 인자)
+    "auth.login_failed_site": Limit(100, 60),  # 사이트 전체
     "auth.reset": Limit(10, 900),
     "auth.reauth": Limit(5, 900),
     "level.request": Limit(3, 86400),

@@ -311,3 +311,14 @@ async def test_tokens_absent_from_error_responses(committed_db, client) -> None:
     token = (await login(client, m.email or "")).json()["session_token"]
     r = await login(client, m.email or "", "wrong password here", session=token)
     assert token not in r.text and "session_token" not in r.text
+
+
+async def test_every_failure_response_counts_for_alert(committed_db) -> None:
+    """실패 응답을 만드는 한 곳에서 센다 — 어느 실패 경로도 경보 집계에서 빠지지 않는다(검토 v5 U-3)"""
+    from app.models import RateLimitCounter
+
+    for _ in range(3):
+        problem = await login_service.login_failed()
+        assert (problem.status, problem.code) == (401, "login_failed")
+    counted = (await committed_db.execute(select(RateLimitCounter.count).where(RateLimitCounter.key == "auth.login_failed_site:site"))).scalar_one()
+    assert counted == 3

@@ -7,7 +7,7 @@ import pytest
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.models import BoardAccess, LevelRequest, LoginSession, Member, ModerationLog
+from app.models import BoardAccess, LevelRequest, LoginSession, Member, ModerationLog, OutboxEvent
 from tests.factories import TEST_PASSWORD, make_board, make_member
 from tests.test_auth_login import login, whoami
 
@@ -71,6 +71,8 @@ async def test_level_change_closes_pending_request(committed_db, client) -> None
     assert r.json()["level"] == 4
     req = (await committed_db.execute(select(LevelRequest))).scalar_one()
     assert req.status == "cancelled"
+    event = (await committed_db.execute(select(OutboxEvent).where(OutboxEvent.type == "level.decided"))).scalar_one()
+    assert event.payload == {"request_id": req.id}  # 신청자에게 알린다(검토 v5 U-2)
     log = (await committed_db.execute(select(ModerationLog).where(ModerationLog.action == "member.update"))).scalar_one()
     assert (log.before, log.after, log.reason) == ({"level": 2}, {"level": 4}, "활동 많음")
 

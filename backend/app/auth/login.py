@@ -25,7 +25,9 @@ from app.models import Member, PrivacyNotice
 ARGON2_WAIT = 2.0  # 한도 자리 얻기 기한(§7.7)
 
 
-def login_failed() -> Problem:
+async def login_failed() -> Problem:
+    """실패 응답 하나 — 만드는 이 한 곳에서 사이트 전체 실패 경보를 센다(어느 실패 경로도 빠뜨리지 않게, 검토 v5 U-3)"""
+    await alerts.login_failed()
     return Problem(401, "login_failed", "이메일 또는 비밀번호가 맞지 않습니다")
 
 
@@ -118,12 +120,11 @@ async def login(
     stored = member.password_hash if member is not None and member.password_hash else await argon2(dummy_hash)
     ok = await argon2(verify_password, stored, password)
     if member is None or not ok:
-        await alerts.login_failed()
-        raise login_failed()
+        raise await login_failed()
     if member.status == "pending":  # 비밀번호가 맞을 때만 알려 준다(§4.3-5)
         raise Problem(403, "signup_pending", "가입 승인을 기다리고 있습니다. 승인되면 로그인할 수 있습니다")
     if member.status != "active":
-        raise login_failed()
+        raise await login_failed()
     if needs_rehash(stored):
         member.password_hash = await argon2(hash_password, password)
     if session_token:  # 이 브라우저의 이전 세션

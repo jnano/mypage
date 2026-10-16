@@ -5,6 +5,8 @@ import unicodedata
 # 보이지 않게 그려지는 한글 채움 문자(일반 범주가 Lo 라 서식 문자 제거에 걸리지 않는다)
 _HANGUL_FILLERS = frozenset("ᅟᅠㅤﾠ")
 KEY_MAX = 200  # members.display_name_key 길이
+# 탈퇴 회원의 표시 이름·글·댓글 작성자 이름(인증 설계도 §4.9) — 탈퇴 처리와 작업자가 함께 쓴다
+WITHDRAWN_NAME = "탈퇴 회원"
 
 
 def clean_display_name(name: str) -> str:

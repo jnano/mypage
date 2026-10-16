@@ -16,6 +16,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.admin.logs import LogEntry, record
 from app.auth import keys, sessions
 from app.auth.emails import mask_email
+from app.auth.names import WITHDRAWN_NAME
 from app.auth.login import argon2
 from app.auth.passwords import hash_password, problems, verify_password
 from app.auth.signup import load_signup
@@ -35,7 +36,6 @@ from app.models import (
     WithdrawnEmailMark,
 )
 
-WITHDRAWN_NAME = "탈퇴 회원"
 
 
 def require_member(viewer: Viewer) -> int:

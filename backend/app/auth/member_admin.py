@@ -20,6 +20,7 @@ from app.auth.emails import checked_email, mask_email
 from app.auth.names import clean_display_name, display_name_key
 from app.auth.viewer import Viewer
 from app.core.config import settings
+from app.core import outbox
 from app.core.problems import Problem
 from app.models import LevelRequest, LoginSession, Member, MemberGroup, MemberGroupMember
 
@@ -151,11 +152,16 @@ async def patch_member(db: AsyncSession, viewer: Viewer, member_id: int, patch: 
         before["level"], after["level"] = member.level, patch.level
         member.level = patch.level
         # 운영자가 레벨을 직접 바꾸면 대기 중인 승급 신청을 닫는다(§4.10-5)
-        await db.execute(
-            update(LevelRequest)
-            .where(LevelRequest.member_id == member.id, LevelRequest.status == literal_column("'pending'"))
-            .values(status="cancelled", decided_by=viewer.member_id, decided_at=datetime.now(UTC), decision_note="운영자가 레벨을 바꿈")
-        )
+        closed = (
+            await db.execute(
+                update(LevelRequest)
+                .where(LevelRequest.member_id == member.id, LevelRequest.status == literal_column("'pending'"))
+                .values(status="cancelled", decided_by=viewer.member_id, decided_at=datetime.now(UTC), decision_note="운영자가 레벨을 바꿈")
+                .returning(LevelRequest.id)
+            )
+        ).scalars().all()
+        # 신청자에게 '신청이 닫혔습니다'(검토 v5 U-2)
+        await outbox.enqueue(db, [outbox.Event("level.decided", {"request_id": rid}) for rid in closed])
     if patch.display_name is not None:
         try:
             name = clean_display_name(patch.display_name)

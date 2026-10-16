@@ -158,6 +158,7 @@ async def approve(db: AsyncSession, viewer: Viewer, request_id: int) -> dict[str
     now = datetime.now(UTC)
     if member is None or member.level != req.from_level:
         req.status, req.decided_by, req.decided_at, req.decision_note = "cancelled", viewer.member_id, now, "그 사이 레벨이 바뀜"
+        await _decided(db, req)  # 신청자에게 알린다(검토 v5 U-2)
         await db.commit()
         raise Problem(409, "level_changed", "신청 뒤에 회원의 레벨이 바뀌어 신청을 닫았습니다")
     before = member.level

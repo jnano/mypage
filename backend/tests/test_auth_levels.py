@@ -89,6 +89,12 @@ async def test_approve_after_level_changed_closes_request(committed_db, client) 
     req = await committed_db.get(LevelRequest, rid)
     assert (req.status, req.decision_note) == ("cancelled", "그 사이 레벨이 바뀜")  # 409 여도 닫힌 채로 남는다
     assert (await committed_db.get(Member, member_id)).level == 2
+    # 신청자에게 '닫혔습니다 — 사유' 알림(검토 v5 U-2)
+    event = (await committed_db.execute(select(OutboxEvent).where(OutboxEvent.type == "level.decided"))).scalar_one()
+    await handlers.level_decided(committed_db, event)
+    await committed_db.commit()
+    n = (await committed_db.execute(select(Notification).where(Notification.recipient_id == member_id))).scalar_one()
+    assert n.title_snapshot == "레벨 5 승급 신청이 닫혔습니다 — 그 사이 레벨이 바뀜"
 
 
 async def test_reject_needs_note(committed_db, client) -> None:

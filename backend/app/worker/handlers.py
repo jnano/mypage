@@ -4,7 +4,7 @@ import httpx
 from sqlalchemy import literal_column, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.auth.account import WITHDRAWN_NAME
+from app.auth.names import WITHDRAWN_NAME
 from app.core.config import settings
 from app.core.invalidation import tags_for
 from app.core.outbox import enqueue_revalidate
@@ -273,9 +273,13 @@ async def signup_pending(db: AsyncSession, event: OutboxEvent) -> None:
 async def level_decided(db: AsyncSession, event: OutboxEvent) -> None:
     """승급 신청 처리 결과 — 신청한 회원에게(인증 설계도 §4.10)"""
     req = await db.get(LevelRequest, int(event.payload["request_id"]))
-    if req is None or req.status not in ("approved", "rejected"):
+    if req is None or req.status not in ("approved", "rejected", "cancelled"):
         return
-    title = f"레벨 {req.to_level} 승급 신청이 " + ("승인되었습니다" if req.status == "approved" else "거부되었습니다")
+    title = f"레벨 {req.to_level} 승급 신청이 " + {
+        "approved": "승인되었습니다",
+        "rejected": "거부되었습니다",
+        "cancelled": f"닫혔습니다 — {req.decision_note or '운영자가 닫음'}",  # 자동 취소(검토 v5 U-2)
+    }[req.status]
     await send.notify(
         db, recipients=[req.member_id], type_name="level.decided", actor_id=req.decided_by, post_id=None,
         comment_id=None, title=title, group_key=f"level.decided:{req.id}", dedupe_key=f"level.decided:{req.id}",

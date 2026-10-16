@@ -5,7 +5,7 @@ from pydantic import BaseModel, Field
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.auth import login as service
-from app.auth import sessions, signup
+from app.auth import account, sessions, signup
 from app.auth.viewer import SESSION_HEADER, Viewer, get_viewer
 from app.core.client_ip import client_ip
 from app.core.problems import Problem
@@ -62,6 +62,19 @@ async def signup_request(
     result = await signup.signup(db, body, client_ip(request))
     await db.commit()
     return result
+
+
+class ResetBody(BaseModel):
+    token: str = Field(max_length=200)
+    password: str = Field(max_length=1024)
+
+
+@router.post("/auth/password-reset", status_code=204)
+async def password_reset(body: ResetBody, request: Request, db: AsyncSession = Depends(get_db)) -> Response:
+    """운영자가 발급한 링크로 새 비밀번호(§4.8). 로그인은 따로 한다"""
+    await account.use_reset_link(db, body.token, body.password, client_ip(request))
+    await db.commit()
+    return Response(status_code=204, headers={"Cache-Control": NO_STORE})
 
 
 @router.post("/auth/privacy-consent")

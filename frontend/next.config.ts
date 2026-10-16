@@ -17,7 +17,11 @@ const nextConfig: NextConfig = {
   // /api/* 는 FastAPI 로 전달한다. 쓰기는 FastAPI 가 내부 비밀 헤더로 막으므로 브라우저 직접 쓰기는 통하지 않는다
   // nginx 가 응답을 모아 두지 않게 — Suspense 스트리밍이 그대로 흘러가야 한다(Next self-hosting 문서 'Streaming and Suspense')
   async headers() {
-    return [{ source: "/:path*", headers: [{ key: "X-Accel-Buffering", value: "no" }] }];
+    return [
+      { source: "/:path*", headers: [{ key: "X-Accel-Buffering", value: "no" }] },
+      // 재설정 화면(인증 설계도 §4.8) — 토큰은 URL 조각이라 Referer 에 실리지 않지만 보조 장치로
+      { source: "/reset", headers: [{ key: "Referrer-Policy", value: "no-referrer" }] },
+    ];
   },
   // fallback — 정적·동적 경로(Route Handler)를 모두 확인한 뒤에 넘긴다. 배열(afterFiles)로 주면 동적 경로보다 먼저라서
   // /api/attachments/[id]/file 같은 Route Handler 대신 FastAPI 로 가 쿠키가 보는 사람 헤더로 바뀌지 않았다(3단계 실측)

@@ -5,7 +5,7 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI, Request
 from fastapi.staticfiles import StaticFiles
 
-from app.api import admin, admin_boards, admin_members, admin_moderation, admin_posts, admin_site, attachments, auth, boards, comments, editor, health, me, notifications, posts, reports, search, seo
+from app.api import account, admin, admin_boards, admin_members, admin_moderation, admin_posts, admin_site, attachments, auth, boards, comments, editor, health, me, notifications, posts, reports, search, seo
 from app.core import csrf, problems, timing
 from app.core.config import settings
 from app.db.session import engine
@@ -31,6 +31,7 @@ if settings.server_timing:
 # 모든 API 는 /api 아래에 둔다 — 프론트엔드가 /api/* 를 그대로 프록시한다
 app.include_router(health.router, prefix="/api")
 app.include_router(auth.router, prefix="/api")
+app.include_router(account.router, prefix="/api")
 app.include_router(boards.router, prefix="/api")
 app.include_router(posts.router, prefix="/api")
 app.include_router(comments.router, prefix="/api")

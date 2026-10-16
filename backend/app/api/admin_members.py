@@ -8,7 +8,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.admin.scope import StaffScope
 from app.api.admin_boards import admin_scope
-from app.auth import members, notices
+from app.auth import account, members, notices
 from app.db.session import get_db
 
 router = APIRouter(prefix="/admin")
@@ -51,6 +51,30 @@ async def reject(body: RejectBody, scope: StaffScope = Depends(admin_scope), db:
     n = await members.reject(db, scope.viewer, body.ids, body.reason)
     await db.commit()
     return {"rejected": n}
+
+
+class Reauth(BaseModel):
+    password: str = Field(max_length=1024)  # 운영자 본인 비밀번호 재확인(§4.13)
+
+
+class ForcedWithdraw(Reauth):
+    reason: str = Field(min_length=1, max_length=500)
+
+
+@router.post("/members/{member_id}/password-reset-link")
+async def reset_link(member_id: int, body: Reauth, response: Response, scope: StaffScope = Depends(admin_scope), db: AsyncSession = Depends(get_db)):
+    """재설정 링크(24시간·1회) — 화면에 보이고 운영자가 다른 경로로 전한다. 대상이 운영자면 403"""
+    response.headers["Cache-Control"] = NO_STORE
+    result = await account.issue_reset_link(db, scope.viewer, member_id, body.password)
+    await db.commit()
+    return result
+
+
+@router.post("/members/{member_id}/withdraw", status_code=204)
+async def force_withdraw(member_id: int, body: ForcedWithdraw, scope: StaffScope = Depends(admin_scope), db: AsyncSession = Depends(get_db)):
+    await account.force_withdraw(db, scope.viewer, member_id, body.password, body.reason)
+    await db.commit()
+    return Response(status_code=204, headers={"Cache-Control": NO_STORE})
 
 
 @router.get("/privacy-notices")

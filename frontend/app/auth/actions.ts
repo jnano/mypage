@@ -124,3 +124,17 @@ export async function signupAction(formToken: string, privacyVersion: string, _p
     throw e;
   }
 }
+
+/** 재설정 링크로 새 비밀번호(§4.8) — 로그인은 따로. 반환값에 토큰을 싣지 않는다 */
+export async function resetPasswordAction(_prev: AuthFormState & { done?: boolean }, formData: FormData): Promise<AuthFormState & { done?: boolean }> {
+  try {
+    await personalSend("POST", "/api/auth/password-reset", {
+      token: String(formData.get("token") ?? ""),
+      password: String(formData.get("password") ?? ""),
+    });
+  } catch (e) {
+    if (e instanceof ApiError) return failureState(e.problem);
+    throw e;
+  }
+  return { done: true };
+}

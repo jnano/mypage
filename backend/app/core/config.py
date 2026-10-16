@@ -52,6 +52,8 @@ class Settings(BaseSettings):
     session_admin_days: int = 7
     device_cookie_days: int = 365  # 잠금 면제 기기 쿠키(§4.3.1)
     consent_token_seconds: int = 300  # 재동의 토큰(§3.6)
+    reset_token_hours: int = 24  # 운영자가 발급하는 재설정 링크(§4.8)
+    withdrawn_mark_days: int = 90  # 제재 중 탈퇴한 주소 표시(§3.5)
 
     # 개발용 Viewer 헤더(설계도 §5.1, §11) — 인증을 붙이기 전 골격 전용
     dev_viewer_header: bool = False

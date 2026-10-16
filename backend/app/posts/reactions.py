@@ -10,7 +10,7 @@ import logging
 import re
 from typing import Literal
 
-from sqlalchemy import Row, delete, func, select, update
+from sqlalchemy import Row, delete, exists, func, select, update
 from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -18,7 +18,7 @@ from app.auth.viewer import Viewer
 from app.core import rate_limit
 from app.core.config import settings
 from app.core.problems import Problem
-from app.db.session import SessionLocal
+from app.db.session import SessionLocal, engine
 from app.models import Board, Post, PostReaction, PostScrap, PostStat, PostViewDaily, PostViewOnce
 from app.permissions import can, load_board_role
 from app.posts import view_buffer
@@ -71,20 +71,39 @@ def _body(kind: Kind, on: bool, count: int | None) -> dict:
     return {state: on} if count is None else {state: on, count_key: count}
 
 
-async def _adjust(db: AsyncSession, post_id: int, column, delta: int) -> int:
+async def _write_and_count(stmt, post_id: int, column, delta: int, *, current: bool = True) -> int:
+    """반응 행 쓰기(stmt — RETURNING post_id)와 카운터 ±1 을 **autocommit 한 문장(CTE)** 으로.
+
+    post_stats 행 잠금이 앱 ↔ DB 왕복(UPDATE 뒤 COMMIT 을 보내기까지)에 걸리지 않게 한다 — 한 트랜잭션에 두 문장을 보내면
+    동시 요청으로 이벤트 루프가 바쁠 때 그 사이가 늘어 같은 글의 요청이 줄을 섰다(측정 §6.1: 한 글 동시 20 p95 80~225ms).
+    행이 생기거나 지워졌을 때만 카운터를 바꾼다(EXISTS) — 최종 판정은 PK.
+    """
+    changed = stmt.cte("changed")
     value = column + 1 if delta > 0 else func.greatest(column - 1, 0)
-    got = (
-        await db.execute(update(PostStat).where(PostStat.post_id == post_id).values({column.key: value}).returning(column))
-    ).scalar_one_or_none()
-    if got is None:
-        logger.warning("post_stats 행이 없는 글: %s", post_id)
-        return 0
-    return got
-
-
-async def _current(db: AsyncSession, post_id: int, column) -> int:
-    got = (await db.execute(select(column).where(PostStat.post_id == post_id))).scalar_one_or_none()
+    bump = (
+        update(PostStat)
+        .where(PostStat.post_id == post_id, exists(select(changed.c.post_id)))
+        .values({column.key: value})
+        .returning(column)
+    )
+    async with engine.connect() as conn:
+        conn = await conn.execution_options(isolation_level="AUTOCOMMIT")
+        got = (await conn.execute(bump)).scalar_one_or_none()
+        if got is None and current:  # 바뀐 행이 없음(이미 그 상태) — 지금 값
+            got = (await conn.execute(select(column).where(PostStat.post_id == post_id))).scalar_one_or_none()
+            if got is None:
+                logger.warning("post_stats 행이 없는 글: %s", post_id)
     return got or 0
+
+
+async def _judge(viewer: Viewer, post_id: int):
+    """(post, board, role) 또는 None — 읽기만, 잠그지 않는다"""
+    async with SessionLocal() as db:
+        found = await _load(db, post_id)
+        if found is None:
+            return None
+        post, board = found
+        return post, board, await load_board_role(db, viewer, board.id)
 
 
 async def turn_on(viewer: Viewer, post_id: int, kind: Kind) -> dict:
@@ -92,24 +111,18 @@ async def turn_on(viewer: Viewer, post_id: int, kind: Kind) -> dict:
     member_id = _require_member(viewer)
     await rate_limit.hit("post.react", f"m:{member_id}")
     table, column = _table(kind)
-    async with SessionLocal() as db, db.begin():
-        found = await _load(db, post_id)
-        if found is None:
-            raise _not_found()
-        post, board = found
-        role = await load_board_role(db, viewer, board.id)
-        if not can(viewer, role, "post.read", board, post):
-            raise _not_found()  # 있음을 드러내지 않는다 — post.read 거부와 같은 응답
-        if post.status != "published":
-            raise Problem(409, "not_published", "공개된 글에만 할 수 있습니다")
-        if not can(viewer, role, "post.react", board, post):  # pragma: no cover — 위 두 조건과 회원 확인이 같은 판정
-            raise _not_found()
-        values = {"post_id": post_id, "member_id": member_id}
-        inserted = (
-            await db.execute(insert(table).values(values).on_conflict_do_nothing().returning(table.post_id))
-        ).scalar_one_or_none()
-        count = await _adjust(db, post_id, column, +1) if inserted is not None else await _current(db, post_id, column)
-    return _body(kind, True, count)
+    judged = await _judge(viewer, post_id)
+    if judged is None:
+        raise _not_found()
+    post, board, role = judged
+    if not can(viewer, role, "post.read", board, post):
+        raise _not_found()  # 있음을 드러내지 않는다 — post.read 거부와 같은 응답
+    if post.status != "published":
+        raise Problem(409, "not_published", "공개된 글에만 할 수 있습니다")
+    if not can(viewer, role, "post.react", board, post):  # pragma: no cover — 위 두 조건과 회원 확인이 같은 판정
+        raise _not_found()
+    stmt = insert(table).values(post_id=post_id, member_id=member_id).on_conflict_do_nothing().returning(table.post_id)
+    return _body(kind, True, await _write_and_count(stmt, post_id, column, +1))
 
 
 async def turn_off(viewer: Viewer, post_id: int, kind: Kind) -> dict:
@@ -117,21 +130,10 @@ async def turn_off(viewer: Viewer, post_id: int, kind: Kind) -> dict:
     member_id = _require_member(viewer)
     await rate_limit.hit("post.react", f"m:{member_id}")
     table, column = _table(kind)
-    async with SessionLocal() as db, db.begin():
-        deleted = (
-            await db.execute(
-                delete(table).where(table.post_id == post_id, table.member_id == member_id).returning(table.post_id)
-            )
-        ).scalar_one_or_none()
-        found = await _load(db, post_id)
-        readable, count = False, None
-        if found is not None:
-            post, board = found
-            readable = can(viewer, await load_board_role(db, viewer, board.id), "post.read", board, post)
-        if deleted is not None:
-            count = await _adjust(db, post_id, column, -1)
-        elif readable:
-            count = await _current(db, post_id, column)
+    stmt = delete(table).where(table.post_id == post_id, table.member_id == member_id).returning(table.post_id)
+    count = await _write_and_count(stmt, post_id, column, -1)
+    judged = await _judge(viewer, post_id)
+    readable = judged is not None and can(viewer, judged[2], "post.read", judged[1], judged[0])
     return _body(kind, False, count if readable else None)
 
 
@@ -153,46 +155,41 @@ def site_today():
     return func.date(func.timezone(settings.site_time_zone, func.now()))
 
 
-async def _countable(db: AsyncSession, viewer: Viewer, post_id: int) -> Board | None:
-    found = await _load(db, post_id)
-    if found is None:
+async def _countable(viewer: Viewer, post_id: int) -> Board | None:
+    judged = await _judge(viewer, post_id)
+    if judged is None:
         return None
-    post, board = found
-    role = await load_board_role(db, viewer, board.id)
+    post, board, role = judged
     return board if can(viewer, role, "post.count", board, post) else None
 
 
 async def record_view(viewer: Viewer, post_id: int, ip: str, view_token: str | None) -> None:
     """조회 신호 — 셌는지 알리지 않는다(호출부는 늘 204). 한도를 넘으면 429"""
-    limit_ok = await rate_limit.allow("post.view", ip)
-    if not limit_ok:
+    if not await rate_limit.allow("post.view", ip):
         raise Problem(429, "rate_limited", "요청이 너무 많습니다")
     key = viewer_key(viewer, view_token)
     if key is None:
         return
-    async with SessionLocal() as db, db.begin():
-        board = await _countable(db, viewer, post_id)
-        if board is None:
-            return
-        mode = board.view_count_mode
-        if mode == "always":
-            view_buffer.add(post_id)
-            return
-        if mode == "once":
-            stmt = insert(PostViewOnce).values(post_id=post_id, viewer_key=key)
-        else:
-            stmt = insert(PostViewDaily).values(post_id=post_id, viewer_key=key, view_date=site_today())
-        new = (await db.execute(stmt.on_conflict_do_nothing().returning(stmt.table.c.post_id))).scalar_one_or_none()
-        if new is not None:
-            await db.execute(update(PostStat).where(PostStat.post_id == post_id).values(view_count=PostStat.view_count + 1))
+    board = await _countable(viewer, post_id)
+    if board is None:
+        return
+    if board.view_count_mode == "always":
+        view_buffer.add(post_id)
+        return
+    if board.view_count_mode == "once":
+        stmt = insert(PostViewOnce).values(post_id=post_id, viewer_key=key)
+    else:
+        stmt = insert(PostViewDaily).values(post_id=post_id, viewer_key=key, view_date=site_today())
+    await _write_and_count(stmt.on_conflict_do_nothing().returning(stmt.table.c.post_id), post_id, PostStat.view_count, +1, current=False)
 
 
 async def record_share(viewer: Viewer, post_id: int, ip: str) -> None:
     """공유 — 같은 IP·글은 시간당 3회까지만 센다. 정확한 수를 약속하지 않는다(§6.1)"""
     if not await rate_limit.allow("post.share", f"{ip}:{post_id}"):
         return
-    async with SessionLocal() as db, db.begin():
-        board = await _countable(db, viewer, post_id)
-        if board is None or not board.allow_share:
-            return
-        await db.execute(update(PostStat).where(PostStat.post_id == post_id).values(share_count=PostStat.share_count + 1))
+    board = await _countable(viewer, post_id)
+    if board is None or not board.allow_share:
+        return
+    async with engine.connect() as conn:
+        conn = await conn.execution_options(isolation_level="AUTOCOMMIT")
+        await conn.execute(update(PostStat).where(PostStat.post_id == post_id).values(share_count=PostStat.share_count + 1))

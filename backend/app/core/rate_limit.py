@@ -4,6 +4,7 @@
 메모리 저장소는 프로세스 수만큼 한도가 늘어나 쓰지 않는다.
 """
 
+import logging
 import math
 import time
 from dataclasses import dataclass
@@ -14,6 +15,8 @@ from sqlalchemy.dialects.postgresql import insert
 from app.core.problems import Problem
 from app.db.session import SessionLocal
 from app.models import RateLimitCounter
+
+logger = logging.getLogger(__name__)
 
 
 @dataclass(frozen=True)
@@ -45,7 +48,14 @@ LIMITS: dict[str, Limit] = {
     "auth.reset": Limit(10, 900),
     "auth.reauth": Limit(5, 900),
     "level.request": Limit(3, 86400),
+    # 글 반응(§6.1) — 시작값. 넘은 흔적이 남지 않으므로 창마다 처음 넘는 순간 경고 로그(WARN_ON_EXCEED)
+    "post.react": Limit(60, 60),  # 회원 id — 추천·스크랩 켜기·끄기
+    "post.view": Limit(60, 60),  # client_ip() — 조회 신호
+    "post.share": Limit(3, 3600),  # client_ip() + 글 id — 공유. 넘으면 세지 않는다
 }
+
+# 넘어도 운영 기록이 남지 않는 키 — 한도 값을 나중에 다시 보려고 창마다 처음 넘는 순간 로그 한 줄(키 종류·한도만, 주체 원문 없음)
+WARN_ON_EXCEED = frozenset({"post.react", "post.view", "post.share"})
 
 
 async def tally(action: str, subject: str, count: int | None = None) -> tuple[int, Limit, float]:
@@ -87,5 +97,20 @@ async def hit(action: str, subject: str, count: int | None = None) -> int:
     돌려주는 값은 지금 창의 횟수."""
     n, limit, start = await tally(action, subject, count)
     if n > limit.count:
+        _warn_first(action, n, limit)
         raise exceeded(limit, start)
     return n
+
+
+async def allow(action: str, subject: str) -> bool:
+    """한 번 세고 한도 안인지 — 넘어도 예외 없이 '세지 않음'으로 끝낼 곳(조회·공유 카운터)"""
+    n, limit, _ = await tally(action, subject)
+    if n > limit.count:
+        _warn_first(action, n, limit)
+        return False
+    return True
+
+
+def _warn_first(action: str, n: int, limit: Limit) -> None:
+    if action in WARN_ON_EXCEED and n == limit.count + 1:
+        logger.warning("요청 수 한도를 넘음: %s (한도 %d회/%d초)", action, limit.count, limit.window_sec)

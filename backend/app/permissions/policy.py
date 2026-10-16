@@ -26,6 +26,8 @@ Action = Literal[
     "attachment.upload",
     "attachment.download",
     "post.report",
+    "post.react",
+    "post.count",
     "board.manage",
 ]
 ACTIONS: frozenset[str] = frozenset(get_args(Action))
@@ -40,6 +42,7 @@ SANCTION_BLOCKS: dict[str, str] = {
     "attachment.upload": "upload",
 }
 
+# 추천·스크랩·조회·공유(post.react·post.count)는 정지로 막지 않는다 — 남에게 보이는 내용을 만들지 않는다(§6.1)
 POST_ACTIONS = ACTIONS - {"board.list", "post.create", "attachment.upload", "board.manage"}
 
 
@@ -173,6 +176,12 @@ def can(
             )
         case "post.report":
             return viewer.is_member and _post_read(viewer, role, board, post, guest_token)
+        case "post.react":
+            # 켜기만 판정한다. 끄기는 자기 행을 지우는 일이라 회원이면 된다(§6.1)
+            return viewer.is_member and post.status == "published" and _post_read(viewer, role, board, post, guest_token)
+        case "post.count":
+            # 조회·공유 — 공유는 호출부가 allow_share 를 더 본다(게시판 칸, 조회와 같은 판정을 쓰려고)
+            return post.status == "published" and _post_read(viewer, role, board, post, guest_token)
         case "board.manage":
             return False  # 사이트 운영자만(위에서 통과)
     raise AssertionError(action)  # pragma: no cover

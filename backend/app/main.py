@@ -1,3 +1,5 @@
+import asyncio
+import contextlib
 import logging
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
@@ -10,6 +12,7 @@ from app.core import csrf, problems, timing
 from app.core.config import settings
 from app.db.session import engine
 from app.files import storage
+from app.posts import view_buffer
 
 logger = logging.getLogger(__name__)
 
@@ -18,7 +21,12 @@ logger = logging.getLogger(__name__)
 async def lifespan(_: FastAPI) -> AsyncIterator[None]:
     if settings.dev_viewer_header:
         logger.warning("개발용 Viewer 헤더(X-Dev-Member)가 켜져 있습니다 — ENV=dev 전용")
+    flusher = asyncio.create_task(view_buffer.run_forever())  # always 모드 조회수(§6.1)
     yield
+    flusher.cancel()
+    with contextlib.suppress(asyncio.CancelledError):
+        await flusher
+    await view_buffer.flush()  # 정상 종료 때 남은 조회수
     await engine.dispose()
 
 

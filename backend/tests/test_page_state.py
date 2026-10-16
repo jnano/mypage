@@ -40,7 +40,7 @@ async def test_guest_gets_empty_state(committed_db, client: AsyncClient) -> None
     res = await client.get(f"/api/me/page-state?board=free&ids={_ids(posts)}")
     assert res.status_code == 200 and res.headers["cache-control"] == "no-store"
     assert res.json() == {
-        "viewer": None, "board_role": {"is_moderator": False}, "unmasked": [], "editable": [],
+        "viewer": None, "board_role": {"is_moderator": False}, "unmasked": [], "editable": [], "liked": [], "scrapped": [],
         "unread_notifications": 0, "unread_capped": False, "subscribed": False,
     }  # fmt: skip
 

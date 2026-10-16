@@ -77,6 +77,8 @@ comment.delete      T T T F F F F
 attachment.upload   T F F F F T T
 attachment.download T F F F F F T
 post.report         T T F F F T T
+post.react          T T F F F T T
+post.count          T T F F F T T
 board.manage        T F F F F F F
 """
 COLS = ["admin", "mod", "author", "member", "guest", "listed", "high"]
@@ -239,6 +241,16 @@ FLIPS = [
     ("report/guest", "post.report", GUEST, NO_ROLE, OPEN, P(), {}, False),
     # 만료 글은 열람 허용(목록 제외는 listable_posts_clause 몫 — test_clauses.py)
     ("read/expired-is-readable", "post.read", GUEST, NO_ROLE, OPEN, P(), {}, True),
+    # 글 반응(§6.1) — 켜기는 회원·공개 글, 조회·공유는 비회원도. 정지로 막지 않는다
+    ("react/member", "post.react", MEMBER, NO_ROLE, OPEN, P(), {}, True),
+    ("react/guest", "post.react", GUEST, NO_ROLE, OPEN, P(), {}, False),
+    ("react/secret", "post.react", MEMBER, NO_ROLE, OPEN, P(is_secret=True), {}, False),
+    ("react/pending-author", "post.react", AUTHOR, NO_ROLE, OPEN, P(status="pending"), {}, False),
+    ("react/all-banned", "post.react", replace(MEMBER, sanctions=frozenset({"write", "comment", "upload"})), NO_ROLE, OPEN, P(), {}, True),
+    ("count/guest", "post.count", GUEST, NO_ROLE, OPEN, P(), {}, True),
+    ("count/guest-blinded", "post.count", GUEST, NO_ROLE, OPEN, P(is_blinded=True), {}, False),
+    ("count/draft-author", "post.count", AUTHOR, NO_ROLE, OPEN, P(status="draft"), {}, False),
+    ("count/level-short", "post.count", GUEST, NO_ROLE, replace(OPEN, read_level=1), P(), {}, False),
 ]
 
 

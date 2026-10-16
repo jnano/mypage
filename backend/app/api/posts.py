@@ -2,7 +2,7 @@
 
 from datetime import UTC, datetime
 
-from fastapi import APIRouter, Depends, Header, Query
+from fastapi import APIRouter, Depends, Header, Query, Request, Response
 from fastapi.responses import JSONResponse
 from sqlalchemy import Row
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -10,11 +10,13 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.auth.viewer import Viewer, get_viewer
 from app.comments import present as comment_present
 from app.comments import queries as comment_queries
+from app.core.client_ip import client_ip
+from app.core.csrf import is_internal
 from app.core.problems import Problem
 from app.db.session import get_db
 from app.models import Board
 from app.permissions import BoardRole, can, load_board_role
-from app.posts import present, queries, service
+from app.posts import present, queries, reactions, service
 from app.posts.schemas import PostUpdate
 from app.seo import queries as seo_queries
 
@@ -115,3 +117,45 @@ async def update_post(
 ):
     result = await service.update_post(viewer, post_id, body, if_match, reason)
     return JSONResponse(result.body, status_code=result.status_code, headers=result.headers)
+
+
+# ── 글 반응(§6.1) — 추천·스크랩은 Server Action, 조회·공유는 Next Route Handler 가 부른다 ──
+
+NO_STORE = {"Cache-Control": "no-store"}
+
+
+@router.put("/posts/{post_id}/like")
+async def like_on(post_id: int, viewer: Viewer = Depends(get_viewer)):
+    return JSONResponse(await reactions.turn_on(viewer, post_id, "like"), headers=NO_STORE)
+
+
+@router.delete("/posts/{post_id}/like")
+async def like_off(post_id: int, viewer: Viewer = Depends(get_viewer)):
+    return JSONResponse(await reactions.turn_off(viewer, post_id, "like"), headers=NO_STORE)
+
+
+@router.put("/posts/{post_id}/scrap")
+async def scrap_on(post_id: int, viewer: Viewer = Depends(get_viewer)):
+    return JSONResponse(await reactions.turn_on(viewer, post_id, "scrap"), headers=NO_STORE)
+
+
+@router.delete("/posts/{post_id}/scrap")
+async def scrap_off(post_id: int, viewer: Viewer = Depends(get_viewer)):
+    return JSONResponse(await reactions.turn_off(viewer, post_id, "scrap"), headers=NO_STORE)
+
+
+VIEW_TOKEN_HEADER = "X-View-Token"
+
+
+@router.post("/posts/{post_id}/view", status_code=204)
+async def count_view(post_id: int, request: Request, viewer: Viewer = Depends(get_viewer)):
+    """셌는지 알리지 않는다 — 판정 거부·중복도 204(카운터가 있음·없음을 알리는 통로가 되지 않게)"""
+    token = request.headers.get(VIEW_TOKEN_HEADER) if is_internal(request) else None  # 내부 비밀이 맞을 때만 믿는다
+    await reactions.record_view(viewer, post_id, client_ip(request), token)
+    return Response(status_code=204)
+
+
+@router.post("/posts/{post_id}/share", status_code=204)
+async def count_share(post_id: int, request: Request, viewer: Viewer = Depends(get_viewer)):
+    await reactions.record_share(viewer, post_id, client_ip(request))
+    return Response(status_code=204)

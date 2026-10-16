@@ -33,6 +33,7 @@ from app.models import (
     Report,
     WithdrawnEmailMark,
 )
+from app.posts import reactions
 from app.posts.purge import purge_posts
 
 HOUR = 3600
@@ -130,7 +131,7 @@ async def cleanup_rate_limits(db: AsyncSession) -> int:
 
 async def cleanup_view_records(db: AsyncSession) -> int:
     """daily 기록은 하루, 비회원 once 기록은 30일(§3.2). 회원 once(m:…)는 남긴다."""
-    daily = await _delete_limited(db, PostViewDaily, PostViewDaily.view_date < func.current_date() - 1)
+    daily = await _delete_limited(db, PostViewDaily, PostViewDaily.view_date < reactions.site_today() - 1)
     once = await _delete_limited(
         db,
         PostViewOnce,

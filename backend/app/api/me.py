@@ -11,7 +11,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.auth.viewer import GUEST, Viewer, get_viewer
 from app.core.problems import Problem
 from app.db.session import get_db
-from app.models import BoardSubscription, Notification
+from app.models import BoardSubscription, Notification, PostReaction, PostScrap
 from app.permissions import NO_ROLE, can, load_board_role, post_mask
 from app.posts import queries
 
@@ -31,8 +31,8 @@ def _parse_ids(raw: str) -> list[int]:
     return ids
 
 
-async def _counts(db: AsyncSession, member_id: int, board_id: int) -> tuple[int, bool]:
-    """안 읽은 알림 수(99+ 까지)와 이 게시판 구독 여부 — 쿼리 한 번."""
+async def _counts(db: AsyncSession, member_id: int, board_id: int, ids: list[int]) -> tuple[int, bool, list[int], list[int]]:
+    """안 읽은 알림 수(99+ 까지)·이 게시판 구독 여부·요청한 글 가운데 추천·스크랩한 글(§6.1) — 쿼리 한 번."""
     capped = (
         select(Notification.id)
         .where(Notification.recipient_id == member_id, Notification.read_at.is_(None))
@@ -41,8 +41,16 @@ async def _counts(db: AsyncSession, member_id: int, board_id: int) -> tuple[int,
     )
     unread = select(func.count()).select_from(capped).scalar_subquery()
     subscribed = exists().where(BoardSubscription.board_id == board_id, BoardSubscription.member_id == member_id)
-    row = (await db.execute(select(unread.label("unread"), subscribed.label("subscribed")))).one()
-    return row.unread, row.subscribed
+    liked = (
+        select(func.array_agg(PostReaction.post_id))
+        .where(PostReaction.post_id.in_(ids), PostReaction.member_id == member_id, PostReaction.kind == "like")
+        .scalar_subquery()
+    )
+    scrapped = select(func.array_agg(PostScrap.post_id)).where(PostScrap.post_id.in_(ids), PostScrap.member_id == member_id).scalar_subquery()
+    row = (
+        await db.execute(select(unread.label("unread"), subscribed.label("subscribed"), liked.label("liked"), scrapped.label("scrapped")))
+    ).one()
+    return row.unread, row.subscribed, sorted(row.liked or []), sorted(row.scrapped or [])
 
 
 @router.get("/me/page-state")
@@ -58,6 +66,8 @@ async def page_state(
         "board_role": {"is_moderator": False},
         "unmasked": [],
         "editable": [],
+        "liked": [],
+        "scrapped": [],
         "unread_notifications": 0,
         "unread_capped": False,
         "subscribed": False,
@@ -70,7 +80,7 @@ async def page_state(
         raise Problem(404, "board_not_found", "게시판을 찾을 수 없습니다")
     role = await load_board_role(db, viewer, found.id)
     rows = await queries.find_posts_for_state(db, viewer, found.id, post_ids) if post_ids else []
-    unread, subscribed = await _counts(db, viewer.member_id, found.id)
+    unread, subscribed, liked, scrapped = await _counts(db, viewer.member_id, found.id, post_ids)
 
     body |= {
         "viewer": {"member_id": viewer.member_id, "level": viewer.level, "is_admin": viewer.is_admin},
@@ -82,6 +92,8 @@ async def page_state(
             if post_mask(GUEST, NO_ROLE, r) and not post_mask(viewer, role, r)
         ],
         "editable": [r.id for r in rows if can(viewer, role, "post.update", found, r)],
+        "liked": liked,
+        "scrapped": scrapped,
         "unread_notifications": unread,
         "unread_capped": unread > UNREAD_CAP,
         "subscribed": subscribed,

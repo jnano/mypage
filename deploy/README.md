@@ -45,6 +45,7 @@ sudo -u postgres createdb -O mypage mypage
   - 근거(3단계 측정, 8코어 노트북): 2개 → 4개에서 처리량 160 → 216 요청/s(+35%). CPU 유휴 48% → 14%. 2개는 CPU 가 남는데 막힌 프로세스 수 병목이었고, 4개는 CPU 포화에 가까웠다.
   - 값은 `backend.env` 의 `WEB_CONCURRENCY`. uvicorn 은 `--workers` 가 없으면 이 값을 쓴다. 유닛에 기본 2(`Environment=`)가 있고 `backend.env` 에 적으면 그 값이 이긴다.
   - **빈 값으로 두지 않는다** — `WEB_CONCURRENCY=` 처럼 비우면 uvicorn 0.54 가 `int("")` 로 기동에 실패한다. 환경 변수 틀에서는 주석 줄이다.
+  - **줄 끝 주석 금지** — systemd `EnvironmentFile` 은 `#` 로 시작하는 줄만 주석으로 본다. `WEB_CONCURRENCY=2  # …` 처럼 쓰면 `# …` 까지 값이 되어 `int("2  # …")` 로 기동에 실패한다. 설명은 윗줄에 쓴다.
 - **연결 수 계산**: `uvicorn 프로세스 수 × (DB_POOL_SIZE + DB_MAX_OVERFLOW) + 작업자 (DB_POOL_SIZE + DB_MAX_OVERFLOW) + LISTEN 1 + 여유 ≤ max_connections`. 풀은 프로세스마다 따로다.
 
   | uvicorn | 계산(풀 5 + 5) | 합 | PostgreSQL 기본 `max_connections` 100 |
@@ -58,7 +59,7 @@ sudo -u postgres createdb -O mypage mypage
 
 ## 3. 환경 변수
 
-`/etc/mypage/backend.env`(권한 640, 소유 root:mypage). `env/backend.env.example` 을 복사해 **필수 칸을 모두 채운다**(빈 값이면 기동 실패). 선택 칸은 주석 줄이다 — 기본값을 바꿀 때만 주석을 풀고 값을 적고, 빈 값으로 두지 않는다(CI `deploy-check` 가 틀을 복사해 기동해 본다).
+`/etc/mypage/backend.env`(권한 640, 소유 root:mypage). `env/backend.env.example` 을 복사해 **필수 칸을 모두 채운다**(빈 값이면 기동 실패). 선택 칸은 주석 줄이다 — 기본값을 바꿀 때만 주석을 풀고 값을 적고, 빈 값으로 두지 않는다(줄 끝 주석도 금지 — 설명은 윗줄에)(CI `deploy-check` 가 틀을 복사해 기동해 본다).
 
 | 키 | 값 |
 |---|---|

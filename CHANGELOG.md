@@ -45,6 +45,7 @@
 - DB 연결 풀 설정(`DB_POOL_SIZE`·`DB_MAX_OVERFLOW`·`DB_POOL_TIMEOUT`·`DB_POOL_RECYCLE`·`DB_POOL_PRE_PING`) — 같은 서버 DB 기준으로 `pool_pre_ping` 기본 끔
 
 ### Changed
+- 탈퇴 회원의 글·댓글 작성자 정리를 작업자로 옮김(outbox `member.withdrawn`): 요청 트랜잭션은 회원 행만, 작업자가 글 → 댓글 1,000행씩 묶음마다 트랜잭션·멱등, `updated_at` 은 그대로(sitemap lastmod 유지)
 - 성능(1단계 측정): 이전·다음 글 행 값 비교(74 → 0.07ms), 목록 지연 조인 + `ix_posts_board_list INCLUDE (expires_at)`(목록 p95 74 → 30ms), 검색어 리터럴 렌더와 회원 검색 정렬(회원 검색 p95 801 → 131ms)
 - Tailwind 제거 — 골격은 class 없는 시맨틱 HTML + `data-slot`(스킨은 디자인 단계)
 

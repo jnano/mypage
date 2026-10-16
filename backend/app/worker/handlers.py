@@ -4,6 +4,7 @@ import httpx
 from sqlalchemy import literal_column, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.auth.account import WITHDRAWN_NAME
 from app.core.config import settings
 from app.core.invalidation import tags_for
 from app.core.outbox import enqueue_revalidate
@@ -279,3 +280,49 @@ async def level_decided(db: AsyncSession, event: OutboxEvent) -> None:
         db, recipients=[req.member_id], type_name="level.decided", actor_id=req.decided_by, post_id=None,
         comment_id=None, title=title, group_key=f"level.decided:{req.id}", dedupe_key=f"level.decided:{req.id}",
     )  # fmt: skip
+
+
+WITHDRAWN_BATCH = 1000
+
+
+@handles("member.withdrawn")
+async def member_withdrawn(db: AsyncSession, event: OutboxEvent) -> None:
+    """탈퇴 회원의 글 → 댓글 작성자 정리(인증 설계도 §4.9) — 이벤트 하나에 한 묶음, 남으면 같은 이벤트를 다시.
+    묶음은 매번 '아직 그 회원 것인 행'에서 고르므로 중간에 멈춰도 다음 실행이 이어서 끝낸다(멱등).
+    updated_at 은 지금 값으로 두어 ORM onupdate 를 막는다 — 이름 정리는 내용 수정이 아니다(sitemap lastmod)."""
+    member_id = int(event.payload["member_id"])
+    posts = (
+        await db.execute(
+            update(Post)  # post-clause: exempt — 탈퇴 회원의 글 작성자 정리(조회 아님)
+            .where(
+                Post.id.in_(
+                    select(Post.id)  # post-clause: exempt — 정리할 묶음 고르기
+                    .where(Post.member_id == member_id)
+                    .order_by(Post.id)
+                    .limit(WITHDRAWN_BATCH)
+                )
+            )
+            .values(member_id=None, author_name_snapshot=WITHDRAWN_NAME, updated_at=Post.updated_at)
+            .returning(Post.id, Post.board_id)
+        )
+    ).all()
+    if posts:
+        slugs = dict((await db.execute(select(Board.id, Board.slug).where(Board.id.in_({p.board_id for p in posts})))).all())
+        await enqueue_revalidate(db, [tags_for("member.withdrawn.post", post_id=p.id, board_slug=slugs[p.board_id]) for p in posts])
+        await outbox.enqueue(db, [outbox.Event("member.withdrawn", {"member_id": member_id})])  # 남은 글 또는 댓글
+        return
+    comment_posts = (
+        await db.execute(
+            update(Comment)
+            .where(
+                Comment.id.in_(
+                    select(Comment.id).where(Comment.member_id == member_id).order_by(Comment.id).limit(WITHDRAWN_BATCH)
+                )
+            )
+            .values(member_id=None, author_name_snapshot=WITHDRAWN_NAME, updated_at=Comment.updated_at)
+            .returning(Comment.post_id)
+        )
+    ).scalars().all()
+    await enqueue_revalidate(db, [tags_for("member.withdrawn.comment", post_id=pid) for pid in set(comment_posts)])
+    if len(comment_posts) == WITHDRAWN_BATCH:
+        await outbox.enqueue(db, [outbox.Event("member.withdrawn", {"member_id": member_id})])

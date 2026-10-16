@@ -20,23 +20,18 @@ from app.auth.login import argon2
 from app.auth.passwords import hash_password, problems, verify_password
 from app.auth.signup import load_signup
 from app.auth.viewer import Viewer, active_sanction_clause
-from app.core import rate_limit
+from app.core import outbox, rate_limit
 from app.core.config import settings
-from app.core.invalidation import tags_for
-from app.core.outbox import enqueue_revalidate
 from app.core.problems import Problem
 from app.db.session import SessionLocal
 from app.models import (
-    Board,
     BoardAccess,
-    Comment,
     LevelRequest,
     LoginSession,
     Member,
     MemberGroupMember,
     MemberSanction,
     PasswordResetToken,
-    Post,
     WithdrawnEmailMark,
 )
 
@@ -186,29 +181,8 @@ async def withdraw_member(db: AsyncSession, actor: Viewer, member: Member, reaso
     )
     await db.execute(delete(BoardAccess).where(BoardAccess.subject_type == "member", BoardAccess.subject_id == member.id))
     await db.execute(delete(MemberGroupMember).where(MemberGroupMember.member_id == member.id))  # 그룹 소속도(검토 v4 T-2)
-    # 글·댓글: 작성자를 비우고 이름을 '탈퇴 회원'으로(본 설계서 §4.3·§4.4)
-    posts = (
-        await db.execute(
-            update(Post)  # post-clause: exempt — 탈퇴 회원의 글 작성자 정리(조회 아님)
-            .where(Post.member_id == member.id)
-            .values(member_id=None, author_name_snapshot=WITHDRAWN_NAME)
-            .returning(Post.id, Post.board_id)
-        )
-    ).all()
-    comment_posts = (
-        await db.execute(
-            update(Comment)
-            .where(Comment.member_id == member.id)
-            .values(member_id=None, author_name_snapshot=WITHDRAWN_NAME)
-            .returning(Comment.post_id)
-        )
-    ).scalars()
-    slugs = dict((await db.execute(select(Board.id, Board.slug).where(Board.id.in_({p.board_id for p in posts})))).all()) if posts else {}
-    await enqueue_revalidate(
-        db,
-        [tags_for("member.withdrawn.post", post_id=p.id, board_slug=slugs[p.board_id]) for p in posts]
-        + [tags_for("member.withdrawn.comment", post_id=pid) for pid in set(comment_posts)],
-    )
+    # 글·댓글 작성자 정리(본 설계서 §4.3·§4.4)는 행 수에 비례해 작업자가 묶음으로 한다(handlers.member_withdrawn)
+    await outbox.enqueue(db, [outbox.Event("member.withdrawn", {"member_id": member.id})])
     await db.flush()
     if forced:
         await record(db, actor, [LogEntry("member.withdraw", "member", member.id, before={"email": masked}, reason=reason)])

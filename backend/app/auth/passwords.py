@@ -13,8 +13,6 @@ from argon2.exceptions import InvalidHashError, VerificationError, VerifyMismatc
 # argon2-cffi 기본값 = RFC 9106 의 낮은 메모리 권장(argon2id, 시간 3, 메모리 64MiB, 병렬 4) — §7.7
 _hasher = PasswordHasher()
 MAX_LENGTH = 128
-# 사이트 설정 signup.password_min_length 의 기본값(§3.7, 하한 8). 15 는 '비밀번호 하나로만 인증할 때'의 기준
-DEFAULT_MIN_LENGTH = 15
 _COMMON = Path(__file__).resolve().parent / "data" / "common_passwords.txt"
 
 

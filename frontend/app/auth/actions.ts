@@ -19,7 +19,10 @@ async function browserUserAgent(): Promise<string | null> {
 }
 
 function afterLogin(data: SessionResponse, next: string): string {
-  return data.notices.includes("password_reset_by_admin") ? "/me/account?notice=password_reset_by_admin" : next;
+  if (data.notices.includes("password_reset_by_admin")) return "/me/account?notice=password_reset_by_admin";
+  // 재동의가 필요 없는 새 고지 판 — 이번 한 번 보여 주고 원래 가던 곳으로(인증 설계도 §3.6 끝)
+  if (data.notices.includes("privacy_updated")) return `/privacy?updated=1&next=${encodeURIComponent(next)}`;
+  return next;
 }
 
 export async function loginAction(next: string, _prev: AuthFormState, formData: FormData): Promise<AuthFormState> {
@@ -88,4 +91,36 @@ export async function logoutAllAction(): Promise<void> {
     await deleteCookie("session");
   }
   redirect("/");
+}
+
+export interface SignupState {
+  problem?: AuthFormState["problem"];
+  /** 접수됨 — 안내 문구와 문의 경로 */
+  done?: { message: string; contact_text: string };
+  values?: { email: string; display_name: string; signup_note: string };
+}
+
+/** 가입 신청(§4.1) — 비밀번호는 다시 채우게 돌려주지 않는다 */
+export async function signupAction(formToken: string, privacyVersion: string, _prev: SignupState, formData: FormData): Promise<SignupState> {
+  const values = {
+    email: String(formData.get("email") ?? ""),
+    display_name: String(formData.get("display_name") ?? ""),
+    signup_note: String(formData.get("signup_note") ?? ""),
+  };
+  try {
+    const { data } = await personalSend<{ message: string; contact_text: string }>("POST", "/api/auth/signup", {
+      ...values,
+      signup_note: values.signup_note || null,
+      password: String(formData.get("password") ?? ""),
+      age14: formData.get("age14") === "on",
+      privacy_agreed: formData.get("privacy_agreed") === "on",
+      privacy_version: privacyVersion,
+      form_token: formToken,
+      website: String(formData.get("website") ?? "") || null,
+    });
+    return { done: data };
+  } catch (e) {
+    if (e instanceof ApiError) return { problem: failureState(e.problem).problem, values };
+    throw e;
+  }
 }

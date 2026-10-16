@@ -5,7 +5,7 @@ from pydantic import BaseModel, Field
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.auth import login as service
-from app.auth import sessions
+from app.auth import sessions, signup
 from app.auth.viewer import SESSION_HEADER, Viewer, get_viewer
 from app.core.client_ip import client_ip
 from app.core.problems import Problem
@@ -43,6 +43,23 @@ async def login(body: LoginBody, request: Request, response: Response, db: Async
         device_token=request.headers.get(DEVICE_HEADER),
         user_agent=body.user_agent,
     )
+    await db.commit()
+    return result
+
+
+@router.get("/auth/signup-form")
+async def signup_form(response: Response, db: AsyncSession = Depends(get_db)) -> dict:
+    """가입 화면 묶음 응답 — 폼 토큰이 들어 있어 캐시하지 않는다(요청마다 새 발급 시각)"""
+    response.headers["Cache-Control"] = NO_STORE
+    return await signup.signup_form(db)
+
+
+@router.post("/auth/signup", status_code=202)
+async def signup_request(
+    body: signup.SignupBody, request: Request, response: Response, db: AsyncSession = Depends(get_db)
+) -> dict:
+    response.headers["Cache-Control"] = NO_STORE
+    result = await signup.signup(db, body, client_ip(request))
     await db.commit()
     return result
 

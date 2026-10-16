@@ -25,7 +25,7 @@ async function Login({ searchParams }: PageProps<"/login">) {
     <>
       <LoginForm action={loginAction.bind(null, next)} />
       <p>
-        <Link href="/">처음으로</Link>
+        계정이 없으면 <Link href="/signup">가입 신청</Link> · <Link href="/">처음으로</Link>
       </p>
     </>
   );

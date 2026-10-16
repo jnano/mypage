@@ -8,6 +8,8 @@ class NotificationType:
     name: str
     label: str
     default_enabled: bool
+    # 글이 아닌 알림이 가리킬 화면(글 알림은 글 주소를 쓴다)
+    path: str | None = None
 
 
 TYPES: dict[str, NotificationType] = {
@@ -21,5 +23,6 @@ TYPES: dict[str, NotificationType] = {
         NotificationType("admin.guest_pending", "승인 대기 글(담당자)", True),
         NotificationType("admin.report", "신고 접수(담당자)", True),
         NotificationType("report.resolved", "내 신고가 처리됨", False),
+        NotificationType("member.signup_pending", "가입 신청(운영자)", True, path="/admin/members/pending"),
     ]
 }

@@ -34,6 +34,18 @@ export const SETTINGS_SECTIONS: SectionSpec[] = [
     title: "검색",
     fields: [{ name: "recommended", label: "추천 검색어(줄마다 하나)", type: "lines" }],
   },
+  {
+    id: "signup",
+    title: "가입",
+    fields: [
+      { name: "open", label: "가입 신청 받기", type: "bool", help: "게시된 개인정보 고지 판이 없으면 켜도 닫혀 있습니다" },
+      { name: "default_level", label: "승인할 때 줄 레벨", type: "int" },
+      { name: "password_min_length", label: "비밀번호 최소 길이(8~64)", type: "int", help: "15 는 비밀번호 하나로만 로그인할 때의 기준입니다. 낮추면 추측 공격에 약해집니다" },
+      { name: "hourly_limit", label: "사이트 전체 시간당 가입 접수 상한", type: "int" },
+      { name: "reserved_names", label: "쓸 수 없는 표시 이름(줄마다 하나, 띄어쓰기·대소문자 무시)", type: "lines" },
+      { name: "contact_text", label: "문의 경로(가입 화면·접수 안내에 보임)", type: "textarea" },
+    ],
+  },
 ];
 
 /** 등급 이름표 — 줄마다 "등급 이름" */

@@ -21,7 +21,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.auth.emails import checked_email
 from app.auth.names import clean_display_name, display_name_key
-from app.auth.passwords import DEFAULT_MIN_LENGTH, hash_password, problems
+from app.auth.passwords import hash_password, problems
+from app.auth.signup import load_signup
 from app.db.session import SessionLocal, engine
 from app.models import LoginSession, Member, PrivacyNotice
 
@@ -41,8 +42,9 @@ async def latest_published_notice(db: AsyncSession) -> str | None:
     ).scalar_one_or_none()
 
 
-def _check_password(password: str) -> None:
-    if errors := problems(password, DEFAULT_MIN_LENGTH):
+async def _check_password(db: AsyncSession, password: str) -> None:
+    """사이트 설정의 최소 길이(signup.password_min_length)로 — 화면 가입과 같은 규칙"""
+    if errors := problems(password, (await load_signup(db)).password_min_length):
         raise CliError(" / ".join(errors))
 
 
@@ -62,7 +64,7 @@ async def create_admin(
         key = display_name_key(name)
     except ValueError as e:
         raise CliError(str(e)) from None
-    _check_password(password)
+    await _check_password(db, password)
     if (await db.execute(select(Member.id).where(Member.email == email))).first():
         raise CliError("이미 있는 이메일입니다")
     if (await db.execute(select(Member.id).where(Member.display_name_key == key, Member.status == "active"))).first():
@@ -94,7 +96,7 @@ async def create_admin(
 
 
 async def reset_password(db: AsyncSession, *, email: str, password: str) -> Member:
-    _check_password(password)
+    await _check_password(db, password)
     member = (
         await db.execute(select(Member).where(Member.email == email.strip().lower(), Member.status == "active"))
     ).scalar_one_or_none()

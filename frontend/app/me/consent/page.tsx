@@ -6,6 +6,7 @@ import { ConsentForm } from "@/components/auth/ConsentForm";
 import { ApiError } from "@/lib/api/problem";
 import { cookieNames } from "@/lib/auth/cookies";
 import { safeNextPath } from "@/lib/auth/next";
+import { noticeParagraphs } from "@/lib/auth/notice";
 import { publicGet } from "@/lib/server/backend";
 import { serverConfig } from "@/lib/server/config";
 
@@ -50,12 +51,9 @@ async function Consent({ searchParams }: PageProps<"/me/consent">) {
     <>
       <p>계속 이용하려면 새 고지에 동의해 주세요. 동의하지 않으면 로그인되지 않습니다.</p>
       <article data-slot="privacy-notice" aria-label={`개인정보 고지 ${notice.version}`}>
-        {notice.body
-          .split(/\n\s*\n/)
-          .filter((para) => para.trim())
-          .map((para, i) => (
-            <p key={i}>{para.trim()}</p>
-          ))}
+        {noticeParagraphs(notice.body).map((para, i) => (
+          <p key={i}>{para}</p>
+        ))}
       </article>
       <ConsentForm action={consentAction.bind(null, next)} />
       <p>

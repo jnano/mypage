@@ -10,6 +10,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core import outbox
 from app.db.session import SessionLocal
 from app.notifications import queries as nq
+from app.notifications.types import TYPES
 from app.models import (
     BoardAccess,
     BoardModerator,
@@ -212,7 +213,7 @@ async def test_prefs_and_subscription_api(dev_header, committed_db, client) -> N
     h = as_member(member.id)
 
     prefs = {i["type"]: i["enabled"] for i in (await client.get("/api/me/notification-prefs", headers=h)).json()["items"]}
-    assert prefs["comment.on_my_post"] is True and prefs["moderation.moved"] is False and len(prefs) == 8
+    assert prefs["comment.on_my_post"] is True and prefs["moderation.moved"] is False and set(prefs) == set(TYPES)
     res = await client.put("/api/me/notification-prefs", json={"comment.reply": False}, headers=h)
     assert {i["type"]: i["enabled"] for i in res.json()["items"]}["comment.reply"] is False
     assert (await client.put("/api/me/notification-prefs", json={"nope": True}, headers=h)).status_code == 422

@@ -224,3 +224,29 @@ export async function reindexAction(_prev: AdminFormState): Promise<AdminFormSta
 export async function retryJobAction(id: number, _prev: AdminFormState): Promise<AdminFormState> {
   return done("POST", `/api/admin/jobs/${id}/retry`, undefined, "다시 시도하도록 했습니다");
 }
+
+// ── 가입 대기·개인정보 고지(인증 설계도 §4.2·§3.6) ──
+
+export async function approveMemberAction(id: number, _prev: AdminFormState, f: FormData): Promise<AdminFormState> {
+  return done("POST", `/api/admin/members/${id}/approve`, { display_name: text(f, "display_name") || null }, "승인했습니다");
+}
+
+export async function rejectMembersAction(_prev: AdminFormState, f: FormData): Promise<AdminFormState> {
+  const chosen = f.getAll("ids").map(Number).filter((n) => Number.isInteger(n) && n > 0);
+  if (chosen.length === 0) return { problem: { status: 422, code: "validation_error", title: "거부할 신청을 고르세요" } };
+  return done("POST", "/api/admin/members/reject", { ids: chosen, reason: text(f, "reason") || null }, `${chosen.length}건을 거부했습니다`);
+}
+
+export async function createNoticeAction(_prev: AdminFormState, f: FormData): Promise<AdminFormState> {
+  const body = { version: text(f, "version"), body: String(f.get("body") ?? ""), requires_reconsent: f.get("requires_reconsent") === "on" };
+  return done("POST", "/api/admin/privacy-notices", body, "초안을 만들었습니다");
+}
+
+export async function updateNoticeAction(version: string, _prev: AdminFormState, f: FormData): Promise<AdminFormState> {
+  const body = { body: String(f.get("body") ?? ""), requires_reconsent: f.get("requires_reconsent") === "on" };
+  return done("PATCH", `/api/admin/privacy-notices/${encodeURIComponent(version)}`, body, "초안을 저장했습니다");
+}
+
+export async function publishNoticeAction(version: string, _prev: AdminFormState): Promise<AdminFormState> {
+  return done("POST", `/api/admin/privacy-notices/${encodeURIComponent(version)}/publish`, undefined, "게시했습니다");
+}

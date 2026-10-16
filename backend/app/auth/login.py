@@ -5,7 +5,9 @@
 토큰(session_token·device_token·consent_token)은 응답 본문으로 Next 서버에만 돌려준다. 로그에 남기지 않는다.
 """
 
+import secrets
 from datetime import UTC, datetime
+from functools import cache
 from typing import Any
 
 from sqlalchemy import exists, literal_column, select
@@ -20,8 +22,6 @@ from app.core.problems import Problem
 from app.core.threads import SlotTimeout, run_in_thread_within
 from app.models import Member, PrivacyNotice
 
-# 없는 이메일에도 같은 시간이 들도록 검증할 해시(아무 비밀번호의 argon2id — 기본 매개변수와 같아야 시간이 같다)
-DUMMY_HASH = "$argon2id$v=19$m=65536,t=3,p=4$BNWPLOEcUbPWwKcq2CQ5QQ$CNozV3tOpsoIATWNPH0NPvcMyoAyvrJyys3K+wWKMQk"
 ARGON2_WAIT = 2.0  # 한도 자리 얻기 기한(§7.7)
 
 
@@ -29,7 +29,15 @@ def login_failed() -> Problem:
     return Problem(401, "login_failed", "이메일 또는 비밀번호가 맞지 않습니다")
 
 
-async def _argon2[T](fn, *args) -> T:
+@cache
+def dummy_hash() -> str:
+    """없는 이메일에도 같은 시간이 들도록 검증할 해시 — 처음 쓸 때 지금 매개변수로 만든다(검토 v3 R-2).
+    상수로 두면 라이브러리 기본값이 바뀐 뒤 회원 해시(다시 해시됨)와 매개변수가 갈라져 시간이 달라진다."""
+    return hash_password(secrets.token_urlsafe(24))
+
+
+async def argon2[T](fn, *args) -> T:
+    """argon2 작업 — 한도 자리를 2초 안에 못 얻으면 429(§7.7)"""
     try:
         return await run_in_thread_within("argon2", ARGON2_WAIT, fn, *args)
     except SlotTimeout:
@@ -41,13 +49,14 @@ async def _argon2[T](fn, *args) -> T:
 async def count_login(email: str, ip: str, device: str | None) -> None:
     """② 해시 전에 센다(§4.3-2·§4.3.1). 유효한 기기 쿠키면 이메일 단독 대신 쿠키 단위로 센다"""
     eh = keys.email_hmac(email).hex()
+    # IP 단독을 먼저 센다(검토 v3 R-4) — 한 IP 의 폭주가 피해자 이메일 키를 먼저 소진하지 않게
+    await rate_limit.hit("auth.login_ip", ip)
     await rate_limit.hit("auth.login", f"{eh}:{ip}")
     signature = keys.device_matches(device, email)
     if signature:
         await rate_limit.hit("auth.login_device", signature)
     else:
         await rate_limit.hit("auth.login_account", eh)
-    await rate_limit.hit("auth.login_ip", ip)
 
 
 async def needs_reconsent(db: AsyncSession, member: Member) -> bool:
@@ -66,9 +75,18 @@ async def needs_reconsent(db: AsyncSession, member: Member) -> bool:
 
 async def start_session(db: AsyncSession, member: Member, persistent: bool, user_agent: str | None) -> dict[str, Any]:
     """세션 발급(+ 유지면 기기 쿠키) — 로그인과 재동의가 같은 함수를 쓴다"""
+    notices = []
+    # 재동의가 필요 없는 새 고지 판 — 지난 로그인 뒤에 게시됐으면 이번 한 번 알린다(§3.6 끝)
+    latest = await latest_notice(db)
+    if (
+        latest is not None
+        and latest.version != member.privacy_version
+        and latest.published_at is not None
+        and (member.last_login_at is None or latest.published_at > member.last_login_at)
+    ):
+        notices.append("privacy_updated")
     token, expires_at = await sessions.issue(db, member, persistent, user_agent)
     member.last_login_at = datetime.now(UTC)
-    notices = []
     if member.password_reset_by_admin_at is not None:  # 운영자 링크로 바뀌었다는 안내 — 한 번 보이고 지운다(§4.3-9)
         notices.append("password_reset_by_admin")
         member.password_reset_by_admin_at = None
@@ -96,8 +114,9 @@ async def login(
     email = normalize_email(email)
     await count_login(email, ip, device_token)
     member = (await db.execute(select(Member).where(Member.email == email))).scalar_one_or_none()
-    stored = member.password_hash if member is not None and member.password_hash else DUMMY_HASH
-    ok = await _argon2(verify_password, stored, password)
+    # 가짜 해시는 처음 한 번만 만든다(그 뒤엔 캐시) — 만드는 일도 argon2 라 한도 안에서
+    stored = member.password_hash if member is not None and member.password_hash else await argon2(dummy_hash)
+    ok = await argon2(verify_password, stored, password)
     if member is None or not ok:
         raise login_failed()
     if member.status == "pending":  # 비밀번호가 맞을 때만 알려 준다(§4.3-5)
@@ -105,7 +124,7 @@ async def login(
     if member.status != "active":
         raise login_failed()
     if needs_rehash(stored):
-        member.password_hash = await _argon2(hash_password, password)
+        member.password_hash = await argon2(hash_password, password)
     if session_token:  # 이 브라우저의 이전 세션
         await sessions.revoke_token(db, session_token)
     if await needs_reconsent(db, member):

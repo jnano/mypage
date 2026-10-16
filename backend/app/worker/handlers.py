@@ -10,7 +10,7 @@ from app.core.outbox import enqueue_revalidate
 from app.core import outbox
 from app.core.threads import run_in_thread
 from app.files import attach, images, storage
-from app.models import Attachment, Board, Comment, OutboxEvent, Post, PostSearch
+from app.models import Attachment, Board, Comment, Member, OutboxEvent, Post, PostSearch
 from app.notifications import send
 from app.posts.purge import purge_posts
 from app.search import reindex
@@ -251,3 +251,18 @@ async def search_reindex(db: AsyncSession, event: OutboxEvent) -> None:
 @handles("files.delete")
 async def files_delete(_db: AsyncSession, event: OutboxEvent) -> None:
     await run_in_thread("image", storage.delete_labels, list(event.payload.get("labels", [])))
+
+
+@handles("member.signup_pending")
+async def signup_pending(db: AsyncSession, event: OutboxEvent) -> None:
+    """가입 신청 — 운영자에게(인증 설계도 §4.1). 안 읽은 알림이 있으면 '○○님 외 N명'으로 묶인다"""
+    member_id = int(event.payload["member_id"])
+    if (await db.execute(select(Member.id).where(Member.id == member_id, Member.status == literal_column("'pending'")))).first() is None:
+        return  # 그 사이 승인·거부됨
+    admins = (
+        await db.execute(select(Member.id).where(Member.is_admin, Member.status == literal_column("'active'")))
+    ).scalars()
+    await send.notify(
+        db, recipients=list(admins), type_name="member.signup_pending", actor_id=member_id, post_id=None,
+        comment_id=None, title="가입 신청", group_key="member.signup_pending", dedupe_key=f"member.signup_pending:{member_id}",
+    )  # fmt: skip

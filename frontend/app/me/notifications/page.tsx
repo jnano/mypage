@@ -36,6 +36,7 @@ const VERB: Record<string, string> = {
   "admin.guest_pending": "승인 대기 글",
   "admin.report": "신고가 접수되었습니다",
   "report.resolved": "내 신고가 처리되었습니다",
+  "member.signup_pending": "가입을 신청했습니다",
 };
 
 export default function NotificationsPage(props: PageProps<"/me/notifications">) {

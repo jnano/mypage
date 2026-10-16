@@ -11,6 +11,8 @@ const NAV: [string, string][] = [
   ["/admin/comments", "댓글"],
   ["/admin/reports", "신고"],
   ["/admin/logs", "운영 기록"],
+  ["/admin/members/pending", "가입 대기"],
+  ["/admin/privacy-notices", "개인정보 고지"],
   ["/admin/settings", "사이트 설정"],
   ["/admin/jobs", "실패 작업"],
 ];

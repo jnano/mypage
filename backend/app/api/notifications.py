@@ -42,8 +42,15 @@ async def list_notifications(
     rows, readable, next_cursor = await queries.list_notifications(db, viewer, after)
     items = []
     for r in rows:
-        gone = r.post_id is None
-        hidden = not gone and r.post_id not in readable
+        fixed = TYPES[r.type].path if r.type in TYPES else None  # 글이 아닌 알림(가입 신청 등)은 정해진 화면으로
+        gone = fixed is None and r.post_id is None
+        hidden = fixed is None and not gone and r.post_id not in readable
+        if fixed is not None:
+            path = fixed
+        elif gone or hidden:
+            path = None
+        else:
+            path = f"/boards/{r.board_slug}/{r.post_id}" + (f"#c-{r.comment_id}" if r.comment_id else "")
         items.append(
             {
                 "id": r.id,
@@ -53,8 +60,7 @@ async def list_notifications(
                 # 지운 글은 '삭제된 글', 지금 열 수 없는 글은 제목을 가린다(§7)
                 "title": None if (gone or hidden) else r.title_snapshot,
                 "masked": "deleted" if gone else "hidden" if hidden else None,
-                "path": f"/boards/{r.board_slug}/{r.post_id}" + (f"#c-{r.comment_id}" if r.comment_id else "")
-                if not (gone or hidden) else None,  # fmt: skip
+                "path": path,
                 "read": r.read_at is not None,
                 "created_at": r.created_at.isoformat(),
                 "updated_at": r.updated_at.isoformat(),

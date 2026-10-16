@@ -14,8 +14,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.auth.viewer import Viewer
 from app.models import ModerationLog
 
-# §14.4 가림 대상 — 이름·본문 앞부분·ip_hash. 해시·행동·대상 id·사유는 남긴다
-PERSONAL_KEYS = frozenset({"author_name", "display_name", "excerpt", "ip_hash"})
+# §14.4 가림 대상 — 이름·본문 앞부분·ip_hash·이메일(가린 값이어도, 인증 설계도 §3.8). 해시·행동·대상 id·사유는 남긴다
+PERSONAL_KEYS = frozenset({"author_name", "display_name", "excerpt", "ip_hash", "email"})
 REDACTED = "[가림]"
 
 

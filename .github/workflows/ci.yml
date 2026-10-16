@@ -275,10 +275,21 @@ jobs:
       - name: rewrites 가 frontend.env 의 BACKEND_URL 로 굳었는지(기본값 localhost:8000 이 아니라 127.0.0.1:8000)
         run: |
           python3 - <<'PY'
-          import json, sys
-          dests = [r["destination"] for r in json.load(open("frontend/.next/routes-manifest.json"))["rewrites"]["fallback"]]
+          import json, pathlib, re, sys
+          rw = json.load(open("frontend/.next/routes-manifest.json"))["rewrites"]
+          # afterFiles 에 있어야 한다 — fallback 은 사용자 페이지 catch-all 뒤라 닿지 않는다(frontend/lib/apiProxy.ts)
+          dests = [r["destination"] for r in rw["afterFiles"]]
           print(dests)
-          sys.exit(0 if all(d.startswith("http://127.0.0.1:8000/") for d in dests) and dests else "✗ rewrites 주소가 빌드 때 값이 아니다")
+          if rw["fallback"] or not dests or not all(d.startswith("http://127.0.0.1:8000/") for d in dests):
+              sys.exit("✗ rewrites 주소가 빌드 때 값이 아니거나 afterFiles 에 없다")
+          # Next 가 컴파일한 /api 정규식: 동적 Route Handler(app/api 의 [..] 폴더)는 넘기지 않고, 나머지는 넘긴다
+          api = re.compile(next(r["regex"] for r in rw["afterFiles"] if r["source"].startswith("/api/")))
+          dynamic = ["/api/" + re.sub(r"\[[^\]]+\]", "123", str(p.parent.relative_to("frontend/app/api")))
+                     for p in pathlib.Path("frontend/app/api").rglob("route.*") if "[" in str(p)]
+          kept = [u for u in dynamic if api.match(u)]
+          passed = [u for u in ("/api/health", "/api/attachments/123", "/api/boards/free/page") if not api.match(u)]
+          print(dynamic)
+          sys.exit(f"✗ /api rewrite 가 Route Handler 를 가로채거나({kept}) FastAPI 주소를 놓친다({passed})" if kept or passed or not dynamic else 0)
           PY
       - name: 마이그레이션·개발 시드·기동(유닛과 같은 실행 인자, 측정을 위해 접근 기록만 켬)
         run: |

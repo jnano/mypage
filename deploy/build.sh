@@ -3,7 +3,7 @@
 set -euo pipefail
 cd "$(dirname "$0")/.."
 
-# BACKEND_URL — next.config.ts 의 rewrites(/api/*·/media/* fallback)는 빌드 때 이 값으로 굳는다(설계도 §17.1).
+# BACKEND_URL — next.config.ts 의 rewrites(/api/*·/media/* afterFiles — frontend/lib/apiProxy.ts)는 빌드 때 이 값으로 굳는다(설계도 §17.1).
 # 실행 때 systemd 가 frontend.env 에서 읽는 값과 같아야 한다. 정하는 순서: 환경 변수 > frontend.env > 멈춤.
 # 파일 값은 해석하지 않고 검사한다 — 따옴표·공백·CR 등 systemd 와 읽는 법이 갈릴 수 있는 값은 거부한다(조용히 굳지 않게)
 FRONTEND_ENV_FILE="${FRONTEND_ENV_FILE:-/etc/mypage/frontend.env}"

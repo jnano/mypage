@@ -152,6 +152,34 @@ jobs:
           getent passwd mypage || sudo useradd --system --no-create-home mypage
           sudo install -m 644 deploy/systemd/*.service /etc/systemd/system/
           sudo systemd-analyze verify /etc/systemd/system/mypage-*.service
+      - uses: astral-sh/setup-uv@v10.2.0
+      - name: 환경 변수 틀을 복사해 백엔드 유닛을 실제로 기동(WEB_CONCURRENCY 기본 2 · 설정값 · 빈 값 실패)
+        env:
+          # 유닛의 ProtectHome 때문에 파이썬을 /home 밖에 둔다
+          UV_PYTHON_INSTALL_DIR: /opt/uv-python
+        run: |
+          sudo mkdir -p /opt/uv-python && sudo chown "$USER" /opt/uv-python
+          sudo rm -rf /srv/mypage/app && sudo mkdir -p /srv/mypage/app && sudo chown -R "$USER" /srv/mypage
+          cp -r backend deploy /srv/mypage/app/
+          (cd /srv/mypage/app/backend && rm -rf .venv && uv sync --locked --no-dev -q)
+          sudo chown -R mypage:mypage /srv/mypage
+          # 틀을 그대로 복사하고 필수 칸만 채운다(운영자가 하는 일) — 선택 칸(주석)은 손대지 않는다
+          sudo cp deploy/env/backend.env.example /etc/mypage/backend.env
+          sudo sed -i -e 's|^ENV=$|ENV=prod|' -e 's|^DATABASE_URL=$|DATABASE_URL=postgresql+asyncpg://mypage@127.0.0.1:5432/mypage|' \
+            -e 's|^INTERNAL_API_SECRET=$|INTERNAL_API_SECRET=ci-deploy-check-secret-0123456789abcdef|' \
+            -e 's|^DB_POOL_SIZE=$|DB_POOL_SIZE=5|' -e 's|^DB_MAX_OVERFLOW=$|DB_MAX_OVERFLOW=5|' \
+            -e 's|^MEDIA_ROOT=$|MEDIA_ROOT=/srv/mypage/shared/media|' -e 's|^PRIVATE_ROOT=$|PRIVATE_ROOT=/srv/mypage/shared/private|' \
+            -e 's|^FILE_SENDER=$|FILE_SENDER=nginx|' /etc/mypage/backend.env
+          if sudo grep -nE '^[A-Z_]+=$' /etc/mypage/backend.env; then echo "채우지 않은 필수 칸이 있다"; exit 1; fi
+          start() { sudo systemctl daemon-reload; sudo systemctl restart mypage-backend; for i in $(seq 1 30); do curl -sf http://127.0.0.1:8000/api/health > /dev/null && return 0; sleep 1; done; sudo journalctl -u mypage-backend -n 30 --no-pager; return 1; }
+          workers() { n=0; for pid in $(pgrep -f "uvicorn app.main:app"); do c=$(pgrep -P "$pid" -f spawn_main | wc -l); [ "$c" -gt "$n" ] && n=$c; done; echo $n; }
+          start; n=$(workers); [ "$n" = 2 ] || { echo "✗ 작업자 $n개 — 기대 2"; exit 1; }; echo "✓ 틀 그대로(WEB_CONCURRENCY 주석) → 유닛 기본 2개"
+          echo 'WEB_CONCURRENCY=3' | sudo tee -a /etc/mypage/backend.env > /dev/null
+          start; n=$(workers); [ "$n" = 3 ] || { echo "✗ 작업자 $n개 — 기대 3"; exit 1; }; echo "✓ WEB_CONCURRENCY=3 → 3개(EnvironmentFile 이 이김)"
+          sudo sed -i 's|^WEB_CONCURRENCY=3$|WEB_CONCURRENCY=|' /etc/mypage/backend.env
+          sudo systemctl restart mypage-backend || true; sleep 3
+          if sudo systemctl is-active --quiet mypage-backend; then echo "✗ 빈 WEB_CONCURRENCY 인데 떴다(예상과 다름)"; exit 1; fi
+          if sudo journalctl -u mypage-backend -n 40 --no-pager | grep -q "invalid literal for int"; then echo "✓ 빈 WEB_CONCURRENCY → 기동 실패(그래서 틀은 주석 줄)"; else echo "✗ 실패 원인이 예상과 다름"; sudo journalctl -u mypage-backend -n 40 --no-pager; exit 1; fi
 
   # nginx 경유 실제 확인(설계도 §17) — 운영 배치(/srv/mypage/shared, FILE_SENDER=nginx, standalone, 저장소의 nginx 설정)로 띄워
   # deploy/smoke.sh 가 바인딩·보안 헤더·/media·internal·업로드 상한·실제 IP·스트리밍·X-Accel-Redirect 를 본다.
@@ -211,7 +239,7 @@ jobs:
           sudo nginx -t && sudo systemctl restart nginx
           for i in $(seq 1 60); do curl -sf http://localhost/api/health && exit 0; sleep 1; done; cat uvicorn.log next.log; exit 1
       - name: 점검(deploy/smoke.sh)
-        run: ./deploy/smoke.sh http://localhost /srv/mypage/shared/media uvicorn.log 3
+        run: ./deploy/smoke.sh http://localhost /srv/mypage/shared/media uvicorn.log 3 2
       - name: 실패 시 기록
         if: failure()
         run: tail -n 60 uvicorn.log next.log; sudo tail -n 30 /var/log/nginx/mypage.error.log

@@ -1,4 +1,6 @@
-# FastAPI(설계도 §17) — uvicorn 프로세스 수는 backend.env 의 WEB_CONCURRENCY(uvicorn 공식: --workers 가 없으면 이 값). 시작은 코어 수의 절반, k6 로 조정
+# FastAPI(설계도 §17) — uvicorn 프로세스 수는 WEB_CONCURRENCY(uvicorn 공식: --workers 가 없으면 이 값).
+# 기본 2를 여기 두고, backend.env 에 적으면 그 값이 이긴다(EnvironmentFile 이 Environment 를 덮어쓴다 — systemd.exec).
+# 빈 값(WEB_CONCURRENCY=)은 uvicorn 0.54 가 int("") 로 기동 실패 — 환경 변수 틀은 주석으로 둔다. 시작은 코어 수의 절반, k6 로 조정
 [Unit]
 Description=mypage backend (FastAPI)
 After=network-online.target postgresql.service
@@ -9,6 +11,7 @@ Type=exec
 User=mypage
 Group=mypage
 WorkingDirectory=/srv/mypage/app/backend
+Environment=WEB_CONCURRENCY=2
 EnvironmentFile=/etc/mypage/backend.env
 ExecStart=/srv/mypage/app/backend/.venv/bin/uvicorn app.main:app --host 127.0.0.1 --port 8000 --proxy-headers --forwarded-allow-ips 127.0.0.1 --no-access-log
 Restart=on-failure

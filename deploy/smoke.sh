@@ -1,9 +1,9 @@
 #!/usr/bin/env bash
 # 배포 점검 — nginx 를 거쳐 실제로 확인한다(설계도 §17 'nginx 필수 설정'). CI 작업 nginx-smoke 와 서버 배포 직후에 쓴다.
-# 사용: deploy/smoke.sh <nginx 주소> <공개 저장소 폴더> [uvicorn 접근 기록 파일] [개발 로그인 회원 번호]
+# 사용: deploy/smoke.sh <nginx 주소> <공개 저장소 폴더> [uvicorn 접근 기록 파일] [개발 로그인 회원 번호] [기대 uvicorn 작업자 수]
 #   개발 로그인(ENV=dev)이 없으면 업로드·비공개 파일·스트리밍(회원 화면) 확인은 건너뛴다.
 set -uo pipefail
-BASE=${1:?nginx 주소}; MEDIA=${2:?공개 저장소 폴더}; BACKEND_LOG=${3:-}; MEMBER=${4:-}
+BASE=${1:?nginx 주소}; MEDIA=${2:?공개 저장소 폴더}; BACKEND_LOG=${3:-}; MEMBER=${4:-}; WORKERS=${5:-}
 FAIL=0
 ok() { echo "✓ $*"; }
 bad() { echo "✗ $*"; FAIL=1; }
@@ -14,6 +14,17 @@ if command -v ss > /dev/null; then
     addrs=$(ss -ltnH "sport = :$port" | awk '{print $4}' | sort -u | tr '\n' ' ')
     if [ -n "$addrs" ] && ! echo "$addrs" | grep -qvE '^127\.0\.0\.1:|^ *$'; then ok "포트 $port 는 127.0.0.1 에만: $addrs"; else bad "포트 $port 바인딩: '$addrs'"; fi
   done
+fi
+
+# 1-1. uvicorn 작업자 수 — 부모 프로세스의 자식 중 작업자(multiprocessing spawn)를 센다. 설정(WEB_CONCURRENCY)과 같아야 한다
+if [ -n "$WORKERS" ]; then
+  # 실행기가 한 겹 감쌀 수 있어(uv run 등) 일치하는 프로세스마다 자식 작업자를 세어 가장 큰 값을 쓴다
+  n=0
+  for pid in $(pgrep -f "uvicorn app.main:app" || true); do
+    c=$(pgrep -P "$pid" -f "spawn_main" | wc -l | tr -d ' ')
+    [ "$c" -gt "$n" ] && n=$c
+  done
+  [ "$n" = "$WORKERS" ] && ok "uvicorn 작업자 $n개(설정 $WORKERS)" || bad "uvicorn 작업자 $n개 — 설정은 $WORKERS"
 fi
 
 # 2. 보안 헤더

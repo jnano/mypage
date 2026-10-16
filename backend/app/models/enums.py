@@ -1,6 +1,7 @@
 """열거형 값 — DB CHECK 와 Pydantic 검증이 같은 값을 쓴다(설계도 §4)."""
 
-MEMBER_STATUSES = ("active", "withdrawn")
+MEMBER_STATUSES = ("pending", "active", "withdrawn")
+LEVEL_REQUEST_STATUSES = ("pending", "approved", "rejected", "cancelled")
 
 BOARD_KINDS = ("default", "gallery", "line")
 HIDDEN_POST_LISTINGS = ("mask", "hide")

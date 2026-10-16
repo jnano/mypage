@@ -6,6 +6,7 @@
 ## [Unreleased]
 
 ### Added
+- 인증 기초(인증 설계도 §11-1): 회원 인증 칸·세션·재설정 토큰·승급 신청·탈퇴 표시·개인정보 고지 판 표, 첫 운영자 CLI(`app.auth.admin_cli` — 첫 고지 판과 함께), 표시 이름 정규화, 비밀번호 규칙(argon2id·흔한 비밀번호 목록), 개발·측정 DB 채움 스크립트
 - 배포 구성(설계도 §17): nginx 사이트 설정·보안 헤더, systemd 유닛 3개(backend·worker·frontend), 환경 변수 틀, 빌드 스크립트, 운영자 설명서 `deploy/README.md`, CI `deploy-check`(nginx -t·systemd-analyze verify). Next standalone 출력·스트리밍 버퍼링 끄기 헤더. 요청 계측에 DB 연결 풀 최고치
 - 접근성 구조 검사(axe-core): 비회원·회원·운영자 주요 화면 20곳 WCAG 2.2 AA + 구조 규칙, 대조군, CI 작업 `a11y`(전체 스택)
 - SEO(설계도 §10): 글·목록·사이트 메타(canonical·OG·Twitter·검색엔진 확인), 구조화 데이터(DiscussionForumPosting·Article·BreadcrumbList), sitemap(게시판 + 글 5만 건씩)·robots·RSS(전체·게시판), 비공개 글·게시판 noindex, 검색엔진 봇에는 옛 주소 308·없는 글 404 실제 상태 코드

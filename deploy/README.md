@@ -90,6 +90,9 @@ sudo -u postgres createdb -O mypage mypage
 cd /srv/mypage/app
 sudo -u mypage ./deploy/build.sh
 sudo -u mypage bash -c 'set -a; . /etc/mypage/backend.env; cd backend && .venv/bin/alembic upgrade head'
+# 처음 한 번 — 첫 운영자와 첫 개인정보 고지 판(인증 설계도 §4.12). 고지문 파일은 실제 문구로 준비한다.
+# 게시된 판이 없으면 가입은 닫혀 있다. 비밀번호는 입력 창에서 받는다(명령 기록에 남지 않음)
+sudo -u mypage bash -c 'set -a; . /etc/mypage/backend.env; cd backend && .venv/bin/python -m app.auth.admin_cli create --email <운영자 주소> --privacy-file <고지문.txt>'
 sudo install -m 644 deploy/systemd/*.service /etc/systemd/system/
 sudo systemctl daemon-reload
 sudo systemctl enable --now mypage-backend mypage-worker mypage-frontend
@@ -127,6 +130,8 @@ sudo -u mypage ./deploy/build.sh
 sudo -u mypage bash -c 'set -a; . /etc/mypage/backend.env; cd backend && .venv/bin/alembic upgrade head'
 sudo systemctl restart mypage-backend mypage-worker mypage-frontend
 ```
+운영자 비밀번호를 잊었을 때: `… .venv/bin/python -m app.auth.admin_cli reset-password --email <주소>`(그 회원의 세션도 모두 폐기). 운영자 계정은 화면에서 재설정 링크를 받을 수 없다.
+
 되돌리기: 이전 커밋으로 `git checkout <커밋>` 뒤 같은 순서. 마이그레이션을 되돌려야 하면 `alembic downgrade <리비전>` 을 먼저 한다.
 Next 의 `'use cache'` 저장소는 프로세스 메모리라 재시작 직후 1분은 '차가운 캐시'다(§15.1 — 부하 측정 보고서에 따로 기록).
 

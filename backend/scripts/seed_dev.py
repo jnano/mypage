@@ -5,9 +5,12 @@
 """
 
 import asyncio
+from datetime import UTC, datetime
 
 from sqlalchemy import select, update
 
+from app.auth.names import display_name_key
+from app.auth.passwords import hash_password
 from app.auth.viewer import Viewer
 from app.boards.settings import UploadPolicy, default_display
 from app.db.session import SessionLocal, engine
@@ -24,6 +27,7 @@ from app.models import (
 from app.posts.schemas import PostCreate
 from app.posts.service import insert_post
 from app.search.index import content_fields, title_fields
+from scripts.dev_auth import DEV_PASSWORD, ensure_dev_notice
 
 POSTS = {
     "notice": [
@@ -54,10 +58,22 @@ async def main() -> None:
         if (await db.execute(select(Board.id).where(Board.slug == "notice"))).first():
             print("이미 시드가 있습니다 — 건너뜁니다")
             return
-        admin = Member(display_name="운영자", level=9, is_admin=True)
-        mod = Member(display_name="담당자", level=2)
-        m1 = Member(display_name="회원하나", level=1)
-        m3 = Member(display_name="회원셋", level=3)
+        # 인증 칸 — 모두 같은 개발용 비밀번호(backend/README.md '개발')
+        notice = await ensure_dev_notice(db)
+        now = datetime.now(UTC)
+        password_hash = hash_password(DEV_PASSWORD)
+
+        def member(name: str, email: str, level: int, is_admin: bool = False) -> Member:
+            return Member(
+                display_name=name, display_name_key=display_name_key(name), level=level, is_admin=is_admin,
+                email=email, password_hash=password_hash, approved_at=now, age14_confirmed_at=now,
+                privacy_version=notice, privacy_agreed_at=now,
+            )  # fmt: skip
+
+        admin = member("운영자", "admin@example.test", 9, is_admin=True)
+        mod = member("담당자", "moderator@example.test", 2)
+        m1 = member("회원하나", "member1@example.test", 1)
+        m3 = member("회원셋", "member3@example.test", 3)
         db.add_all([admin, mod, m1, m3])
         group = MemberGroup(name="운영진")
         db.add(group)
@@ -128,7 +144,8 @@ async def main() -> None:
 
     print("시드 완료")
     for m in (admin, mod, m1, m3):
-        print(f"  회원 {m.id}: {m.display_name} (레벨 {m.level}{', 운영자' if m.is_admin else ''})")
+        print(f"  회원 {m.id}: {m.display_name} {m.email} (레벨 {m.level}{', 운영자' if m.is_admin else ''})")
+    print(f"비밀번호(모두): {DEV_PASSWORD}")
     print("개발용 헤더 예: X-Dev-Member: <회원 id>; key=<DEV_VIEWER_SECRET>")
     await engine.dispose()
 

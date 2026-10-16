@@ -1,4 +1,4 @@
-"""설계도 §4(v3.0.1) 를 옮겨 적은 스키마 명세 — test_schema_contract.py 의 대조 기준.
+"""설계도 §4(v3.0.1)·인증 설계도 §3 을 옮겨 적은 스키마 명세 — test_schema_contract.py 의 대조 기준.
 
 설계도 §4 를 바꾸면 이 파일도 같이 바꾼다. 모델에서 베껴 오지 않는다(설계도에서 옮긴다).
 
@@ -39,12 +39,102 @@ SPEC: dict[str, T] = {
             "display_name varchar(50)",
             "level smallint =1 range(1,99)",
             "is_admin boolean =false",
-            "status varchar(10) ='active' in(active,withdrawn)",
+            "status varchar(10) ='active' in(pending,active,withdrawn)",
             "withdrawn_at timestamptz null",
             CREATED,
             UPDATED,
+            # 인증 설계도 §3.1
+            "email varchar(254) null",
+            "password_hash varchar(255) null",
+            "display_name_key varchar(200) null",
+            "signup_note varchar(500) null",
+            "age14_confirmed_at timestamptz null",
+            "approved_at timestamptz null",
+            "approved_by bigint null",
+            "last_login_at timestamptz null",
+            "password_changed_at timestamptz null",
+            "password_reset_by_admin_at timestamptz null",
+            "privacy_version varchar(20) null",
+            "privacy_agreed_at timestamptz null",
         ],
-        checks={"withdrawn": "(status = 'withdrawn') = (withdrawn_at IS NOT NULL)"},
+        fks={"approved_by": "members SET NULL", "privacy_version": "privacy_notices RESTRICT"},
+        checks={
+            "withdrawn": "(status = 'withdrawn') = (withdrawn_at IS NOT NULL)",
+            "live_fields": "status = 'withdrawn' OR (email IS NOT NULL AND password_hash IS NOT NULL"
+            " AND display_name_key IS NOT NULL AND privacy_version IS NOT NULL"
+            " AND privacy_agreed_at IS NOT NULL AND age14_confirmed_at IS NOT NULL)",
+            "withdrawn_cleared": "status <> 'withdrawn' OR (email IS NULL AND password_hash IS NULL"
+            " AND display_name_key IS NULL AND signup_note IS NULL)",
+        },
+        uniques=[("email",)],
+        indexes={"uq_members_display_name_key": "display_name_key | where status = 'active' | unique"},
+    ),
+    # ── 인증 설계도 §3.2~§3.6 ────────────────────────────────
+    "sessions": T(
+        cols=[
+            ID,
+            "token_hash bytea",
+            "member_id bigint",
+            CREATED,
+            "last_write_at timestamptz =now()",
+            "expires_at timestamptz",
+            "persistent boolean",
+            "revoked_at timestamptz null",
+            "user_agent varchar(200) null",
+        ],
+        fks={"member_id": "members CASCADE"},
+        uniques=[("token_hash",)],
+        indexes={"ix_sessions_member": "member_id | where revoked_at IS NULL"},
+    ),
+    "password_reset_tokens": T(
+        cols=[
+            ID,
+            "token_hash bytea",
+            "member_id bigint",
+            "created_by bigint null",
+            "expires_at timestamptz",
+            "used_at timestamptz null",
+        ],
+        fks={"member_id": "members CASCADE", "created_by": "members SET NULL"},
+        uniques=[("token_hash",)],
+    ),
+    "level_requests": T(
+        cols=[
+            ID,
+            "member_id bigint",
+            "from_level smallint",
+            "to_level smallint",
+            "reason text",
+            "status varchar(10) ='pending' in(pending,approved,rejected,cancelled)",
+            "decided_by bigint null",
+            "decided_at timestamptz null",
+            "decision_note varchar(500) null",
+            CREATED,
+        ],
+        fks={"member_id": "members CASCADE", "decided_by": "members SET NULL"},
+        checks={
+            "levels": "to_level > from_level",
+            "decision_note": "status <> 'rejected' OR decision_note IS NOT NULL",
+        },
+        indexes={
+            "uq_level_requests_pending": "member_id | where status = 'pending' | unique",
+            "ix_level_requests_queue": "created_at | where status = 'pending'",
+        },
+    ),
+    "withdrawn_email_marks": T(
+        cols=["email_hmac bytea", "expires_at timestamptz"],
+        pk=("email_hmac",),
+    ),
+    "privacy_notices": T(
+        cols=[
+            "version varchar(20)",
+            "body text",
+            "requires_reconsent boolean",
+            "published_at timestamptz null",
+            "created_by bigint null",
+        ],
+        pk=("version",),
+        fks={"created_by": "members SET NULL"},
     ),
     "member_groups": T(
         cols=[ID, "name varchar(50)", "description text null", CREATED],

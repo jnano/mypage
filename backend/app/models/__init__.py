@@ -1,5 +1,12 @@
 """ORM 모델 — 설계도 §4 와 일대일. 표에 없는 칸은 만들지 않는다(tests/test_schema_contract.py)."""
 
+from app.models.auth import (
+    LevelRequest,
+    LoginSession,
+    PasswordResetToken,
+    PrivacyNotice,
+    WithdrawnEmailMark,
+)
 from app.models.boards import (
     Board,
     BoardAccess,
@@ -47,6 +54,8 @@ __all__ = [
     "BoardSubscription",
     "Comment",
     "IdempotencyKey",
+    "LevelRequest",
+    "LoginSession",
     "Member",
     "MemberGroup",
     "MemberGroupMember",
@@ -55,6 +64,7 @@ __all__ = [
     "Notification",
     "NotificationPref",
     "OutboxEvent",
+    "PasswordResetToken",
     "Post",
     "PostCategory",
     "PostReaction",
@@ -65,10 +75,12 @@ __all__ = [
     "PostTombstone",
     "PostViewDaily",
     "PostViewOnce",
+    "PrivacyNotice",
     "RateLimitCounter",
     "Report",
     "SearchSynonym",
     "SearchTerm",
     "SiteSetting",
+    "WithdrawnEmailMark",
     "WorkerSchedule",
 ]

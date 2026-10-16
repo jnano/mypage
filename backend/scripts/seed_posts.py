@@ -20,6 +20,8 @@ from html import escape
 from sqlalchemy import insert, text
 from sqlalchemy.engine import make_url
 
+from app.auth.names import display_name_key
+from app.auth.passwords import hash_password
 from app.boards.settings import UploadPolicy, default_display
 from app.core.config import settings
 from app.db.session import SessionLocal, engine
@@ -37,6 +39,7 @@ from app.models import (
     PostStat,
 )
 from app.search.index import content_fields, post_open, title_fields
+from scripts.dev_auth import DEV_PASSWORD, ensure_dev_notice
 
 SEED = 20261015
 NOW = datetime(2026, 10, 15, 12, 0, tzinfo=UTC)
@@ -123,8 +126,18 @@ async def seed(total: int) -> dict[str, int]:
         if (await db.execute(text("SELECT count(*) FROM posts"))).scalar_one():
             raise SystemExit("이미 글이 있습니다 — 측정 DB 를 비우고 다시 실행하세요")
         levels = rnd.choices([1, 2, 3, 5, 9], weights=[70, 20, 7, 2, 1], k=1000)
+        # 인증 칸(인증 설계도 §3.1) — 개발용 비밀번호·고지 판(scripts/dev_auth.py)
+        notice = await ensure_dev_notice(db)
+        now = datetime.now(UTC)
+        password_hash = hash_password(DEV_PASSWORD)
         member_rows = [
-            {"display_name": f"회원{i:04d}", "level": lv, "is_admin": i < 2} for i, lv in enumerate(levels)
+            {
+                "display_name": f"회원{i:04d}", "display_name_key": display_name_key(f"회원{i:04d}"),
+                "level": lv, "is_admin": i < 2, "email": f"bench{i:04d}@example.test",
+                "password_hash": password_hash, "age14_confirmed_at": now, "approved_at": now,
+                "privacy_version": notice, "privacy_agreed_at": now,
+            }  # fmt: skip
+            for i, lv in enumerate(levels)
         ]
         member_ids = list((await db.execute(insert(Member).returning(Member.id, sort_by_parameter_order=True), member_rows)).scalars())
         group_ids = list((await db.execute(insert(MemberGroup).returning(MemberGroup.id, sort_by_parameter_order=True), [{"name": f"그룹{i}"} for i in range(5)])).scalars())

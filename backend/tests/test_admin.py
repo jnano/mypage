@@ -121,7 +121,9 @@ async def test_redact_job_targets_withdrawn_and_old_rows(committed_db: AsyncSess
         ],
     )
     await committed_db.execute(
-        update(Member).where(Member.id == author.id).values(status="withdrawn", withdrawn_at=datetime.now(UTC))
+        update(Member)
+        .where(Member.id == author.id)
+        .values(status="withdrawn", withdrawn_at=datetime.now(UTC), email=None, password_hash=None, display_name_key=None)
     )
     await committed_db.execute(
         update(ModerationLog).where(ModerationLog.target_id == 3).values(created_at=datetime.now(UTC) - timedelta(days=3 * 366))

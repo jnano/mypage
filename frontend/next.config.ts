@@ -1,4 +1,5 @@
 import type { NextConfig } from "next";
+import { API_REWRITE_SOURCE, MEDIA_REWRITE_SOURCE } from "./lib/apiProxy";
 
 // 백엔드(FastAPI) 주소 — 배포 환경에서는 BACKEND_URL 로 덮어쓴다
 const BACKEND_URL = process.env.BACKEND_URL ?? "http://localhost:8000";
@@ -23,23 +24,16 @@ const nextConfig: NextConfig = {
       { source: "/reset", headers: [{ key: "Referrer-Policy", value: "no-referrer" }] },
     ];
   },
-  // fallback — 정적·동적 경로(Route Handler)를 모두 확인한 뒤에 넘긴다. 배열(afterFiles)로 주면 동적 경로보다 먼저라서
-  // /api/attachments/[id]/file 같은 Route Handler 대신 FastAPI 로 가 쿠키가 보는 사람 헤더로 바뀌지 않았다(3단계 실측)
+  // afterFiles — fallback 은 사용자 페이지 catch-all 보다 뒤라 닿지 않는다. 동적 Route Handler 는 source 에서 뺀다(lib/apiProxy)
   async rewrites() {
     return {
       beforeFiles: [],
-      afterFiles: [],
-      fallback: [
-        {
-          source: "/api/:path*",
-          destination: `${BACKEND_URL}/api/:path*`,
-        },
+      afterFiles: [
+        { source: API_REWRITE_SOURCE, destination: `${BACKEND_URL}/api/:path` },
         // 공개 저장소 — 배포에서는 nginx 가 직접 내준다(§12.2). 개발에서만 FastAPI StaticFiles 로
-        {
-          source: "/media/:path*",
-          destination: `${BACKEND_URL}/media/:path*`,
-        },
+        { source: MEDIA_REWRITE_SOURCE, destination: `${BACKEND_URL}/media/:path*` },
       ],
+      fallback: [],
     };
   },
 };

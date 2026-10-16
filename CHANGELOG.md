@@ -51,6 +51,7 @@
 - Tailwind 제거 — 골격은 class 없는 시맨틱 HTML + `data-slot`(스킨은 디자인 단계)
 
 ### Fixed
+- 홈블록 걸음 1 회귀: 사용자 페이지 catch-all(`app/[[...path]]`)이 `/api/*`·`/media/*` 를 FastAPI 로 넘기는 rewrites(fallback)보다 먼저 받아 `/api/health` 등이 '찾을 수 없음' 화면(200 HTML)이 되던 것 — rewrites 를 afterFiles 로 옮기고 Next 가 직접 처리하는 동적 Route Handler 는 source 에서 뺌(`lib/apiProxy`, 폴더 ↔ 목록 계약 시험). CI 기동 확인은 `/api/health` 가 FastAPI 의 JSON 인지 본다
 - 배포 빌드(`deploy/build.sh`)가 `BACKEND_URL` 을 `/etc/mypage/frontend.env` 에서 읽어 넘김 — 전에는 프록시 주소가 늘 기본값(localhost:8000)으로 굳었다. 값이 없거나 따옴표·공백이 붙었거나 환경 변수와 파일 값이 다르면 빌드를 멈춘다. 환경 변수 대조 검사(CI — 설정 칸 ↔ 틀·운영 필수 키, 사이트 시간대 한 값). 사이트 시간대는 운영 환경 변수로 바꾸지 않는다(틀·설명서에서 뺌)
 - 승급 신청이 저절로 닫힐 때(그 사이 레벨이 바뀜·운영자가 레벨을 바꿈) 신청자가 알 수 없던 것 — '신청이 닫혔습니다 — 사유' 알림
 - 다른 사이트가 `/auth/expired` 를 불러 로그인 쿠키를 지울 수 있던 것 — 이 사이트가 시작한 요청일 때만 지운다

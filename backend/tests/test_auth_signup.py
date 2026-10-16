@@ -194,7 +194,7 @@ async def test_approve_name_conflict_then_fix(committed_db, client) -> None:
     h = await _admin_client(committed_db, client)
     await make_member(committed_db, display_name="겹칠이름")
     await committed_db.commit()
-    pid = (await client.get("/api/admin/members", headers=h)).json()["items"][0]["id"]
+    pid = (await client.get("/api/admin/members?status=pending", headers=h)).json()["items"][0]["id"]
     r = await client.post(f"/api/admin/members/{pid}/approve", json={}, headers=h)
     assert (r.status_code, r.json()["code"]) == (409, "display_name_taken")
     assert (await client.post(f"/api/admin/members/{pid}/approve", json={"display_name": "고친 이름"}, headers=h)).status_code == 200
@@ -205,7 +205,7 @@ async def test_concurrent_approvals_of_same_key_one_wins(committed_db, client) -
     await apply(client, email="c1@example.com", display_name="같은 이름")
     await apply(client, email="c2@example.com", display_name="같은이름")
     h = await _admin_client(committed_db, client)
-    ids = [p["id"] for p in (await client.get("/api/admin/members", headers=h)).json()["items"]]
+    ids = [p["id"] for p in (await client.get("/api/admin/members?status=pending", headers=h)).json()["items"]]
     results = await asyncio.gather(*(client.post(f"/api/admin/members/{i}/approve", json={}, headers=h) for i in ids))
     assert sorted(r.status_code for r in results) == [200, 409]  # 500 이 아니다(부분 UNIQUE 위반 → 409)
 
@@ -217,7 +217,7 @@ async def test_reject_many_deletes_and_flags_withdrawn_mark(committed_db, client
     committed_db.add(WithdrawnEmailMark(email_hmac=keys.email_hmac("r2@example.com"), expires_at=datetime.now(UTC) + timedelta(days=1)))
     await committed_db.commit()
     h = await _admin_client(committed_db, client)
-    items = (await client.get("/api/admin/members", headers=h)).json()["items"]
+    items = (await client.get("/api/admin/members?status=pending", headers=h)).json()["items"]
     assert [i["recently_withdrawn_under_sanction"] for i in items] == [False, True]
     r = await client.post("/api/admin/members/reject", json={"ids": [i["id"] for i in items], "reason": "확인 안 됨"}, headers=h)
     assert r.json() == {"rejected": 2}
@@ -228,7 +228,7 @@ async def test_member_admin_is_admin_only(committed_db, client) -> None:
     m = await make_member(committed_db)
     await committed_db.commit()
     h = _session(await _login_token(client, m))
-    assert (await client.get("/api/admin/members", headers=h)).status_code == 403
+    assert (await client.get("/api/admin/members?status=pending", headers=h)).status_code == 403
     assert (await client.get("/api/admin/privacy-notices", headers=h)).status_code == 403
 
 

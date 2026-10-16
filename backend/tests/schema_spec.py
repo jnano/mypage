@@ -474,7 +474,7 @@ SPEC: dict[str, T] = {
             "actor_id bigint null",
             "board_id bigint null",
             "action varchar(40)",
-            "target_type varchar(10) in(board,post,comment,report,member,sanction,setting)",
+            "target_type varchar(10) in(board,post,comment,report,member,sanction,setting,group)",
             "target_id bigint",
             "before jsonb null",
             "after jsonb null",

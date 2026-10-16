@@ -8,7 +8,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.admin.scope import StaffScope
 from app.api.admin_boards import admin_scope
-from app.auth import account, members, notices
+from app.admin import groups
+from app.auth import account, member_admin, members, notices
 from app.db.session import get_db
 
 router = APIRouter(prefix="/admin")
@@ -19,13 +20,33 @@ NO_STORE = "private, no-store"
 @router.get("/members")
 async def list_members(
     response: Response,
-    status: Literal["pending"] = Query("pending"),
+    status: Literal["pending", "active", "withdrawn"] = Query("active"),
+    q: str | None = Query(None, max_length=100),
+    after: int | None = Query(None, gt=0),
     scope: StaffScope = Depends(admin_scope),
     db: AsyncSession = Depends(get_db),
 ):
-    """가입 대기열(§4.2). 활동 회원 목록은 회원 관리 화면 단계(§11-6)에서 더한다"""
+    """회원 목록 — 가입 대기열(§4.2) 또는 활동·탈퇴 회원(이메일·표시 이름 검색, id 커서). 운영자만(이메일 포함)"""
     response.headers["Cache-Control"] = NO_STORE
-    return {"status": status, "items": await members.list_pending(db)}
+    if status == "pending":
+        return {"status": status, "items": await members.list_pending(db), "next_after": None}
+    return {"status": status} | await member_admin.list_members(db, status=status, q=q, after_id=after)
+
+
+@router.get("/members/{member_id}")
+async def get_member(member_id: int, response: Response, scope: StaffScope = Depends(admin_scope), db: AsyncSession = Depends(get_db)):
+    response.headers["Cache-Control"] = NO_STORE
+    return await member_admin.member_detail(db, member_id)
+
+
+@router.patch("/members/{member_id}")
+async def patch_member(
+    member_id: int, body: member_admin.MemberPatch, scope: StaffScope = Depends(admin_scope), db: AsyncSession = Depends(get_db)
+):
+    """레벨·표시 이름·이메일·운영자 지정. 이메일·운영자 지정은 운영자 본인 비밀번호(password) 재확인"""
+    result = await member_admin.patch_member(db, scope.viewer, member_id, body)
+    await db.commit()
+    return result
 
 
 class ApproveBody(BaseModel):
@@ -82,6 +103,61 @@ async def force_withdraw(member_id: int, body: ForcedWithdraw, scope: StaffScope
     await account.force_withdraw(db, scope.viewer, member_id, body.password, body.reason)
     await db.commit()
     return Response(status_code=204, headers={"Cache-Control": NO_STORE})
+
+
+class RevokeBody(Reauth):
+    reason: str | None = Field(default=None, max_length=500)
+
+
+@router.post("/members/{member_id}/revoke-sessions")
+async def revoke_sessions(member_id: int, body: RevokeBody, scope: StaffScope = Depends(admin_scope), db: AsyncSession = Depends(get_db)):
+    """강제 로그아웃 — 그 회원의 세션 모두 폐기(§4.13 재확인)"""
+    n = await member_admin.revoke_member_sessions(db, scope.viewer, member_id, body.password, body.reason)
+    await db.commit()
+    return {"revoked": n}
+
+
+# ── 그룹(명부) ──
+
+
+@router.get("/member-groups")
+async def list_groups(response: Response, scope: StaffScope = Depends(admin_scope), db: AsyncSession = Depends(get_db)):
+    response.headers["Cache-Control"] = NO_STORE
+    return {"items": await groups.list_groups(db)}
+
+
+@router.get("/member-groups/{group_id}")
+async def get_group(group_id: int, response: Response, scope: StaffScope = Depends(admin_scope), db: AsyncSession = Depends(get_db)):
+    response.headers["Cache-Control"] = NO_STORE
+    return await groups.group_detail(db, group_id)
+
+
+@router.post("/member-groups", status_code=201)
+async def create_group(body: groups.GroupBody, scope: StaffScope = Depends(admin_scope), db: AsyncSession = Depends(get_db)):
+    result = await groups.create_group(db, scope.viewer, body)
+    await db.commit()
+    return result
+
+
+@router.patch("/member-groups/{group_id}")
+async def update_group(group_id: int, body: groups.GroupPatch, scope: StaffScope = Depends(admin_scope), db: AsyncSession = Depends(get_db)):
+    result = await groups.update_group(db, scope.viewer, group_id, body)
+    await db.commit()
+    return result
+
+
+@router.delete("/member-groups/{group_id}", status_code=204)
+async def delete_group(group_id: int, scope: StaffScope = Depends(admin_scope), db: AsyncSession = Depends(get_db)):
+    await groups.delete_group(db, scope.viewer, group_id)
+    await db.commit()
+    return Response(status_code=204)
+
+
+@router.put("/member-groups/{group_id}/members")
+async def set_group_members(group_id: int, body: groups.GroupMembers, scope: StaffScope = Depends(admin_scope), db: AsyncSession = Depends(get_db)):
+    result = await groups.set_members(db, scope.viewer, group_id, body.member_ids)
+    await db.commit()
+    return result
 
 
 @router.get("/privacy-notices")

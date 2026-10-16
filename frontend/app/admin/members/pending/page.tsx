@@ -17,23 +17,32 @@ interface Pending {
   recently_withdrawn_under_sanction: boolean;
 }
 
-export default function PendingMembersPage() {
+export default function PendingMembersPage(props: PageProps<"/admin/members/pending">) {
   return (
     <section>
       <h1>가입 대기</h1>
       <Suspense fallback={<p data-slot="loading">불러오는 중…</p>}>
-        <PendingMembers />
+        <PendingMembers {...props} />
       </Suspense>
     </section>
   );
 }
 
-async function PendingMembers() {
+async function PendingMembers({ searchParams }: PageProps<"/admin/members/pending">) {
+  const approved = (await searchParams).approved;
   const { data, problem } = await adminGet<{ items: Pending[] }>("/api/admin/members?status=pending");
   if (problem) return <AdminProblem problem={problem} />;
-  if (data.items.length === 0) return <p data-slot="empty">대기 중인 가입 신청이 없습니다.</p>;
+  const status = typeof approved === "string" && <p role="status">{approved} 님을 승인했습니다.</p>;
+  if (data.items.length === 0)
+    return (
+      <>
+        {status}
+        <p data-slot="empty">대기 중인 가입 신청이 없습니다.</p>
+      </>
+    );
   return (
     <>
+      {status}
       <ol data-slot="pending-members">
         {data.items.map((m) => (
           <li key={m.id}>
@@ -43,7 +52,7 @@ async function PendingMembers() {
             </p>
             {m.recently_withdrawn_under_sanction && <p role="note">최근 제재 중 탈퇴한 주소입니다.</p>}
             {m.signup_note && <blockquote>{m.signup_note}</blockquote>}
-            <AdminForm action={approveMemberAction.bind(null, m.id)} submitLabel="승인" label={`${m.display_name} 승인`}>
+            <AdminForm action={approveMemberAction.bind(null, m.id, m.display_name)} submitLabel="승인" label={`${m.display_name} 승인`}>
               <label htmlFor={`approve-name-${m.id}`}>표시 이름을 고쳐 승인(선택)</label>
               <input id={`approve-name-${m.id}`} name="display_name" maxLength={50} placeholder={m.display_name} />
             </AdminForm>

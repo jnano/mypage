@@ -227,8 +227,11 @@ export async function retryJobAction(id: number, _prev: AdminFormState): Promise
 
 // ── 가입 대기·개인정보 고지(인증 설계도 §4.2·§3.6) ──
 
-export async function approveMemberAction(id: number, _prev: AdminFormState, f: FormData): Promise<AdminFormState> {
-  return done("POST", `/api/admin/members/${id}/approve`, { display_name: text(f, "display_name") || null }, "승인했습니다");
+export async function approveMemberAction(id: number, name: string, _prev: AdminFormState, f: FormData): Promise<AdminFormState> {
+  const res = await send("POST", `/api/admin/members/${id}/approve`, { display_name: text(f, "display_name") || null });
+  if (res.problem) return { problem: res.problem };
+  // 승인한 행은 목록에서 사라진다 — 결과 문구는 화면 위쪽 상태 영역에 남긴다(화면낭독기 안내)
+  redirect(`/admin/members/pending?approved=${encodeURIComponent(text(f, "display_name") || name)}`);
 }
 
 export async function rejectMembersAction(_prev: AdminFormState, f: FormData): Promise<AdminFormState> {
@@ -249,4 +252,60 @@ export async function updateNoticeAction(version: string, _prev: AdminFormState,
 
 export async function publishNoticeAction(version: string, _prev: AdminFormState): Promise<AdminFormState> {
   return done("POST", `/api/admin/privacy-notices/${encodeURIComponent(version)}/publish`, undefined, "게시했습니다");
+}
+
+// ── 회원 관리·그룹(인증 설계도 §11-6) ──
+
+const password = (f: FormData) => String(f.get("password") ?? "");
+
+export async function updateMemberAction(id: number, _prev: AdminFormState, f: FormData): Promise<AdminFormState> {
+  const body: Record<string, unknown> = { reason: text(f, "reason") || null };
+  if (text(f, "level")) body.level = Number(text(f, "level"));
+  if (text(f, "display_name")) body.display_name = text(f, "display_name");
+  return done("PATCH", `/api/admin/members/${id}`, body, "저장했습니다");
+}
+
+export async function changeMemberEmailAction(id: number, _prev: AdminFormState, f: FormData): Promise<AdminFormState> {
+  return done("PATCH", `/api/admin/members/${id}`, { email: text(f, "email"), password: password(f), reason: text(f, "reason") || null }, "이메일을 바꿨습니다");
+}
+
+export async function setAdminAction(id: number, makeAdmin: boolean, _prev: AdminFormState, f: FormData): Promise<AdminFormState> {
+  return done("PATCH", `/api/admin/members/${id}`, { is_admin: makeAdmin, password: password(f), reason: text(f, "reason") || null }, makeAdmin ? "운영자로 지정했습니다" : "운영자를 해제했습니다");
+}
+
+export async function revokeMemberSessionsAction(id: number, _prev: AdminFormState, f: FormData): Promise<AdminFormState> {
+  return done("POST", `/api/admin/members/${id}/revoke-sessions`, { password: password(f), reason: text(f, "reason") || null }, "모든 기기에서 로그아웃시켰습니다");
+}
+
+export async function resetLinkAction(id: number, _prev: AdminFormState, f: FormData): Promise<AdminFormState> {
+  const res = await send("POST", `/api/admin/members/${id}/password-reset-link`, { password: password(f) });
+  if (res.problem) return { problem: res.problem };
+  const link = res.data as { path: string; expires_at: string };
+  return { ok: `재설정 링크(24시간·한 번): 사이트 주소 뒤에 붙여 본인에게 직접 전하세요 — ${link.path}` };
+}
+
+export async function forceWithdrawAction(id: number, _prev: AdminFormState, f: FormData): Promise<AdminFormState> {
+  const res = await send("POST", `/api/admin/members/${id}/withdraw`, { password: password(f), reason: text(f, "reason") });
+  if (res.problem) return { problem: res.problem };
+  redirect("/admin/members?withdrawn=1");
+}
+
+export async function createMemberGroupAction(_prev: AdminFormState, f: FormData): Promise<AdminFormState> {
+  const res = await send("POST", "/api/admin/member-groups", { name: text(f, "name"), description: text(f, "description") || null });
+  if (res.problem) return { problem: res.problem };
+  redirect(`/admin/member-groups/${(res.data as { id: number }).id}`);
+}
+
+export async function updateMemberGroupAction(id: number, _prev: AdminFormState, f: FormData): Promise<AdminFormState> {
+  return done("PATCH", `/api/admin/member-groups/${id}`, { name: text(f, "name"), description: text(f, "description") }, "저장했습니다");
+}
+
+export async function setGroupMembersAction(id: number, _prev: AdminFormState, f: FormData): Promise<AdminFormState> {
+  return done("PUT", `/api/admin/member-groups/${id}/members`, { member_ids: ids(f, "member_ids") }, "소속 회원을 바꿨습니다");
+}
+
+export async function deleteMemberGroupAction(id: number, _prev: AdminFormState): Promise<AdminFormState> {
+  const res = await send("DELETE", `/api/admin/member-groups/${id}`);
+  if (res.problem) return { problem: res.problem };
+  redirect("/admin/member-groups");
 }

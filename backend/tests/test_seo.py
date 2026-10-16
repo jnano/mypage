@@ -2,7 +2,7 @@
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.models import Attachment
+from app.models import Attachment, BoardGroup
 from app.seo import queries
 from tests.factories import make_board, make_member, make_post
 
@@ -57,3 +57,23 @@ async def test_site_settings_public(committed_db, client) -> None:
     body = (await client.get("/api/site")).json()
     assert body["seo"]["site_name"] == "mypage" and body["seo"]["indexable"] is True
     assert body["levels"]["names"]["0"] == "비회원"
+    assert "boards:structure" in body["cache"]["tags"]
+
+
+async def test_site_menu_boards(committed_db, client) -> None:
+    """대체 틀의 게시판 메뉴(홈블록 §3.6) — 메뉴 노출·사용 중·비회원 목록 가능만, 분류 그룹 → 게시판 순서."""
+    group_b = BoardGroup(name="둘째", sort_order=2)
+    group_a = BoardGroup(name="첫째", sort_order=1)
+    committed_db.add_all([group_a, group_b])
+    await committed_db.flush()
+    await make_board(committed_db, slug="b2", name="둘째 묶음", group_id=group_b.id, sort_order=0)
+    await make_board(committed_db, slug="a2", name="첫째 묶음 2", group_id=group_a.id, sort_order=2)
+    await make_board(committed_db, slug="a1", name="첫째 묶음 1", group_id=group_a.id, sort_order=1)
+    await make_board(committed_db, slug="loose", name="묶음 없음", sort_order=5)
+    await make_board(committed_db, slug="off", is_active=False)
+    await make_board(committed_db, slug="nomenu", show_in_menu=False)
+    await make_board(committed_db, slug="members", list_level=2)
+    await committed_db.commit()
+    menu = (await client.get("/api/site")).json()["menu_boards"]
+    assert [b["slug"] for b in menu] == ["loose", "a1", "a2", "b2"]
+    assert menu[1] == {"slug": "a1", "name": "첫째 묶음 1"}

@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { Suspense } from "react";
 import { logoutAllAction } from "@/app/auth/actions";
-import { cancelLevelRequestAction, changePasswordAction, requestLevelAction, revokeSessionAction, withdrawAction } from "@/app/me/account/actions";
+import { cancelLevelRequestAction, changePasswordAction, requestLevelAction, revokeSessionAction, withdrawAction } from "./actions";
 import { AdminForm } from "@/components/admin/AdminForm";
 import { ApiError } from "@/lib/api/problem";
 import { formatDateTime } from "@/lib/format/time";

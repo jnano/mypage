@@ -12,6 +12,8 @@ export interface SiteSeo {
 export interface SiteInfo {
   seo: SiteSeo;
   levels: { names: Record<string, string> };
+  /** 대체 틀의 게시판 메뉴(홈블록 설계도 §3.6) — 메뉴 노출·사용 중·비회원 목록 가능, 분류 그룹·순서대로 */
+  menu_boards: { slug: string; name: string }[];
 }
 
 /** 절대 주소 — 사이트 주소 설정이 비었으면 경로 그대로(운영 전 체크리스트에서 채운다) */

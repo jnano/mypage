@@ -1,8 +1,7 @@
 import type { Metadata } from "next";
-import Link from "next/link";
 import { connection } from "next/server";
 import { Suspense } from "react";
-import { AccountNav } from "@/components/auth/AccountNav";
+import { SkipLink } from "@/components/blocks/SkipLink";
 import { siteMetadata } from "@/lib/seo/meta";
 import { getSite } from "@/lib/server/seo";
 import "./globals.css";
@@ -20,26 +19,14 @@ async function Connection() {
   return null;
 }
 
-// 골격 레이아웃 — 시맨틱 HTML + data-slot, class·스타일 없음(설계도 §13, §13.1)
+// 루트 레이아웃 — 문서 뼈대와 건너뛰기 링크만(틀 밖 고정 줄, 홈블록 설계도 §3.2). 머리·본문·발은 화면 종류마다
+// 틀(components/blocks/Frame)이 그린다: 경로 그룹 (frame)/(…) · boards/[slug] · [[...path]] · not-found. 관리·개발은 틀 없음
 export default function RootLayout({ children }: LayoutProps<"/">) {
   return (
     <html lang="ko">
       <body>
-        <a href="#main" data-slot="skip-link">
-          본문 바로가기
-        </a>
-        <header data-slot="site-header">
-          <nav aria-label="사이트">
-            <Link href="/">처음</Link> <Link href="/search">검색</Link> <Link href="/me/notifications">알림</Link>
-          </nav>
-          <Suspense fallback={null}>
-            <AccountNav />
-          </Suspense>
-        </header>
-        <main id="main" data-slot="site-main">
-          {children}
-        </main>
-        <footer data-slot="site-footer" />
+        <SkipLink />
+        {children}
         <Suspense>
           <Connection />
         </Suspense>

@@ -13,10 +13,15 @@ router = APIRouter()
 
 @router.get("/site")
 async def site(db: AsyncSession = Depends(get_db)):
-    """사이트 공개 설정 — 이름·주소·설명·검색엔진 확인 값·색인 여부, 등급 이름표."""
+    """사이트 공개 설정 — 이름·주소·설명·검색엔진 확인 값·색인 여부, 등급 이름표, 대체 틀의 게시판 메뉴(홈블록 §3.6)."""
     seo = await site_settings.load(db, "seo")
     levels = await site_settings.load(db, "levels")
-    return {"seo": seo.model_dump(), "levels": levels.model_dump(), "cache": {"tags": ["settings:seo", "settings:levels"]}}
+    return {
+        "seo": seo.model_dump(),
+        "levels": levels.model_dump(),
+        "menu_boards": await queries.menu_boards(db),
+        "cache": {"tags": ["settings:seo", "settings:levels", "boards:structure"]},
+    }
 
 
 @router.get("/seo/sitemap")

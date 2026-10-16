@@ -8,7 +8,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.auth.viewer import GUEST
 from app.editor.sanitize import plain_text
 from app.files.attach import thumb_template
-from app.models import Attachment, Board, Post
+from app.models import Attachment, Board, BoardGroup, Post
 from app.permissions import readable_posts_clause
 
 SITEMAP_SIZE = 50_000  # 검색엔진 한도(파일 하나 5만 주소)
@@ -48,6 +48,19 @@ async def og_image(db: AsyncSession, post_id: int) -> dict[str, Any] | None:
         "height": round(row.height * scale) if row.height else None,
         "alt": row.alt_text or "",
     }
+
+
+async def menu_boards(db: AsyncSession) -> list[dict[str, str]]:
+    """대체 틀의 게시판 메뉴(홈블록 설계도 §3.6) — 메뉴 노출·사용 중이고 비회원이 목록을 볼 수 있는 게시판, 분류 그룹·순서대로."""
+    rows = (
+        await db.execute(
+            select(Board.slug, Board.name)
+            .outerjoin(BoardGroup, BoardGroup.id == Board.group_id)
+            .where(Board.is_active.is_(true()), Board.show_in_menu.is_(true()), Board.list_level == 0)
+            .order_by(BoardGroup.sort_order.asc().nulls_first(), Board.sort_order, Board.id)
+        )
+    ).all()
+    return [{"slug": r.slug, "name": r.name} for r in rows]
 
 
 def _indexable_boards():

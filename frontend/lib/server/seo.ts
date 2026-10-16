@@ -8,7 +8,7 @@ import { publicGet } from "@/lib/server/backend";
 
 export async function getSite(): Promise<SiteInfo> {
   "use cache";
-  cacheTag("settings:seo", "settings:levels");
+  cacheTag("settings:seo", "settings:levels", "boards:structure");
   cacheLife("hours");
   return publicGet<SiteInfo>("/api/site");
 }

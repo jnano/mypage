@@ -43,3 +43,12 @@ export async function withdrawAction(_prev: AdminFormState, f: FormData): Promis
   await deleteCookie("session");
   redirect("/");
 }
+
+export async function requestLevelAction(_prev: AdminFormState, f: FormData): Promise<AdminFormState> {
+  const body = { to_level: Number(f.get("to_level") ?? 0), reason: String(f.get("reason") ?? "") };
+  return run("POST", "/api/me/level-requests", body, "승급을 신청했습니다. 운영자가 검토합니다");
+}
+
+export async function cancelLevelRequestAction(id: number, _prev: AdminFormState): Promise<AdminFormState> {
+  return run("DELETE", `/api/me/level-requests/${id}`, undefined, "신청을 취소했습니다");
+}

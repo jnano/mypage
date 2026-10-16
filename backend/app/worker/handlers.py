@@ -10,7 +10,7 @@ from app.core.outbox import enqueue_revalidate
 from app.core import outbox
 from app.core.threads import run_in_thread
 from app.files import attach, images, storage
-from app.models import Attachment, Board, Comment, Member, OutboxEvent, Post, PostSearch
+from app.models import Attachment, Board, Comment, LevelRequest, Member, OutboxEvent, Post, PostSearch
 from app.notifications import send
 from app.posts.purge import purge_posts
 from app.search import reindex
@@ -265,4 +265,17 @@ async def signup_pending(db: AsyncSession, event: OutboxEvent) -> None:
     await send.notify(
         db, recipients=list(admins), type_name="member.signup_pending", actor_id=member_id, post_id=None,
         comment_id=None, title="가입 신청", group_key="member.signup_pending", dedupe_key=f"member.signup_pending:{member_id}",
+    )  # fmt: skip
+
+
+@handles("level.decided")
+async def level_decided(db: AsyncSession, event: OutboxEvent) -> None:
+    """승급 신청 처리 결과 — 신청한 회원에게(인증 설계도 §4.10)"""
+    req = await db.get(LevelRequest, int(event.payload["request_id"]))
+    if req is None or req.status not in ("approved", "rejected"):
+        return
+    title = f"레벨 {req.to_level} 승급 신청이 " + ("승인되었습니다" if req.status == "approved" else "거부되었습니다")
+    await send.notify(
+        db, recipients=[req.member_id], type_name="level.decided", actor_id=req.decided_by, post_id=None,
+        comment_id=None, title=title, group_key=f"level.decided:{req.id}", dedupe_key=f"level.decided:{req.id}",
     )  # fmt: skip

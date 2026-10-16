@@ -24,5 +24,6 @@ TYPES: dict[str, NotificationType] = {
         NotificationType("admin.report", "신고 접수(담당자)", True),
         NotificationType("report.resolved", "내 신고가 처리됨", False),
         NotificationType("member.signup_pending", "가입 신청(운영자)", True, path="/admin/members/pending"),
+        NotificationType("level.decided", "내 승급 신청이 처리됨", True, path="/me/account"),
     ]
 }

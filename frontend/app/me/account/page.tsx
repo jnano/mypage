@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { Suspense } from "react";
 import { logoutAllAction } from "@/app/auth/actions";
-import { changePasswordAction, revokeSessionAction, withdrawAction } from "@/app/me/account/actions";
+import { cancelLevelRequestAction, changePasswordAction, requestLevelAction, revokeSessionAction, withdrawAction } from "@/app/me/account/actions";
 import { AdminForm } from "@/components/admin/AdminForm";
 import { ApiError } from "@/lib/api/problem";
 import { formatDateTime } from "@/lib/format/time";
@@ -18,6 +18,14 @@ interface Account {
   created_at: string;
   password_changed_at: string | null;
 }
+interface LevelRequests {
+  level: number;
+  names: Record<string, string>;
+  requestable: number[];
+  items: { id: number; to_level: number; reason: string; status: string; decision_note: string | null; created_at: string }[];
+}
+const REQUEST_STATUS: Record<string, string> = { pending: "검토 중", approved: "승인", rejected: "거부", cancelled: "취소" };
+
 interface Device {
   id: number;
   user_agent: string | null;
@@ -28,7 +36,7 @@ interface Device {
   current: boolean;
 }
 
-// 내 계정(인증 설계도 §6) — 비밀번호 변경·기기 목록·탈퇴. 승급 신청은 §11-7 에서 더한다
+// 내 계정(인증 설계도 §6) — 비밀번호 변경·기기 목록·승급 신청·탈퇴
 export default function AccountPage(props: PageProps<"/me/account">) {
   return (
     <section data-slot="account">
@@ -50,10 +58,16 @@ async function AccountView({ searchParams }: PageProps<"/me/account">) {
   }
   let me: Account;
   let devices: Device[];
+  let levels: LevelRequests;
   try {
-    const [a, d] = await Promise.all([personalGet<Account>("/api/me/account"), personalGet<{ items: Device[] }>("/api/me/sessions")]);
+    const [a, d, l] = await Promise.all([
+      personalGet<Account>("/api/me/account"),
+      personalGet<{ items: Device[] }>("/api/me/sessions"),
+      personalGet<LevelRequests>("/api/me/level-requests"),
+    ]);
     me = a;
     devices = d.items;
+    levels = l;
   } catch (e) {
     if (e instanceof ApiError) {
       if (e.status === 401) await redirectIfExpired("personal");
@@ -109,6 +123,39 @@ async function AccountView({ searchParams }: PageProps<"/me/account">) {
       <form action={logoutAllAction} data-slot="logout-all">
         <button type="submit">모든 기기에서 로그아웃</button>
       </form>
+
+      <h2>레벨</h2>
+      <p>
+        지금 레벨: {levels.names[String(levels.level)] ?? `레벨 ${levels.level}`}({levels.level})
+      </p>
+      {levels.items.length > 0 && (
+        <ul data-slot="level-requests">
+          {levels.items.map((r) => (
+            <li key={r.id}>
+              {levels.names[String(r.to_level)] ?? `레벨 ${r.to_level}`} 신청 · {REQUEST_STATUS[r.status] ?? r.status} ·{" "}
+              <time dateTime={r.created_at}>{formatDateTime(r.created_at)}</time>
+              {r.decision_note && <> · {r.decision_note}</>}
+              {r.status === "pending" && (
+                <AdminForm action={cancelLevelRequestAction.bind(null, r.id)} submitLabel="신청 취소" label={`신청 ${r.id} 취소`} />
+              )}
+            </li>
+          ))}
+        </ul>
+      )}
+      {levels.requestable.length > 0 && !levels.items.some((r) => r.status === "pending") && (
+        <AdminForm action={requestLevelAction} submitLabel="승급 신청" label="승급 신청">
+          <label htmlFor="level-to">신청할 레벨</label>
+          <select id="level-to" name="to_level" required>
+            {levels.requestable.map((lv) => (
+              <option key={lv} value={lv}>
+                {levels.names[String(lv)] ?? `레벨 ${lv}`}({lv})
+              </option>
+            ))}
+          </select>
+          <label htmlFor="level-reason">사유</label>
+          <textarea id="level-reason" name="reason" rows={3} maxLength={1000} required />
+        </AdminForm>
+      )}
 
       <h2>탈퇴</h2>
       <AdminForm action={withdrawAction} submitLabel="탈퇴하기" label="탈퇴" danger>

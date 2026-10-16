@@ -14,6 +14,7 @@ const NAV: [string, string][] = [
   ["/admin/members", "회원"],
   ["/admin/members/pending", "가입 대기"],
   ["/admin/member-groups", "그룹"],
+  ["/admin/level-requests", "승급 신청"],
   ["/admin/privacy-notices", "개인정보 고지"],
   ["/admin/settings", "사이트 설정"],
   ["/admin/jobs", "실패 작업"],

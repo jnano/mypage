@@ -9,7 +9,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.admin.scope import StaffScope
 from app.api.admin_boards import admin_scope
 from app.admin import groups
-from app.auth import account, member_admin, members, notices
+from app.auth import account, levels, member_admin, members, notices
 from app.db.session import get_db
 
 router = APIRouter(prefix="/admin")
@@ -156,6 +156,29 @@ async def delete_group(group_id: int, scope: StaffScope = Depends(admin_scope), 
 @router.put("/member-groups/{group_id}/members")
 async def set_group_members(group_id: int, body: groups.GroupMembers, scope: StaffScope = Depends(admin_scope), db: AsyncSession = Depends(get_db)):
     result = await groups.set_members(db, scope.viewer, group_id, body.member_ids)
+    await db.commit()
+    return result
+
+
+# ── 승급 신청(§4.10) ──
+
+
+@router.get("/level-requests")
+async def level_queue(response: Response, scope: StaffScope = Depends(admin_scope), db: AsyncSession = Depends(get_db)):
+    response.headers["Cache-Control"] = NO_STORE
+    return {"items": await levels.queue(db), "names": (await levels.level_names(db)).names}
+
+
+@router.post("/level-requests/{request_id}/approve")
+async def approve_level(request_id: int, scope: StaffScope = Depends(admin_scope), db: AsyncSession = Depends(get_db)):
+    result = await levels.approve(db, scope.viewer, request_id)
+    await db.commit()
+    return result
+
+
+@router.post("/level-requests/{request_id}/reject")
+async def reject_level(request_id: int, body: levels.RejectBody, scope: StaffScope = Depends(admin_scope), db: AsyncSession = Depends(get_db)):
+    result = await levels.reject(db, scope.viewer, request_id, body.note)
     await db.commit()
     return result
 

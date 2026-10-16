@@ -38,8 +38,10 @@ async function Settings() {
       <AdminForm action={updateSettingsAction.bind(null, "levels")} submitLabel="등급 이름표 저장" label="등급 이름표">
         <fieldset>
           <legend>등급 이름표</legend>
-          <label htmlFor="level-names">줄마다 &quot;등급 이름&quot;(0 = 비회원)</label>
+          <label htmlFor="level-names">줄마다 &quot;등급 이름&quot;(0 = 비회원). 운영자는 레벨이 아니라 회원 화면의 &apos;운영자 지정&apos;입니다</label>
           <textarea id="level-names" name="names" rows={5} defaultValue={formatLevelNames((values.levels.names as Record<string, string>) ?? {})} />
+          <label htmlFor="level-requestable">회원이 승급을 신청할 수 있는 레벨(쉼표로, 비우면 신청을 받지 않음)</label>
+          <input id="level-requestable" name="requestable" defaultValue={((values.levels.requestable as number[]) ?? []).join(", ")} />
         </fieldset>
       </AdminForm>
       {SETTINGS_SECTIONS.map((section) => (

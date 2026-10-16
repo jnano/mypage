@@ -11,7 +11,7 @@ from app.admin.scope import StaffScope, load_staff_scope
 from app.auth.viewer import Viewer, get_viewer
 from app.core.config import settings
 from app.db.session import get_db
-from app.models import Board, Member, ModerationLog, OutboxEvent, Post, Report
+from app.models import Board, LevelRequest, Member, ModerationLog, OutboxEvent, Post, Report
 from app.models.enums import MODERATION_TARGET_TYPES
 
 router = APIRouter(prefix="/admin")
@@ -57,6 +57,12 @@ async def summary(scope: StaffScope = Depends(staff_scope), db: AsyncSession = D
     if scope.is_admin:
         dead = select(func.count()).select_from(OutboxEvent).where(OutboxEvent.dead_at.is_not(None)).scalar_subquery()
         columns.append(dead.label("dead_jobs"))
+        # 가입 대기·승급 대기(인증 설계도 §4.10-7) — 운영자만 처리한다
+        signups = select(func.count()).select_from(Member).where(Member.status == literal_column("'pending'")).scalar_subquery()
+        level_reqs = (
+            select(func.count()).select_from(LevelRequest).where(LevelRequest.status == literal_column("'pending'")).scalar_subquery()
+        )
+        columns += [signups.label("signups"), level_reqs.label("level_requests")]
     row = (await db.execute(select(*columns))).one()  # post-clause: exempt — 위 관리 집계 부분질의를 한 번에 읽음
     boards = (
         await db.execute(select(Board.id, Board.slug, Board.name).where(scope.board_clause(Board.id)).order_by(Board.sort_order, Board.id))
@@ -69,6 +75,8 @@ async def summary(scope: StaffScope = Depends(staff_scope), db: AsyncSession = D
             "pending": row.pending,
             "today_posts": row.today,
             "dead_jobs": row.dead_jobs if scope.is_admin else None,
+            "signups": row.signups if scope.is_admin else None,
+            "level_requests": row.level_requests if scope.is_admin else None,
         },
     }
 

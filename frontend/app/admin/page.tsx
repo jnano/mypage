@@ -26,6 +26,8 @@ async function Dashboard() {
     ["승인 대기", b.pending, "/admin/pending"],
     ["오늘 새 글", b.today_posts, "/admin/posts"],
     ["실패 작업", b.dead_jobs, "/admin/jobs"],
+    ["가입 대기", b.signups, "/admin/members/pending"],
+    ["승급 대기", b.level_requests, "/admin/level-requests"],
   ];
   return (
     <>

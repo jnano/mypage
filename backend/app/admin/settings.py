@@ -25,15 +25,21 @@ def _level_names(names: dict[str, str]) -> dict[str, str]:
     return names
 
 
+def _requestable(levels: list[int]) -> list[int]:
+    return sorted(set(levels))
+
+
 class LevelNames(BaseModel):
-    """등급 이름표 — 화면에 '등급 3' 대신 보일 이름."""
+    """등급 이름표 — 화면에 '등급 3' 대신 보일 이름. 운영자는 레벨이 아니라 is_admin 이다(인증 설계도 §3.7) —
+    레벨 9 가 된 일반 회원이 '운영자'로 보이지 않도록 기본 이름표에 넣지 않는다."""
 
     model_config = ConfigDict(extra="forbid")
     names: Annotated[dict[str, Annotated[str, Field(min_length=1, max_length=20)]], AfterValidator(_level_names)] = {
         "0": "비회원",
         "1": "회원",
-        "9": "운영자",
     }
+    # 회원이 승급을 신청할 수 있는 레벨(인증 설계도 §4.10). 비어 있으면 신청을 받지 않는다
+    requestable: Annotated[list[Annotated[int, Field(ge=1, le=99)]], Field(max_length=99), AfterValidator(_requestable)] = []
 
 
 _URL = re.compile(r"^https?://[^\s/]+(/.*)?$")

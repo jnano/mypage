@@ -3,7 +3,14 @@
 export interface AdminSummary {
   viewer: { member_id: number; is_admin: boolean };
   boards: { id: number; slug: string; name: string }[];
-  badges: { reports: number; pending: number; today_posts: number; dead_jobs: number | null };
+  badges: {
+    reports: number;
+    pending: number;
+    today_posts: number;
+    dead_jobs: number | null;
+    signups: number | null;
+    level_requests: number | null;
+  };
 }
 
 export interface ModerationLogItem {

@@ -208,7 +208,7 @@ export async function updateSettingsAction(group: string, _prev: AdminFormState,
   const reason = text(f, "reason");
   const path = `/api/admin/settings/${group}${reason ? `?reason=${encodeURIComponent(reason)}` : ""}`;
   let body: Record<string, unknown>;
-  if (group === "levels") body = { names: parseLevelNames(String(f.get("names") ?? "")) };
+  if (group === "levels") body = { names: parseLevelNames(String(f.get("names") ?? "")), requestable: ids(f, "requestable").filter((n) => Number.isInteger(n)) };
   else {
     const section = SETTINGS_SECTIONS.find((s) => s.id === group);
     if (!section) return { problem: { status: 400, code: "bad_group", title: "알 수 없는 설정 묶음입니다" } };
@@ -308,4 +308,14 @@ export async function deleteMemberGroupAction(id: number, _prev: AdminFormState)
   const res = await send("DELETE", `/api/admin/member-groups/${id}`);
   if (res.problem) return { problem: res.problem };
   redirect("/admin/member-groups");
+}
+
+// ── 승급 신청(인증 설계도 §4.10) ──
+
+export async function approveLevelAction(id: number, _prev: AdminFormState): Promise<AdminFormState> {
+  return done("POST", `/api/admin/level-requests/${id}/approve`, undefined, "승인했습니다");
+}
+
+export async function rejectLevelAction(id: number, _prev: AdminFormState, f: FormData): Promise<AdminFormState> {
+  return done("POST", `/api/admin/level-requests/${id}/reject`, { note: text(f, "note") }, "거부했습니다");
 }

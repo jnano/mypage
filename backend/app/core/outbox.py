@@ -44,10 +44,8 @@ async def enqueue(db: AsyncSession, events: list[Event]) -> None:
 async def enqueue_revalidate(db: AsyncSession, invalidations: list[Invalidation]) -> None:
     """작업자가 바꾼 데이터의 캐시 무효화를 같은 트랜잭션에 예약한다(§3.4 '작업자 변경').
     태그는 무효화 표(core.invalidation)에서 정한 것을 모아 한 이벤트로. 실패하면 작업자 재시도를 탄다."""
-    now: list[str] = []
-    later: list[str] = []
-    for inv in invalidations:
-        now += [t for t in inv.now if t not in now]
-        later += [t for t in inv.max if t not in later]
+    # 집합으로 모은다(순서는 처음 나온 순) — 탈퇴처럼 글이 많으면 게시판·recent 태그가 글마다 되풀이된다(검토 v4 T-1)
+    now = dict.fromkeys(t for inv in invalidations for t in inv.now)
+    later = dict.fromkeys(t for inv in invalidations for t in inv.max if t not in now)
     if now or later:
-        await enqueue(db, [Event("cache.revalidate", {"now": now, "max": later})])
+        await enqueue(db, [Event("cache.revalidate", {"now": list(now), "max": list(later)})])

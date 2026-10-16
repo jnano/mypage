@@ -9,7 +9,7 @@ import secrets
 from datetime import UTC, datetime, timedelta
 from typing import Any
 
-from sqlalchemy import exists, literal_column, select, update
+from sqlalchemy import delete, exists, literal_column, select, update
 from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -33,6 +33,7 @@ from app.models import (
     LevelRequest,
     LoginSession,
     Member,
+    MemberGroupMember,
     MemberSanction,
     PasswordResetToken,
     Post,
@@ -183,9 +184,8 @@ async def withdraw_member(db: AsyncSession, actor: Viewer, member: Member, reaso
         .where(LevelRequest.member_id == member.id, LevelRequest.status == literal_column("'pending'"))
         .values(status="cancelled", decided_at=now)
     )
-    await db.execute(
-        BoardAccess.__table__.delete().where(BoardAccess.subject_type == "member", BoardAccess.subject_id == member.id)
-    )
+    await db.execute(delete(BoardAccess).where(BoardAccess.subject_type == "member", BoardAccess.subject_id == member.id))
+    await db.execute(delete(MemberGroupMember).where(MemberGroupMember.member_id == member.id))  # 그룹 소속도(검토 v4 T-2)
     # 글·댓글: 작성자를 비우고 이름을 '탈퇴 회원'으로(본 설계서 §4.3·§4.4)
     posts = (
         await db.execute(

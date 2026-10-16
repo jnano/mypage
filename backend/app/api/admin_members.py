@@ -3,7 +3,7 @@
 from typing import Annotated, Literal
 
 from fastapi import APIRouter, Depends, Query, Response
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.admin.scope import StaffScope
@@ -58,7 +58,14 @@ class Reauth(BaseModel):
 
 
 class ForcedWithdraw(Reauth):
-    reason: str = Field(min_length=1, max_length=500)
+    reason: str = Field(max_length=500)
+
+    @field_validator("reason")
+    @classmethod
+    def _reason(cls, v: str) -> str:
+        if not v.strip():  # 사유 필수 — 공백만은 사유가 아니다(검토 v4 T-4)
+            raise ValueError("사유를 적어 주세요")
+        return v.strip()
 
 
 @router.post("/members/{member_id}/password-reset-link")

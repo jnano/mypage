@@ -15,6 +15,8 @@ from app.models import (
     LevelRequest,
     LoginSession,
     Member,
+    MemberGroup,
+    MemberGroupMember,
     MemberSanction,
     ModerationLog,
     OutboxEvent,
@@ -107,6 +109,10 @@ async def test_withdraw_clears_personal_fields_and_authorship(committed_db, clie
     post = await make_post(committed_db, board, m)
     committed_db.add(Comment(post_id=post.id, member_id=m.id, author_name_snapshot=m.display_name, content="댓글"))
     committed_db.add(LevelRequest(member_id=m.id, from_level=3, to_level=5, reason="활동"))
+    group = MemberGroup(name="모임")
+    committed_db.add(group)
+    await committed_db.flush()
+    committed_db.add(MemberGroupMember(group_id=group.id, member_id=m.id))
     committed_db.add(MemberSanction(member_id=m.id, actions=["write"], reason="스팸", ends_at=datetime.now(UTC) + timedelta(days=3)))
     await committed_db.commit()
     email, mid, pid = m.email or "", m.id, post.id
@@ -121,6 +127,7 @@ async def test_withdraw_clears_personal_fields_and_authorship(committed_db, clie
     c = (await committed_db.execute(select(Comment).where(Comment.post_id == pid))).scalar_one()
     assert (c.member_id, c.author_name_snapshot) == (None, "탈퇴 회원")
     assert (await committed_db.execute(select(LevelRequest.status))).scalar_one() == "cancelled"
+    assert (await committed_db.execute(select(MemberGroupMember))).first() is None  # 그룹 소속도 지운다
     assert await whoami(client, h["X-Session"]) is None
     # 제재 중 탈퇴 → 주소 HMAC 표시(90일), 캐시 무효화 예약
     mark = (await committed_db.execute(select(WithdrawnEmailMark))).scalar_one()
@@ -152,6 +159,7 @@ async def test_forced_withdraw(committed_db, client) -> None:
     h = await session_of(client, admin)
     url = f"/api/admin/members/{target.id}/withdraw"
     assert (await client.post(url, json={"password": TEST_PASSWORD}, headers=h)).status_code == 422  # 사유 필수
+    assert (await client.post(url, json={"password": TEST_PASSWORD, "reason": "   "}, headers=h)).status_code == 422  # 공백만
     r = await client.post(url, json={"password": "wrong password here", "reason": "규칙 위반"}, headers=h)
     assert r.status_code == 403
     failed = (await committed_db.execute(select(ModerationLog).where(ModerationLog.action == "member.reauth_failed"))).scalar_one()

@@ -1,5 +1,6 @@
 import type { NextConfig } from "next";
 import { API_REWRITE_SOURCE, MEDIA_REWRITE_SOURCE } from "./lib/apiProxy";
+import { KNOWN_BOTS } from "./lib/seo/bots";
 
 // 백엔드(FastAPI) 주소 — 배포 환경에서는 BACKEND_URL 로 덮어쓴다
 const BACKEND_URL = process.env.BACKEND_URL ?? "http://localhost:8000";
@@ -13,8 +14,7 @@ const nextConfig: NextConfig = {
   cacheMaxMemorySize: 256 * 1024 * 1024,
   // 검색엔진·링크 미리보기 봇은 메타를 기다린 뒤 응답한다(blocking metadata) — 그래야 generateMetadata 의
   // 옛 주소 넘김(308)·없는 글(404)이 실제 HTTP 상태가 된다(§10). 사람의 브라우저는 그대로 스트리밍
-  htmlLimitedBots:
-    /Googlebot|Google-InspectionTool|Storebot-Google|bingbot|Yeti|Daum|DuckDuckBot|Baiduspider|YandexBot|Applebot|facebookexternalhit|Twitterbot|Slackbot|LinkedInBot|kakaotalk-scrap|Discordbot|TelegramBot|WhatsApp/i,
+  htmlLimitedBots: KNOWN_BOTS, // 조회수의 봇 거르기와 같은 목록(lib/seo/bots.ts — 설계도 §6.1)
   // /api/* 는 FastAPI 로 전달한다. 쓰기는 FastAPI 가 내부 비밀 헤더로 막으므로 브라우저 직접 쓰기는 통하지 않는다
   // nginx 가 응답을 모아 두지 않게 — Suspense 스트리밍이 그대로 흘러가야 한다(Next self-hosting 문서 'Streaming and Suspense')
   async headers() {

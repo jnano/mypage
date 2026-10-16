@@ -32,7 +32,7 @@ describe("FastAPI 로 넘기는 rewrites", () => {
     expect(excluded(`${sample(route)}/`)).toBe(true);
   });
 
-  it.each(["health", "boards/free/page", "attachments/123", "attachments/123/files", "attachments/123/file/x", "me/page-state"])(
+  it.each(["health", "boards/free/page", "attachments/123", "attachments/123/files", "attachments/123/file/x", "me/page-state", "posts/123/page", "posts/123/like", "posts/123/viewers"])(
     "/api/%s 는 FastAPI 로",
     (rest) => {
       expect(excluded(rest)).toBe(false);

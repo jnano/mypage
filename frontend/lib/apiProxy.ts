@@ -7,7 +7,7 @@
 // 뺀 경로의 하위 경로(…/file/x)는 Route Handler 가 없으므로 FastAPI 로 간다(의도).
 
 /** app/api 아래 `[…]` 가 든 route.ts 의 경로(app/api 기준) */
-export const NEXT_DYNAMIC_API_ROUTES = ["attachments/[id]/file", "attachments/[id]/thumb"] as const;
+export const NEXT_DYNAMIC_API_ROUTES = ["attachments/[id]/file", "attachments/[id]/thumb", "posts/[id]/share", "posts/[id]/view"] as const;
 
 /** `/api/` 뒤 경로가 이 패턴으로 시작하면 FastAPI 로 넘기지 않는다 — 앞에 붙여 쓰는 정규식(lookahead 안에 들어간다) */
 export const NEXT_API_EXCLUDE = `(?:${NEXT_DYNAMIC_API_ROUTES.map((r) => r.replace(/\[[^\]/]+\]/g, "[^/]+")).join("|")})/?$`;

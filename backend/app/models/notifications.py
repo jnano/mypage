@@ -38,6 +38,9 @@ class Notification(Base):
 
 
 Index("ix_notifications_recipient", Notification.recipient_id, Notification.created_at.desc())
+# 글·댓글 영구 삭제의 SET NULL 이 찾는 칸 — 알림은 가장 빨리 커지는 표(3단계 측정 §4.7)
+Index("ix_notifications_post", Notification.post_id, postgresql_where=text("post_id IS NOT NULL"))
+Index("ix_notifications_comment", Notification.comment_id, postgresql_where=text("comment_id IS NOT NULL"))
 Index(
     "ix_notifications_unread",
     Notification.recipient_id,

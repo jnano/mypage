@@ -318,6 +318,8 @@ SPEC: dict[str, T] = {
         indexes={
             "ix_comments_post": "post_id, created_at",
             "ix_comments_member": "member_id, created_at DESC",
+            "ix_comments_parent": "parent_id | where parent_id IS NOT NULL",
+            "ix_comments_reply_to": "reply_to_comment_id | where reply_to_comment_id IS NOT NULL",
         },
     ),
     "attachments": T(
@@ -441,6 +443,8 @@ SPEC: dict[str, T] = {
         uniques=[("dedupe_key",)],
         indexes={
             "ix_notifications_recipient": "recipient_id, created_at DESC",
+            "ix_notifications_post": "post_id | where post_id IS NOT NULL",
+            "ix_notifications_comment": "comment_id | where comment_id IS NOT NULL",
             "ix_notifications_unread": "recipient_id | where read_at IS NULL",
             "uq_notifications_group_unread": "recipient_id, group_key"
             " | where read_at IS NULL | unique",

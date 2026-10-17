@@ -112,7 +112,7 @@ cd frontend && npm run typecheck && npm test && npm run build   # 프런트: 타
   - 구현: `literal_column("'published'")` 또는 `literal('published', literal_execute=True)` 로 SQL 리터럴 렌더. `plan_cache_mode` 전역 변경은 쓰지 않는다.
   - 근거(실측, PG18): 범용 계획에서 바인드 조건은 Seq Scan, 리터럴은 부분 인덱스 Index Only Scan.
 - 최적화는 측정을 근거로 한다(EXPLAIN·p95, 설계도의 성능 예산). 측정 없이 구조를 복잡하게 만들지 않는다.
-- 근거와 세부는 설계도 최종본(`doc/설계도_통합게시판_v3.0_최종_2026-10-15.md`) §2. 설계 기준은 이 최종본 하나이며, 이전 판(v1~v2.4)과 검토 문서는 이력이다.
+- 근거와 세부는 설계도 최종본(`doc/설계/통합게시판_설계도.md`) §2. 설계 기준은 이 최종본 하나이며, 이전 판은 `doc/archive/설계_이전판/`, 검토 문서는 `doc/검토/` 에 둔다(문서 지도 `doc/README.md`).
 
 ### 3. 공식 권장 방식
 - 개발 툴·개발사가 공식 문서에서 권장하는 방식으로 개발한다. 우회하거나 변칙적인 방법으로 작업·코딩하지 않는다.

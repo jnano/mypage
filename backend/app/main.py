@@ -7,10 +7,11 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI, Request
 from fastapi.staticfiles import StaticFiles
 
-from app.api import account, admin, admin_boards, admin_layouts, admin_members, admin_menus, admin_moderation, admin_posts, admin_site, attachments, auth, boards, comments, editor, frame, health, me, notifications, posts, reports, search, seo
+from app.api import account, admin, admin_boards, admin_layouts, admin_members, admin_menus, admin_moderation, admin_pages, admin_posts, admin_site, attachments, auth, boards, comments, editor, frame, health, me, notifications, posts, reports, search, seo
+from app.blocks import pages
 from app.core import csrf, problems, timing
 from app.core.config import settings
-from app.db.session import engine
+from app.db.session import SessionLocal, engine
 from app.files import storage
 from app.posts import view_buffer
 from app.search import terms as search_terms
@@ -18,10 +19,23 @@ from app.search import terms as search_terms
 logger = logging.getLogger(__name__)
 
 
+async def _warn_reserved_pages() -> None:
+    """배포 직후 운영자가 보도록 — 예약 첫 단과 겹쳐 라우트에 가려진 사용자 페이지(홈블록 §11, 검토 N-5)"""
+    try:
+        async with SessionLocal() as db:
+            conflicts = await pages.reserved_conflicts(db)
+    except Exception:  # 기동을 막지 않는다 — DB 가 아직이면 다음 기동 때
+        logger.exception("예약 주소와 겹친 페이지를 세지 못함")
+        return
+    if conflicts:
+        logger.warning("예약 주소와 겹쳐 가려진 페이지 %d개: %s — 관리 화면에서 주소를 바꾸세요", len(conflicts), ", ".join(c["path"] for c in conflicts))
+
+
 @asynccontextmanager
 async def lifespan(_: FastAPI) -> AsyncIterator[None]:
     if settings.dev_viewer_header:
         logger.warning("개발용 Viewer 헤더(X-Dev-Member)가 켜져 있습니다 — ENV=dev 전용")
+    await _warn_reserved_pages()
     # 메모리 묶음을 비우는 배경 작업 — always 모드 조회수(§6.1)·검색어 집계(§9.1)
     flushers = [asyncio.create_task(view_buffer.run_forever()), asyncio.create_task(search_terms.run_forever())]
     yield
@@ -67,6 +81,7 @@ app.include_router(admin_site.router, prefix="/api")
 app.include_router(admin_members.router, prefix="/api")
 app.include_router(admin_menus.router, prefix="/api")
 app.include_router(admin_layouts.router, prefix="/api")
+app.include_router(admin_pages.router, prefix="/api")
 app.include_router(reports.router, prefix="/api")
 app.include_router(seo.router, prefix="/api")
 app.include_router(frame.router, prefix="/api")

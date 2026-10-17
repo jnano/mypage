@@ -102,11 +102,17 @@ def _loc(err: dict) -> str:
     return out
 
 
-def validate_tree(owner: Owner, groups: Sequence[tuple[str | None, Sequence[BlockIn]]], path: str) -> list[FlatBlock]:
-    """(영역, 블록 목록) 묶음들 → 평평한 목록. 오류는 모아서 TreeErrors. path 는 오류 칸 이름의 앞부분"""
+def validate_tree(
+    owner: Owner,
+    groups: Sequence[tuple[str | None, Sequence[BlockIn]]],
+    path: str,
+    taken: dict[str, str] | None = None,
+) -> list[FlatBlock]:
+    """(영역, 블록 목록) 묶음들 → 평평한 목록. 오류는 모아서 TreeErrors. path 는 오류 칸 이름의 앞부분.
+    taken = 같은 화면에 함께 그려질 다른 주인(페이지 ↔ 그 틀)의 탐색·랜드마크 이름 → 어디의 것인지(§10, 코드 검토 v7 N-3)"""
     errors: list[dict[str, str]] = []
     flat: list[FlatBlock] = []
-    labels: dict[str, str] = {}
+    labels: dict[str, str] = dict(taken or {})
 
     def err(f: str, message: str) -> None:
         errors.append({"field": f, "message": message})
@@ -312,3 +318,60 @@ async def _attach_images(db: AsyncSession, member_id: int | None, flat: Sequence
     if errors:
         raise problem(errors, "attachment_unavailable")
 
+
+
+def nav_name(block_type: str, config: dict[str, Any]) -> str | None:
+    """탐색·랜드마크 이름(§10) — 메뉴 셋의 label, 랜드마크 묶음의 title. 저장된 설정(dict)에서"""
+    if block_type in NAMED_NAV:
+        return config.get("label") or ("현재 위치" if block_type == "breadcrumb" else None)
+    if block_type == "group" and config.get("landmark"):
+        return config.get("title")
+    return None
+
+
+async def nav_labels(db: AsyncSession, *, layout_ids: Iterable[int] = (), page_ids: Iterable[int] = ()) -> dict[str, str]:
+    """주인들의 탐색·랜드마크 이름 → 어디의 것인지('틀 n'·'페이지 n'). 한 문장"""
+    layouts, pages = sorted(set(layout_ids)), sorted(set(page_ids))
+    if not layouts and not pages:
+        return {}
+    rows = await db.execute(
+        select(Block.type, Block.config, Block.layout_id, Block.page_id).where(  # post-clause: exempt — 블록 칸(글 아님)
+            or_(Block.layout_id.in_(layouts or [0]), Block.page_id.in_(pages or [0])),
+            Block.type.in_([*NAMED_NAV, "group"]),
+            Block.is_active.is_(True),
+        )
+    )
+    out: dict[str, str] = {}
+    for r in rows:
+        if (name := nav_name(r.type, r.config)) is not None:
+            out.setdefault(name, f"틀 {r.layout_id}" if r.layout_id else f"페이지 {r.page_id}")
+    return out
+
+
+def names_in(flat: Sequence[FlatBlock]) -> dict[str, str]:
+    """검증한 트리의 탐색·랜드마크 이름 → 칸 경로"""
+    out: dict[str, str] = {}
+    for b in flat:
+        if (name := nav_name(b.item.type, b.config)) is not None:
+            out.setdefault(name, b.field)
+    return out
+
+
+async def page_conflicts(db: AsyncSession, layout_id: int, is_default: bool, names: dict[str, str]) -> list[dict[str, str]]:
+    """틀을 저장할 때 — 그 틀을 쓰는 페이지(고른 페이지, 기본 틀이면 틀을 안 고른 페이지)의 이름과 겹치는 것(§10). 한 문장"""
+    if not names:
+        return []
+    uses = Page.layout_id == layout_id
+    if is_default:
+        uses = or_(uses, Page.layout_id.is_(None))
+    rows = await db.execute(
+        select(Block.type, Block.config, Page.path)  # post-clause: exempt — 블록 칸(글 아님)
+        .join(Page, Page.id == Block.page_id)
+        .where(uses, Block.type.in_([*NAMED_NAV, "group"]), Block.is_active.is_(True))
+    )
+    errors = []
+    for r in rows:
+        name = nav_name(r.type, r.config)
+        if name in names:
+            errors.append({"field": f"{names[name]}.config", "message": f"이 틀을 쓰는 페이지({r.path})에 같은 이름의 탐색·랜드마크가 있습니다: {name}"})
+    return errors

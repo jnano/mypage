@@ -233,3 +233,13 @@ def block_view(viewer: Viewer, block: BlockLike) -> bool:
     if block.audience == "guest":
         return viewer.member_id is None
     return True
+
+
+class PageLike(Protocol):
+    status: str
+    view_level: int
+
+
+def page_read(viewer: Viewer, page: PageLike) -> bool:
+    """page.read(홈블록 설계도 §6.1) — 운영자 ∨ (게시 ∧ 등급 ≥ 열람 등급). 초안은 운영자만"""
+    return viewer.is_admin or (page.status == "published" and viewer.level >= page.view_level)

@@ -204,10 +204,11 @@ async def attachments_sync(db: AsyncSession, event: OutboxEvent) -> None:
 @handles("attach.reconcile_block")
 async def attach_reconcile_block(db: AsyncSession, event: OutboxEvent) -> None:
     """블록 그림을 있어야 할 저장소로 옮긴다(홈블록 §4.7) — 글 첨부의 attachments.sync 와 같은 방식. 옮긴 그림이 있거나
-    force(썸네일이 막 준비됨)면 주인 태그를 즉시 만료한다(§5.3). 페이지 주인의 태그는 걸음 6"""
+    force(썸네일이 막 준비됨)면 주인(틀·페이지) 태그를 즉시 만료한다(§5.3)"""
     rows = await block_images.load(db, event.payload["block_ids"])
     old_labels: list[str] = []
     owners: set[int] = set()
+    page_owners: set[int] = set()
     released = event.payload.get("released_ids") or []
     for r in await db.execute(select(Attachment.id, Attachment.storage_key).where(Attachment.id.in_(released))):  # post-clause: exempt — 첨부 칸(글 아님)
         found = storage.locate(r.storage_key)  # 블록에서 떨어진 그림 — 비공개 저장소로(표시는 이미 private)
@@ -223,20 +224,22 @@ async def attach_reconcile_block(db: AsyncSession, event: OutboxEvent) -> None:
         if found is None:
             continue
         if found[0] == want and r.visibility == want:
-            if event.payload.get("force") and r.layout_id is not None:
-                owners.add(r.layout_id)
+            if event.payload.get("force"):
+                (owners if r.layout_id is not None else page_owners).add(r.layout_id or r.page_id)
             continue
         key = r.storage_key
         if found[0] != want:
             key = r.storage_key if want == "public" else storage.new_key(r.storage_key.rsplit(".", 1)[-1])
             old_labels += await run_in_thread("image", storage.copy_with_thumbs, r.storage_key, want, key)
         await db.execute(update(Attachment).where(Attachment.id == r.id).values(storage_key=key, visibility=want))
-        if r.layout_id is not None:
-            owners.add(r.layout_id)
+        (owners if r.layout_id is not None else page_owners).add(r.layout_id or r.page_id)
     if old_labels:
         await outbox.enqueue(db, [outbox.Event("files.delete", {"labels": old_labels})])
-    if owners:
-        await enqueue_revalidate(db, [tags_for("layout.updated", layout_id=i) for i in sorted(owners)])
+    if owners or page_owners:
+        await enqueue_revalidate(
+            db,
+            [tags_for("layout.updated", layout_id=i) for i in sorted(owners)] + [tags_for("page.updated", page_id=i) for i in sorted(page_owners)],
+        )
 
 
 BOARD_BATCH = 200

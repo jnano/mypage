@@ -8,7 +8,7 @@ from app.permissions.clauses import (
     readable_posts_clause,
     unmasked_posts_clause,
 )
-from app.permissions.policy import ACTIONS, Action, block_view, can, post_mask
+from app.permissions.policy import ACTIONS, Action, block_view, can, page_read, post_mask
 from app.permissions.roles import NO_ROLE, BoardRole, load_board_role, load_board_roles
 
 __all__ = [
@@ -24,6 +24,7 @@ __all__ = [
     "load_board_role",
     "load_board_roles",
     "own_posts_openable_clause",
+    "page_read",
     "post_mask",
     "readable_posts_clause",
     "unmasked_posts_clause",

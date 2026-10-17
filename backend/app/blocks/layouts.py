@@ -110,6 +110,8 @@ async def save_layout(db: AsyncSession, viewer: Viewer, layout_id: int, body: La
         raise _not_found()
     if layout.version != expected_version:  # ③ 버전 비교
         raise Problem(412, "version_conflict", "다른 사람이 먼저 고쳤습니다", headers={"ETag": f'"{layout.version}"'})
+    if errors := await tree.page_conflicts(db, layout_id, layout.is_default, tree.names_in(flat)):
+        raise tree.problem(errors)
     changed = await tree.save_tree(db, viewer.member_id, "layout", layout_id, flat)  # ④
     old_name = layout.name
     layout.name = body.name

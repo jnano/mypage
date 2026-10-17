@@ -37,6 +37,7 @@ from app.permissions import (
     guest_readable_boards_clause,
     listable_posts_clause,
     load_board_roles,
+    page_read,
     readable_posts_clause,
 )
 
@@ -437,15 +438,18 @@ async def personal_blocks(db: AsyncSession, viewer: Viewer, block_ids: Sequence[
         return {}
     rows = list(  # ① 요청한 블록 + 그 자식(묶음·칸 나누기)
         await db.execute(
-            select(*BLOCK_COLUMNS, Block.layout_id).where(  # post-clause: exempt — 블록 칸(글 아님)
+            # 주인이 페이지면 page.read 를 같은 문장에서(쿼리 수 그대로 — 코드 검토 v9 N-1, 정지점 N-1)
+            select(*BLOCK_COLUMNS, Block.layout_id, Block.page_id, Page.status.label("page_status"), Page.view_level.label("page_view_level"))  # post-clause: exempt — 블록·페이지 칸(글 아님)
+            .outerjoin(Page, Page.id == Block.page_id)
+            .where(
                 or_(Block.id.in_(ids), Block.parent_id.in_(ids), Block.id.in_(select(Block.parent_id).where(Block.id.in_(ids)).scalar_subquery())),
-                Block.layout_id.is_not(None),
             )
         )
     )
     nodes: dict[int, Node] = {}
     for row in rows:
-        if not block_view(viewer, row):
+        owner_ok = row.page_id is None or page_read(viewer, SimpleNamespace(status=row.page_status, view_level=row.page_view_level))
+        if not owner_ok or not block_view(viewer, row):
             continue
         try:
             model = t.validate_config(row.type, row.config)

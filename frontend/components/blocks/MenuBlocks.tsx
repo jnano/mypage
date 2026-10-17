@@ -34,7 +34,10 @@ function Disclosure({ item, currentId, inChain }: { item: MenuItemView; currentI
       ) : (
         <>
           <ItemLink item={item} current={item.id === currentId} />
-          <button type="button" {...toggle} aria-label={`${item.label} 하위 메뉴`} data-slot="submenu-toggle" />
+          {/* 보이는 글자가 접근 이름 안에 있어야 한다(WCAG 2.5.3) — 빈 단추는 누를 자리도 없다(2.5.8) */}
+          <button type="button" {...toggle} aria-label={`${item.label} 하위 메뉴 펼치기`} data-slot="submenu-toggle">
+            펼치기
+          </button>
         </>
       )}
       <ul id={id} hidden={!open}>

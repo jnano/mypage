@@ -110,7 +110,7 @@ ITEM_COLUMNS = (
 
 async def _items(db: AsyncSession, menu_id: int) -> list[Any]:
     # 행(Row)으로 읽는다 — ORM 객체면 아래 UPDATE 뒤에 세션의 옛 값이 남는다
-    return list(await db.execute(select(*ITEM_COLUMNS).where(MenuItem.menu_id == menu_id)))
+    return list(await db.execute(select(*ITEM_COLUMNS).where(MenuItem.menu_id == menu_id)))  # post-clause: exempt — 메뉴 항목 칸(글 아님)
 
 
 async def menu_detail(db: AsyncSession, menu_id: int) -> dict[str, Any]:

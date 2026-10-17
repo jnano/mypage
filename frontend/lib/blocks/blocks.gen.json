@@ -311,6 +311,13 @@
               "href": "/about/map",
               "new_window": false,
               "children": []
+            },
+            {
+              "id": 8,
+              "label": "블록 견본",
+              "href": "/dev/blocks",
+              "new_window": false,
+              "children": []
             }
           ]
         },
@@ -368,6 +375,13 @@
               "href": "/about/map",
               "new_window": false,
               "children": []
+            },
+            {
+              "id": 8,
+              "label": "블록 견본",
+              "href": "/dev/blocks",
+              "new_window": false,
+              "children": []
             }
           ]
         },
@@ -422,6 +436,13 @@
               "id": 3,
               "label": "찾아오는 길",
               "href": "/about/map",
+              "new_window": false,
+              "children": []
+            },
+            {
+              "id": 8,
+              "label": "블록 견본",
+              "href": "/dev/blocks",
               "new_window": false,
               "children": []
             }

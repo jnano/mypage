@@ -26,11 +26,12 @@ def _item(id: int, parent: int | None, order: int, label: str, kind: str = "url"
     return SimpleNamespace(**row)
 
 
-# 견본 메뉴 — 2단 묶음(링크 없는 제목)·페이지·게시판 주소·바깥 주소
+# 견본 메뉴 — 2단 묶음(링크 없는 제목)·페이지·게시판 주소·바깥 주소·견본 화면 자신
 EXAMPLE_MENU = [
     _item(1, None, 0, "소개", "none"),
     _item(2, 1, 0, "인사말", "page", page=1),
     _item(3, 1, 1, "찾아오는 길", url="/about/map"),
+    _item(8, 1, 2, "블록 견본", url="/dev/blocks"),  # 견본 화면 자신 — 지금 항목·경로 표시·옆 메뉴가 그려진다
     _item(4, None, 1, "공지", url="/boards/notice"),
     _item(5, None, 2, "자유게시판", url="/boards/free"),
     _item(6, 5, 0, "글쓰기", url="/boards/free/write"),

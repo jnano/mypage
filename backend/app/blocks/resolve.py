@@ -8,6 +8,7 @@ Lookup 에는 보는 사람(공개 묶음이면 비회원)이 볼 수 있는 대
 import logging
 from collections.abc import Collection, Mapping, Sequence
 from dataclasses import dataclass, field
+from functools import lru_cache
 from typing import Any
 
 from pydantic import BaseModel
@@ -120,7 +121,16 @@ def _links(items: list[Any], lookup: Lookup) -> list[View]:
 
 
 def _markdown(source: str, lookup: Lookup, attachment_ids: Collection[int]) -> str:
-    return render_content(markdown_to_html(source, attachment_ids), lookup.images)
+    # 결과는 원문·이 블록의 첨부·그 첨부의 지금 주소로만 정해진다 — 같은 입력이면 다시 변환하지 않는다(걸음 8 측정: 최대 구성
+    # 틀 묶음 시간의 약 60% 가 변환·정화). 프로세스마다 기억하므로 정화 정책을 바꾸면 재시작으로 새로 만든다(원문만 저장 — §4.4)
+    ids = tuple(sorted(attachment_ids))
+    images = tuple((i, lookup.images[i]) for i in ids if i in lookup.images)
+    return _render_cached(source, ids, images)
+
+
+@lru_cache(maxsize=2048)
+def _render_cached(source: str, ids: tuple[int, ...], images: tuple[tuple[int, ImageSource], ...]) -> str:
+    return render_content(markdown_to_html(source, ids), dict(images))
 
 
 def resolve(block_type: str, config: Any, lookup: Lookup, *, attachment_ids: Collection[int] = ()) -> View | None:

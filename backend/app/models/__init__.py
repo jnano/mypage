@@ -7,7 +7,7 @@ from app.models.auth import (
     PrivacyNotice,
     WithdrawnEmailMark,
 )
-from app.models.blocks import Block, Layout, LayoutBinding, Menu, MenuItem, Page, PagePathHistory
+from app.models.blocks import Block, BlockHealth, Layout, LayoutBinding, Menu, MenuItem, Page, PagePathHistory
 from app.models.boards import (
     Board,
     BoardAccess,
@@ -50,6 +50,7 @@ from app.models.system import (
 __all__ = [
     "Attachment",
     "Block",
+    "BlockHealth",
     "Board",
     "BoardAccess",
     "BoardCategory",

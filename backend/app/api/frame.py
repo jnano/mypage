@@ -62,8 +62,7 @@ async def me_frame(
         raise Problem(404, "signed_out", "페이지를 찾을 수 없습니다")
     if not is_page_path(path):
         raise Problem(404, "page_not_found", "페이지를 찾을 수 없습니다")
-    if draft:
-        await rate_limit.hit("frame.draft", f"m:{viewer.member_id}")
+    await rate_limit.hit("frame.draft" if draft else "frame.view", f"m:{viewer.member_id}")
     try:
         body = await viewer_frame(db, viewer, path, draft=draft)
     except PageNotFound as e:

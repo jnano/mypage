@@ -10,13 +10,22 @@
 from typing import Any
 
 from pydantic import ValidationError
-from sqlalchemy import select
+from sqlalchemy import func, select
+from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.blocks import types as t
 from app.blocks.routes import reserved
 from app.blocks.tree import Refs, collect_refs
-from app.models import Attachment, Block, Board, Layout, Menu, Page
+from app.core import outbox
+from app.models import Attachment, Block, BlockHealth, Board, Layout, Menu, Page
+
+# 끊긴 참조 수를 다시 세라는 사건(§4.9) — 블록·페이지·메뉴·게시판이 바뀌거나 지워지는 트랜잭션 안에서 넣는다(그 저장이 롤백되면 사건도 없다)
+RECOUNT = "blocks.recount"
+
+
+async def request_recount(db: AsyncSession) -> None:
+    await outbox.enqueue(db, [outbox.Event(RECOUNT)])
 
 
 async def dangling(db: AsyncSession) -> dict[str, Any]:
@@ -67,3 +76,12 @@ async def dangling(db: AsyncSession) -> dict[str, Any]:
         if missing:
             out.append({"id": row.id, "type": row.type, "owner": owner, "invalid": False, "missing": missing})
     return {"blocks": out, "reserved_conflicts": [{"id": r.id, "path": r.path} for r in all_pages if reserved(r.path)]}
+
+
+async def recount(db: AsyncSession) -> dict[str, int]:
+    """작업자 — 지금 전체를 세어 block_health 한 행에(§4.9). 겹치면 나중 값(둘 다 그때의 전체)"""
+    out = await dangling(db)
+    values = {"broken_blocks": len(out["blocks"]), "reserved_pages": len(out["reserved_conflicts"])}
+    stmt = insert(BlockHealth).values(id=1, **values)
+    await db.execute(stmt.on_conflict_do_update(index_elements=[BlockHealth.id], set_=values | {"counted_at": func.now()}))
+    return values

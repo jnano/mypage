@@ -49,7 +49,7 @@ async def test_summary_badges_are_scoped(dev_header, committed_db, client) -> No
     mod_badges = (await client.get("/api/admin/summary", headers=as_member(mod.id))).json()["badges"]
     assert mod_badges == {"reports": 1, "pending": 1, "today_posts": 2, "dead_jobs": None, "signups": None, "level_requests": None, "alerts": None, "broken_blocks": None, "reserved_pages": None}
     admin_badges = (await client.get("/api/admin/summary", headers=as_member(admin.id))).json()["badges"]
-    assert admin_badges == {"reports": 2, "pending": 2, "today_posts": 4, "dead_jobs": 1, "signups": 0, "level_requests": 0, "alerts": 0, "broken_blocks": 0, "reserved_pages": 0}
+    assert admin_badges == {"reports": 2, "pending": 2, "today_posts": 4, "dead_jobs": 1, "signups": 0, "level_requests": 0, "alerts": 0, "broken_blocks": None, "reserved_pages": None}  # 홈블록 배지 — 작업자가 세기 전(§4.9)
 
 
 async def test_moderation_logs_scope_filters_and_paging(dev_header, committed_db, client, monkeypatch) -> None:

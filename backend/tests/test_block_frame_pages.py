@@ -198,3 +198,26 @@ async def test_page_sql_conditions_match_page_read(db: AsyncSession) -> None:
     sitemap = {r["path"] for r in await pages_mod.sitemap_pages(db) if r["path"] in table}
     assert sitemap == {k for k, p in table.items() if page_read(guest, p) and p.indexable}
     assert len(sitemap) == 1 and len(mine) == 6  # 대조: 조건 하나라도 다르면 위 줄들이 갈린다
+
+
+
+async def test_viewer_frame_rate_limit(dev_header, client, committed_db, monkeypatch) -> None:
+    """비초안 개인 틀도 회원 단위 한도(걸음 8 결정 ⑨ — frame.view). 초안 보기는 따로(frame.draft)"""
+    await _site(committed_db)
+    member = await make_member(committed_db, level=3)
+    await committed_db.commit()
+    monkeypatch.setitem(rate_limit.LIMITS, "frame.view", rate_limit.Limit(2, 60))
+    codes = [(await client.get("/api/me/frame", params={"path": "/vip"}, headers=as_member(member.id))).status_code for _ in range(3)]
+    assert codes == [200, 200, 429]
+
+
+async def test_viewer_frame_queries_at_most_8_over_http(dev_header, client, committed_db) -> None:
+    """개인 틀 HTTP 한 번의 쿼리 ≤ 8 — 보는 사람 조회까지 세어서(걸음 8 결정 ⑨: 설정 읽기를 주인 고르기 문장에)"""
+    await _site(committed_db)
+    member = await make_member(committed_db, level=3)
+    await committed_db.commit()
+    with count_queries() as q:
+        res = await client.get("/api/me/frame", params={"path": "/vip"}, headers=as_member(member.id))
+    assert res.status_code == 200
+    framed = [s for s in q["sql"] if "rate_limit_counters" not in s]  # 요청 수 세기는 별도 연결(예산 밖 — 다른 개인 API 와 같음)
+    assert len(framed) <= 8, framed

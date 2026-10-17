@@ -171,6 +171,22 @@ class MenuItem(Base):
     is_active: Mapped[bool] = mapped_column(Boolean, server_default=TRUE)
 
 
+class BlockHealth(Base):
+    """끊긴 참조 수 — 홈블록 설계도 §4.9(M-8). 한 행뿐, 작업자가 바뀔 때 센다(대시보드는 이 행만 읽는다)"""
+
+    __tablename__ = "block_health"
+    __table_args__ = (
+        CheckConstraint("id = 1", name="single_row"),
+        range_check("broken_blocks", 0),
+        range_check("reserved_pages", 0),
+    )
+
+    id: Mapped[int] = mapped_column(SmallInteger, primary_key=True, server_default=ONE)
+    broken_blocks: Mapped[int] = mapped_column(Integer)
+    reserved_pages: Mapped[int] = mapped_column(Integer)
+    counted_at: Mapped[datetime] = created_at()
+
+
 Index("uq_layouts_is_default", Layout.is_default, unique=True, postgresql_where=text("is_default"))
 Index("uq_pages_is_home", Page.is_home, unique=True, postgresql_where=text("is_home"))
 Index("ix_page_path_history_page", PagePathHistory.page_id, PagePathHistory.changed_at)

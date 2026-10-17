@@ -146,7 +146,7 @@ jobs:
       - name: nginx 설정 검사(nginx -t)
         run: |
           sudo apt-get update -q && sudo apt-get install -y -q nginx
-          sudo install -m 644 deploy/nginx/mypage-security-headers.conf /etc/nginx/snippets/
+          sudo install -m 644 deploy/nginx/mypage-security-headers.conf deploy/nginx/mypage-proxy.conf /etc/nginx/snippets/
           sudo install -m 644 deploy/nginx/mypage.conf /etc/nginx/conf.d/
           sudo nginx -t
       - name: systemd 유닛 검사(systemd-analyze verify)
@@ -303,7 +303,7 @@ jobs:
         run: |
           sudo apt-get update -q && sudo apt-get install -y -q nginx
           sudo rm -f /etc/nginx/sites-enabled/default
-          sudo install -m 644 deploy/nginx/mypage-security-headers.conf /etc/nginx/snippets/
+          sudo install -m 644 deploy/nginx/mypage-security-headers.conf deploy/nginx/mypage-proxy.conf /etc/nginx/snippets/
           sudo sed 's/server_name example.org;/server_name localhost;/' deploy/nginx/mypage.conf | sudo tee /etc/nginx/conf.d/mypage.conf > /dev/null
           sudo nginx -t && sudo systemctl restart nginx
           # nginx → Next → FastAPI 의 JSON(위와 같은 이유)

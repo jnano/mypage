@@ -14,7 +14,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.admin import settings as site_settings
 from app.admin.logs import LogEntry, record
 from app.auth.viewer import Viewer
-from app.blocks import tree
+from app.blocks import dangling, tree
 from app.core.problems import Problem
 from app.models import Board, BoardGroup, Layout, Menu, MenuItem
 from app.permissions import guest_listable_boards_clause
@@ -80,6 +80,7 @@ async def bootstrap(db: AsyncSession, viewer: Viewer) -> dict[str, Any]:
     footer = [tree.BlockIn(type="footer_info", config={"copyright": f"© {seo.site_name}"})]
     flat = tree.validate_tree("layout", [("header", header), ("footer", footer)], "regions")
     await tree.save_tree(db, viewer.member_id, "layout", layout.id, flat)
+    await dangling.request_recount(db)
     await record(
         db,
         viewer,

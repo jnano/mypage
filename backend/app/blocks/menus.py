@@ -14,6 +14,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.admin.logs import LogEntry, record
 from app.auth.viewer import Viewer
+from app.blocks import dangling
 from app.blocks import types as t
 from app.blocks.limits import MAX_MENU_DEPTH, MAX_MENU_ITEMS
 from app.core.problems import Problem
@@ -253,6 +254,7 @@ async def delete_menu(db: AsyncSession, viewer: Viewer, menu_id: int) -> None:
         raise Problem(404, "menu_not_found", "메뉴를 찾을 수 없습니다")
     await record(db, viewer, [LogEntry("menu.delete", "menu", menu_id, before={"name": menu.name})])
     await db.execute(delete(Menu).where(Menu.id == menu_id))
+    await dangling.request_recount(db)  # 이 메뉴를 쓰던 블록이 끊긴다(§4.9)
 
 
 async def menus_using(db: AsyncSession, *, board_id: int | None = None, page_id: int | None = None) -> list[int]:

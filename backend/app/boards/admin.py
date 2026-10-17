@@ -14,6 +14,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.admin.logs import LogEntry, changed, record
 from app.admin.scope import StaffScope
+from app.blocks.dangling import request_recount as request_block_recount
 from app.blocks.menus import menus_using
 from app.boards.schemas import AccessList, BoardCreate, BoardUpdate, CategoryMerge, ModeratorList
 from app.boards.templates import template_values
@@ -219,6 +220,7 @@ async def delete_board(db: AsyncSession, scope: StaffScope, slug: str) -> dict[s
         )  # fmt: skip
     await record(db, scope.viewer, [LogEntry("board.delete", "board", board.id, before={"slug": board.slug, "name": board.name})])
     await db.execute(delete(Board).where(Board.id == board.id))
+    await request_block_recount(db)  # 이 게시판을 가리키던 블록이 끊긴다 — 같은 트랜잭션(홈블록 §4.9)
     return {"deleted": True, "invalidate": _invalidate(slug)}
 
 

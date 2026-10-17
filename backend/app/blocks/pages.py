@@ -15,7 +15,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.admin.logs import LogEntry, record
 from app.auth.viewer import Viewer
-from app.blocks import tree
+from app.blocks import dangling, tree
 from app.blocks import types as t
 from app.blocks.limits import MAX_PAGES, PATH_HISTORY_PER_PAGE
 from app.blocks.menus import menus_using
@@ -171,6 +171,7 @@ async def save_page(db: AsyncSession, viewer: Viewer, page_id: int, body: PageSa
     await record(db, viewer, [LogEntry("page.update", "page", page_id, before=log_before or None, after=log_after or None)])
     if before["view_level"] != after["view_level"]:  # 열람 등급이 바뀌면 그림 공개 여부도(§4.7)
         await block_images.reconcile(db, await _block_ids(db, page_id))
+    await dangling.request_recount(db)  # 블록 참조가 바뀌었을 수 있다(§4.9)
     db.expire_all()
     return await page_detail(db, page_id)
 
@@ -216,6 +217,7 @@ async def delete_page(db: AsyncSession, viewer: Viewer, page_id: int) -> None:
     except IntegrityError:  # 확인과 지우기 사이에 메뉴가 이 페이지를 가리켰다(FK RESTRICT) — 500 이 아니라 409(코드 검토 v6 N-3)
         await db.rollback()
         raise Problem(409, "in_menu", "메뉴에 있는 페이지입니다. 먼저 메뉴에서 빼세요") from None
+    await dangling.request_recount(db)  # 이 페이지를 가리키던 블록이 끊긴다(§4.9)
 
 
 async def reserved_conflicts(db: AsyncSession) -> list[dict[str, Any]]:

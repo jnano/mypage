@@ -339,3 +339,17 @@ def test_search_box_is_a_named_landmark() -> None:
     validate_tree("layout", [("header", [BlockIn(type="search_box")])], "regions")  # 대조: 하나면 통과
     # 화면의 이름은 생성 파일(enums.gen.json 의 searchLandmark)에서 — 원본과 같은지는 test_generated_file_is_current(코드 검토 v19 N-1)
 
+
+
+def test_block_markdown_is_remembered() -> None:
+    """블록 마크다운 결과 기억(걸음 8 결정 ②) — 같은 원문·첨부·그림 주소면 다시 변환하지 않고, 그림 주소가 바뀌면 새로 만든다"""
+    from app.blocks import resolve as r
+
+    r._render_cached.cache_clear()
+    lookup = Lookup(site_name="예시", images={1: IMG})
+    first = resolve("text", {"source": "**안내** ![사진](attachment:1)"}, lookup, attachment_ids=(1,))
+    again = resolve("text", {"source": "**안내** ![사진](attachment:1)"}, lookup, attachment_ids=(1,))
+    assert first == again and r._render_cached.cache_info().hits == 1
+    moved = Lookup(site_name="예시", images={1: ImageSource("/media/zz/other.w{w}.webp", 10, 10, True)})
+    other = resolve("text", {"source": "**안내** ![사진](attachment:1)"}, moved, attachment_ids=(1,))
+    assert other != first and "other" in other["html"]  # 대조: 그림이 공개 저장소로 옮겨지면 주소가 바뀐 결과

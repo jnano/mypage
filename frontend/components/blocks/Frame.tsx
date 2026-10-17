@@ -13,16 +13,18 @@ import { RenderBlocks } from "./RenderBlock";
 /** 화면 종류(홈블록 설계도 §3.3 — 원본은 백엔드 app/blocks/routes.ROUTE_CLASSES). page = 사용자 페이지, default = 대응 없음 */
 export type RouteClass = "board" | "search" | "member" | "auth" | "default" | "page";
 type Region = "header" | "nav" | "top" | "aside" | "bottom" | "footer";
-type FrameProps = { routeClass: RouteClass; board?: Promise<{ slug: string }>; page?: Promise<string>; children: ReactNode };
+// fallbackOnly — 블록 틀 대신 대체 틀 머리만(루트 not-found 전용, 홈블록 걸음 8 결정 ①). not-found 는 요청마다 미리 그려져
+// 그 결과가 모든 응답의 RSC 페이로드에 실린다(D-232·D-235) — 기본 틀 전체를 그리면 모든 화면이 그만큼 커진다
+type FrameProps = { routeClass: RouteClass; board?: Promise<{ slug: string }>; page?: Promise<string>; children: ReactNode; fallbackOnly?: boolean };
 
 // 틀(홈블록 설계도 §3.1) — 영역 여섯은 각자 <Suspense> 안에서 요청 시점에 그린다(틀은 관리 화면에서 바뀌고, 빌드 때
 // FastAPI 를 부르지 않는다 — 본 설계도 §3.3). 데이터는 캐시된 틀 묶음 하나(getFrame)를 영역들이 함께 쓴다.
 // outlet(children)은 Suspense 밖이라 화면의 정적 셸은 그대로 미리 만들어진다. 본문 <main> 하나·처리방침 링크는
 // 틀 밖 고정 줄(§3.2). 틀이 하나도 없으면 대체 틀(§3.6) — 걸음 1 과 같은 화면
-export function Frame({ routeClass, board, page, children }: FrameProps) {
+export function Frame({ routeClass, board, page, children, fallbackOnly }: FrameProps) {
   const region = (name: Region) => (
     <Suspense fallback={null}>
-      <FrameRegion name={name} routeClass={routeClass} board={board} page={page} />
+      <FrameRegion name={name} routeClass={routeClass} board={board} page={page} fallbackOnly={fallbackOnly} />
     </Suspense>
   );
   return (
@@ -71,8 +73,9 @@ export async function visibleIn(bundle: FrameBundle, nodes: FrameNode[] | undefi
 }
 
 // 영역 → 랜드마크(§10 — 대응은 여기 한 곳). nav 영역은 블록마다 <nav aria-label> 라 감싸지 않는다. 빈 영역은 그리지 않는다
-async function FrameRegion({ name, routeClass, board, page }: { name: Region } & Omit<FrameProps, "children">) {
+async function FrameRegion({ name, routeClass, board, page, fallbackOnly }: { name: Region } & Omit<FrameProps, "children">) {
   await connection();
+  if (fallbackOnly) return name === "header" ? <FallbackHeader /> : null; // not-found — 대체 틀 머리만(D-235)
   const bundle = await bundleFor(routeClass, board, page);
   if (bundle.layout === null) return name === "header" ? <FallbackHeader /> : null;
   const nodes = await visibleIn(bundle, bundle.layout.regions[name]);

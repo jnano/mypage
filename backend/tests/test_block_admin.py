@@ -172,8 +172,18 @@ async def test_dangling(dev_header, committed_db, client) -> None:
     assert by_type["menu"]["missing"] == {"menus": [999_999]} and by_type["image"]["missing"] == {"attachments": [999_998]}
     assert by_type["heading"]["invalid"] is True
     assert [p["path"] for p in body["reserved_conflicts"]] == ["/search/old"]
+    # 대시보드는 작업자가 세어 둔 한 행을 읽는다(§4.9) — 세기 전에는 비어 있다
+    badges = (await client.get("/api/admin/summary", headers=as_member(admin))).json()["badges"]
+    assert (badges["broken_blocks"], badges["reserved_pages"]) == (None, None)
+    from app.blocks.dangling import recount
+
+    assert await recount(committed_db) == {"broken_blocks": 4, "reserved_pages": 1}
+    await committed_db.commit()
     badges = (await client.get("/api/admin/summary", headers=as_member(admin))).json()["badges"]
     assert (badges["broken_blocks"], badges["reserved_pages"]) == (4, 1)
+    assert await recount(committed_db) == {"broken_blocks": 4, "reserved_pages": 1}  # 다시 세도 한 행(멱등)
+    await committed_db.commit()
+    assert (await committed_db.execute(text("SELECT count(*) FROM block_health"))).scalar_one() == 1
 
 
 # ── 기본 틀 만들기 ───────────────────────────────────────
@@ -246,3 +256,37 @@ async def test_preview_checks_names_with_the_other_owner(dev_header, committed_d
     assert res.status_code == 422 and "/p" in res.text
     res = await client.post("/api/admin/blocks/preview", json={"owner": "layout", "regions": regions}, headers=as_member(admin))
     assert res.status_code == 200  # 대조: 새 틀(쓰는 페이지 없음)이면 통과
+
+
+
+async def test_changes_request_recount(dev_header, committed_db, client) -> None:
+    """끊긴 참조가 생길 수 있는 저장·지우기는 같은 트랜잭션에 blocks.recount 를 넣는다(§4.9) — 실패한 저장은 넣지 않는다"""
+    admin = await _admin(committed_db)
+    board = await make_board(committed_db, slug="gone-soon")
+    await committed_db.commit()
+    count = lambda: committed_db.execute(text("SELECT count(*) FROM outbox_events WHERE type = 'blocks.recount'"))  # noqa: E731
+    before = (await count()).scalar_one()
+    layout = (await client.post("/api/admin/layouts", json={"name": "틀"}, headers=as_member(admin))).json()
+    res = await client.put(f"/api/admin/layouts/{layout['id']}", json={"name": "틀", "regions": {"aside": [{"type": "board_links", "config": {"board_ids": [board.id]}}]}},
+                           headers=as_member(admin) | {"If-Match": f'"{layout["version"]}"'})  # fmt: skip
+    assert res.status_code == 200
+    assert (await count()).scalar_one() == before + 1
+    bad = await client.put(f"/api/admin/layouts/{layout['id']}", json={"name": "틀", "regions": {"aside": [{"type": "heading", "config": {"text": " "}}]}},
+                           headers=as_member(admin) | {"If-Match": f'"{layout["version"] + 1}"'})  # fmt: skip
+    assert bad.status_code == 422 and (await count()).scalar_one() == before + 1  # 대조: 실패한 저장은 사건도 없다
+    assert (await client.delete("/api/boards/gone-soon", headers=as_member(admin))).status_code in (200, 204)
+    assert (await count()).scalar_one() == before + 2  # 게시판을 지울 때도(같은 트랜잭션)
+
+
+async def test_worker_handles_recount(dev_header, committed_db, client) -> None:
+    """작업자가 blocks.recount 를 처리하면 대시보드 배지가 채워진다(§4.9)"""
+    import app.worker.handlers  # noqa: F401 — 처리기 등록
+    from app.blocks.dangling import request_recount
+    from app.worker.core import process_available
+
+    admin = await _admin(committed_db)
+    await request_recount(committed_db)
+    await committed_db.commit()
+    assert await process_available(10) >= 1
+    badges = (await client.get("/api/admin/summary", headers=as_member(admin))).json()["badges"]
+    assert (badges["broken_blocks"], badges["reserved_pages"]) == (0, 0)

@@ -10,6 +10,7 @@ from app.core.invalidation import tags_for
 from app.core.outbox import enqueue_revalidate
 from app.core import outbox
 from app.core.threads import run_in_thread
+from app.blocks import dangling
 from app.files import attach, block_images, images, storage
 from app.models import Attachment, Board, Comment, LevelRequest, Member, OutboxEvent, Post, PostSearch
 from app.notifications import send
@@ -375,3 +376,9 @@ async def member_withdrawn(db: AsyncSession, event: OutboxEvent) -> None:
     await enqueue_revalidate(db, [tags_for("member.withdrawn.comment", post_id=pid) for pid in set(comment_posts)])
     if len(comment_posts) == WITHDRAWN_BATCH:
         await outbox.enqueue(db, [outbox.Event("member.withdrawn", {"member_id": member_id})])
+
+
+@handles(dangling.RECOUNT)
+async def blocks_recount(db: AsyncSession, _event: OutboxEvent) -> None:
+    """끊긴 참조 수를 세어 둔다(홈블록 §4.9) — 대시보드 배지가 이 한 행을 읽는다. 다시 와도 같은 결과(멱등)"""
+    await dangling.recount(db)

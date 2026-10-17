@@ -230,6 +230,10 @@ async def typical() -> None:
         ]
         await pages.save_page(db, admin, page["id"], pages.PageSave(path="/bench-typical", title="측정 보통 페이지", layout_id=layout["id"], blocks=blocks), page["version"])
         await pages.set_status(db, admin, page["id"], True)
+        # 첫 화면 '/' 도 보통 구성(k6 home 이 늘 '/' 를 함께 본다 — 최대 틀의 기본 틀로 그려지면 보통 구성 측정에 무거운 화면이 섞인다)
+        home = await pages.create_page(db, admin, pages.PageCreate(path="/", title="처음"))
+        await pages.save_page(db, admin, home["id"], pages.PageSave(path="/", title="처음", layout_id=layout["id"], blocks=blocks[:2] + blocks[3:5]), home["version"])
+        await pages.set_status(db, admin, home["id"], True)
     print("보통 구성 완료:", {"layout": layout["id"], "menu": menu["id"], "page": page["id"]})
     await engine.dispose()
 

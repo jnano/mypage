@@ -35,6 +35,7 @@ LIMITS: dict[str, Limit] = {
     "upload": Limit(30, 60),
     "site.design": Limit(30, 60),  # 운영자의 틀·페이지·메뉴·블록 저장(홈블록 §7) — 회원 id
     "blocks.preview": Limit(30, 60),  # 관리 화면 미리보기(홈블록 §7) — 회원 id. 저장하지 않지만 마크다운 변환·쿼리 8 을 돈다
+    "frame.view": Limit(120, 60),  # 비초안 개인 틀(홈블록 §5.5 열람 등급 페이지) — 회원 id. 사람이 읽는 속도(초당 2)의 넉넉한 상한(걸음 8 결정 ⑨)
     "frame.draft": Limit(60, 60),  # 운영자의 초안 보기(홈블록 §5.5) — 회원 id. 위조 쿠키로 늘릴 수 있는 호출의 상한
     "editor.preview": Limit(60, 60),
     "report.create": Limit(10, 600),

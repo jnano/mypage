@@ -18,6 +18,7 @@ from typing import Any
 from pydantic import ValidationError
 from sqlalchemy import BigInteger, Integer, column, func, literal, literal_column, not_, or_, select, true, union_all, values
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import aliased
 
 from app.admin import settings as site_settings
 from app.auth.viewer import GUEST, Viewer
@@ -29,7 +30,7 @@ from app.blocks.tree import BLOCK_COLUMNS, Refs, collect_refs
 from app.core.threads import run_in_thread
 from app.editor.render import ImageSource
 from app.files.attach import ROW_COLUMNS, image_sources, thumb_template
-from app.models import Attachment, Block, Board, Comment, Layout, LayoutBinding, MenuItem, Page, PagePathHistory, Post
+from app.models import Attachment, Block, Board, Comment, Layout, LayoutBinding, MenuItem, Page, PagePathHistory, Post, SiteSetting
 from app.permissions import (
     block_view,
     guest_readable_boards_clause,
@@ -58,6 +59,11 @@ class Node:
     refresh: bool = False  # 비회원용 내용 + 회원이면 다시
 
 
+def _seo_value():
+    """사이트 설정 seo 원문(JSONB) — 주인 고르기 문장에 함께 실어 쿼리 하나를 줄인다(걸음 8 결정 ⑨: 개인 틀 9 → 8)"""
+    return select(SiteSetting.value).where(SiteSetting.key == literal_column("'seo'")).scalar_subquery().label("seo")
+
+
 async def _owner(db: AsyncSession, board_slug: str | None, route: str | None) -> Any:
     """① 주인 고르기 — 게시판의 틀 → 화면 종류의 틀 → 기본 틀(§3.3). 한 문장"""
     default = select(Layout.id).where(Layout.is_default).scalar_subquery()
@@ -68,7 +74,7 @@ async def _owner(db: AsyncSession, board_slug: str | None, route: str | None) ->
     if route_class is not None:
         candidates.append(select(LayoutBinding.layout_id).where(LayoutBinding.route_class == route_class).scalar_subquery())
     chosen = func.coalesce(*candidates, default)
-    return (await db.execute(select(Layout.id, Layout.version).where(Layout.id == chosen))).one_or_none()
+    return (await db.execute(select(Layout.id, Layout.version, _seo_value()).where(Layout.id == chosen))).one_or_none()
 
 
 def _tree(rows: Sequence[Any]) -> dict[str, list[Node]]:
@@ -273,8 +279,30 @@ def recent_comments_statement(targets: dict[int, int], posts_per_board: int = RE
     return select(sub).select_from(t_).join(sub, true())
 
 
+_IMAGE_FIELDS = ("id", "post_id", "block_id", "uploader_id", "role", "storage_key", "visibility", "is_image", "width", "height", "thumbs_ready")
+
+
+def _images_column():
+    """블록 행에 그 블록의 그림 첨부를 JSON 배열로 함께 싣는다(ix_attachments_block) — 그림 쿼리를 따로 하지 않아 묶음 쿼리 하나를
+    줄인다(걸음 8 결정 ⑨: 개인 틀이 보는 사람 조회·요청 수 세기까지 ≤ 8). 칸은 files.attach.ROW_COLUMNS 와 같다"""
+    a = aliased(Attachment, name="blk_att")
+    obj = func.json_build_object(*[x for name in _IMAGE_FIELDS for x in (literal_column(f"'{name}'"), getattr(a, name))])
+    return (
+        select(func.coalesce(func.json_agg(obj), literal_column("'[]'::json")))
+        .where(a.block_id == Block.id)
+        .correlate(Block)
+        .scalar_subquery()
+        .label("images")
+    )
+
+
+def _image_rows(rows: Sequence[Any], keep: set[int]) -> list[Any]:
+    """블록 행에 실린 그림 → 첨부 행 모양(image_sources·thumb_template 가 읽는 칸)"""
+    return [SimpleNamespace(**img) for row in rows if row.id in keep for img in (row.images or [])]
+
+
 async def _images(db: AsyncSession, block_ids: set[int]) -> list[Any]:
-    """⑦ 블록 그림"""
+    """그림 따로 읽기 — 그림을 블록 행에 싣지 않는 길(회원 블록 호출)"""
     if not block_ids:
         return []
     return list(await db.execute(select(*ROW_COLUMNS, Attachment.block_id).where(Attachment.block_id.in_(block_ids))))  # post-clause: exempt — 첨부 칸(글 아님)
@@ -364,6 +392,8 @@ class Owner:
     layout_id: int | None
     layout_version: int | None
     page: Any | None = None  # 페이지 행(사용자 페이지일 때)
+    seo: Any | None = None  # 주인 고르기 문장이 함께 읽은 설정 seo 원문(행이 없으면 None — 기본값)
+    seo_loaded: bool = False
 
 
 PAGE_COLUMNS = (
@@ -389,7 +419,7 @@ async def _page_owner(db: AsyncSession, path: str, viewer: Viewer, draft: bool) 
     page = select(*PAGE_COLUMNS).where(*conds).subquery("pg")  # post-clause: exempt — 페이지 칸(글 아님)
     default = select(Layout.id).where(Layout.is_default).scalar_subquery()
     row = (
-        await db.execute(select(page, Layout.id.label("lid"), Layout.version.label("lversion")).select_from(page).outerjoin(Layout, Layout.id == func.coalesce(page.c.layout_id, default)))
+        await db.execute(select(page, Layout.id.label("lid"), Layout.version.label("lversion"), _seo_value()).select_from(page).outerjoin(Layout, Layout.id == func.coalesce(page.c.layout_id, default)))
     ).one_or_none()
     if row is None:
         moved = (
@@ -398,12 +428,12 @@ async def _page_owner(db: AsyncSession, path: str, viewer: Viewer, draft: bool) 
             )
         ).scalar_one_or_none()
         raise PageNotFound(moved)
-    return Owner(row.lid, row.lversion, row)
+    return Owner(row.lid, row.lversion, row, seo=row.seo, seo_loaded=True)
 
 
 async def _route_owner(db: AsyncSession, board_slug: str | None, route: str | None) -> Owner:
     row = await _owner(db, board_slug, route)
-    return Owner(row.id, row.version) if row is not None else Owner(None, None)
+    return Owner(row.id, row.version, seo=row.seo, seo_loaded=True) if row is not None else Owner(None, None)
 
 
 async def _blocks(db: AsyncSession, owner: Owner) -> list[Any]:
@@ -415,7 +445,7 @@ async def _blocks(db: AsyncSession, owner: Owner) -> list[Any]:
         conds.append(Block.page_id == owner.page.id)
     if not conds:
         return []
-    return list(await db.execute(select(*BLOCK_COLUMNS).where(or_(*conds))))  # post-clause: exempt — 블록 칸(글 아님)
+    return list(await db.execute(select(*BLOCK_COLUMNS, _images_column()).where(or_(*conds))))  # post-clause: exempt — 블록 칸(글 아님)
 
 
 def _prune(nodes: list[Node], viewer: Viewer) -> list[Node]:
@@ -428,7 +458,7 @@ def _prune(nodes: list[Node], viewer: Viewer) -> list[Node]:
     return out
 
 
-async def _views(db: AsyncSession, viewer: Viewer, rows: Sequence[Any], *, preview: bool = False):
+async def _views(db: AsyncSession, viewer: Viewer, rows: Sequence[Any], *, preview: bool = False, owner: "Owner | None" = None):
     """블록 행 → 영역마다 그릴 모양. 묶음 응답과 관리 화면 미리보기가 함께 쓴다. preview 면 그림을 블록에 붙은 것이 아니라
     설정이 가리키는 첨부 id 로 찾는다(저장 전 — 아직 block_id 가 없다)"""
     public = viewer.member_id is None
@@ -442,9 +472,9 @@ async def _views(db: AsyncSession, viewer: Viewer, rows: Sequence[Any], *, previ
         refs.pages |= n.refs.pages
         refs.menus |= n.refs.menus
     menus = await _menus(db, refs.menus)  # ③
-    for rows in menus.values():
-        refs.boards |= {i.board_id for i in rows if i.link_kind == "board"}
-        refs.pages |= {i.page_id for i in rows if i.link_kind == "page"}
+    for items in menus.values():  # 이름이 rows 면 블록 행(인자)을 덮는다
+        refs.boards |= {i.board_id for i in items if i.link_kind == "board"}
+        refs.pages |= {i.page_id for i in items if i.link_kind == "page"}
     targets = await _targets(db, refs.boards, refs.pages, viewer)  # ④
     if public:
         _decide(nodes, menus, targets)
@@ -454,9 +484,14 @@ async def _views(db: AsyncSession, viewer: Viewer, rows: Sequence[Any], *, previ
     comments = await _recent_comments(db, _recent_targets(nodes, "recent_comments"), viewer)  # ⑥
     if preview:
         image_rows = await _images_by_id(db, {a for n in nodes if not n.personal for a in n.refs.attachments})  # ⑦
+    elif rows and hasattr(rows[0], "images"):  # ② 블록 문장이 함께 실었다
+        image_rows = _image_rows(rows, {n.row.id for n in nodes if not n.personal})
     else:
         image_rows = await _images(db, {n.row.id for n in nodes if not n.personal})  # ⑦
-    seo = await site_settings.load(db, "seo")  # ⑧
+    if owner is not None and owner.seo_loaded:  # ⑧ — 주인 고르기 문장(①)이 이미 읽었다
+        seo = site_settings.SeoSettings.model_validate(owner.seo) if owner.seo is not None else site_settings.SeoSettings()
+    else:
+        seo = await site_settings.load(db, "seo")  # ⑧
     assert isinstance(seo, site_settings.SeoSettings)
 
     images: dict[int, list[int]] = {}
@@ -493,7 +528,7 @@ async def _bundle(db: AsyncSession, viewer: Viewer, owner: Owner, tags: list[str
     """비회원(공개 캐시)이면 개인 블록은 자리만·회원이면 다시(_decide), 보는 사람 기준(개인 틀)이면 못 보는 블록을 빼고
     모두 그 사람 기준으로 푼다. 쿼리 ≤ 8(§12, 공개 묶음·개인 틀 같음): 주인·블록·메뉴·대상·글·댓글·그림·설정 —
     명부·담당은 대상 문장 안의 EXISTS 라 따로 세지 않는다(코드 검토 v12 N-1)"""
-    out, personal, refs, nodes, post_targets = await _views(db, viewer, await _blocks(db, owner))  # ②~⑧
+    out, personal, refs, nodes, post_targets = await _views(db, viewer, await _blocks(db, owner), owner=owner)  # ②~⑦(⑧은 ①이 함께)
     tags += [f"menu:{m}" for m in sorted(refs.menus)]
     if refs.boards:
         tags.append("boards:structure")

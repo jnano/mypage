@@ -6,6 +6,7 @@
 |---|---|
 | `nginx/mypage.conf` | `/etc/nginx/conf.d/mypage.conf` |
 | `nginx/mypage-security-headers.conf` | `/etc/nginx/snippets/mypage-security-headers.conf` |
+| `nginx/mypage-proxy.conf` | `/etc/nginx/snippets/mypage-proxy.conf` |
 | `systemd/mypage-backend.service` · `mypage-worker.service` · `mypage-frontend.service` | `/etc/systemd/system/` |
 | `env/backend.env.example` · `env/frontend.env.example` | 키 목록 — 값을 채워 `/etc/mypage/backend.env`·`frontend.env` |
 | `build.sh` | 빌드(서버·로컬 공용) |
@@ -102,7 +103,7 @@ sudo systemctl enable --now mypage-backend mypage-worker mypage-frontend
 
 nginx:
 ```bash
-sudo install -m 644 deploy/nginx/mypage-security-headers.conf /etc/nginx/snippets/
+sudo install -m 644 deploy/nginx/mypage-security-headers.conf deploy/nginx/mypage-proxy.conf /etc/nginx/snippets/
 sudo install -m 644 deploy/nginx/mypage.conf /etc/nginx/conf.d/
 sudo sed -i 's/example.org/실제.도메인/' /etc/nginx/conf.d/mypage.conf
 sudo nginx -t && sudo systemctl reload nginx

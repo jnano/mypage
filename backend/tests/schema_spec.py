@@ -709,6 +709,12 @@ SPEC: dict[str, T] = {
             "ix_blocks_parent": "parent_id | where parent_id IS NOT NULL",
         },
     ),
+    # 홈블록 §4.9 — 끊긴 참조 수(한 행, 작업자가 센다)
+    "block_health": T(
+        cols=["id smallint =1", "broken_blocks integer range(0)", "reserved_pages integer range(0)", "counted_at timestamptz =now()"],
+        pk=("id",),
+        checks={"single_row": "id = 1"},
+    ),
     "menus": T(
         cols=[ID, "name varchar(50)", CREATED, UPDATED, "version integer =1"],
         uniques=[("name",)],

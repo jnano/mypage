@@ -13,7 +13,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.admin.logs import LogEntry, record
 from app.auth.viewer import Viewer
-from app.blocks import tree
+from app.blocks import dangling, tree
 from app.blocks import types as t
 from app.blocks.routes import ROUTE_CLASSES
 from app.core.problems import Problem
@@ -130,6 +130,7 @@ async def save_layout(db: AsyncSession, viewer: Viewer, layout_id: int, body: La
     if old_name != layout.name:
         after["name"] = layout.name
     await record(db, viewer, [LogEntry("layout.update", "layout", layout_id, before={"name": old_name} if "name" in after else None, after=after or None)])
+    await dangling.request_recount(db)
     return await layout_detail(db, layout_id)
 
 
@@ -144,6 +145,7 @@ async def delete_layout(db: AsyncSession, viewer: Viewer, layout_id: int) -> Non
     images = select(Attachment.id).join(Block, Block.id == Attachment.block_id).where(Block.layout_id == layout_id)  # post-clause: exempt — 첨부 칸(글 아님)
     await block_images.release(db, (await db.execute(images)).scalars())  # 블록과 함께 떨어질 그림 — 지우기 전에 비공개로
     await db.execute(delete(Layout).where(Layout.id == layout_id))
+    await dangling.request_recount(db)
 
 
 async def set_default(db: AsyncSession, viewer: Viewer, layout_id: int) -> list[dict[str, str]]:

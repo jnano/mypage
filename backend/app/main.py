@@ -8,7 +8,7 @@ from fastapi import FastAPI, Request
 from fastapi.staticfiles import StaticFiles
 
 from app.api import account, admin, admin_blocks, admin_boards, admin_layouts, admin_members, admin_menus, admin_moderation, admin_pages, admin_posts, admin_site, attachments, auth, boards, comments, editor, frame, health, me, notifications, posts, reports, search, seo
-from app.blocks import pages
+from app.blocks import dangling, pages
 from app.core import csrf, problems, timing
 from app.core.config import settings
 from app.db.session import SessionLocal, engine
@@ -29,6 +29,11 @@ async def _warn_reserved_pages() -> None:
         return
     if conflicts:
         logger.warning("예약 주소와 겹쳐 가려진 페이지 %d개: %s — 관리 화면에서 주소를 바꾸세요", len(conflicts), ", ".join(c["path"] for c in conflicts))
+    try:  # 끊긴 참조 수를 작업자에게 한 번 세게 한다 — 첫 행(§4.9 첫 데이터)과 새 라우트 배포로 늘어난 예약 첫 단
+        async with SessionLocal() as db, db.begin():
+            await dangling.request_recount(db)
+    except Exception:
+        logger.exception("끊긴 참조 재계산 사건을 넣지 못함")
 
 
 @asynccontextmanager

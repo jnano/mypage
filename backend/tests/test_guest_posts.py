@@ -274,3 +274,34 @@ async def test_guest_search_is_rate_limited_per_ip(committed_db, client, monkeyp
     assert (await client.get("/api/search", params={"q": "회의"}, headers={"X-Client-IP": "198.51.100.61"})).status_code == 200
     assert (await client.get("/api/search", params={"q": "회의"}, headers={"X-Client-IP": "198.51.100.60"})).status_code == 429
     assert SiteSetting is not None
+
+
+async def test_min_elapsed_and_success_limit(committed_db, client, monkeypatch) -> None:
+    """정책의 최소 경과(3초)를 지키지 않으면 거부, IP 성공 한도 4번째 429(검토 묶음D N-1)"""
+    await make_board(committed_db, slug="slow", write_level=0, spam_policy={"min_elapsed_sec": 3, "guest_requires_approval": False})
+    await _board(committed_db, approval=False)
+    res = await _write(client, slug="slow")  # 폼을 받자마자 보냄
+    assert res.status_code == 422 and res.json()["code"] == "form_rejected"
+    for i in range(3):
+        assert (await _write(client, ip="198.51.100.70")).status_code == 201, i
+    assert (await _write(client, ip="198.51.100.70")).status_code == 429
+
+
+async def test_captcha_and_token_expire(committed_db, client, monkeypatch) -> None:
+    """보안 문자(10분)·비회원 토큰(수명) 만료(검토 묶음D N-1)"""
+    await _board(committed_db, approval=False)
+    created = (await _write(client)).json()
+    pid, token = created["post"]["id"], created["guest_token"]
+    real_time = guest.time.time
+    monkeypatch.setattr(guest.time, "time", lambda: real_time() + guest.TOKEN_TTL["edit"] + 5)
+    assert guest._parse_one(token) is None  # edit 토큰 30분 지남
+    assert (await client.get(f"/api/posts/{pid}", headers=_tok(client, token))).status_code == 403
+    monkeypatch.setattr(guest.time, "time", real_time)
+    form = await _form(client)
+    from app.auth import keys
+
+    monkeypatch.setattr(keys.time, "time", lambda: real_time() + guest.CAPTCHA_TTL + 5)
+    body = {"title": "제목", "content": "<p>본문</p>", "author_name": "손님", "password": "garden-key", "form_token": form["form_token"],
+            "captcha_token": form["captcha"]["token"], "captcha_answer": _answer(form["captcha"]["token"])}  # fmt: skip
+    res = await client.post("/api/boards/open/posts", json=body, headers={"X-Client-IP": "198.51.100.80"})
+    assert res.status_code == 422 and res.json()["code"] == "form_rejected"

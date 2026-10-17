@@ -26,6 +26,8 @@ describe("SEO 메타", () => {
     const m = siteMetadata(site);
     expect(m.title).toEqual({ default: "모임터", template: "%s – 모임터" });
     expect(m.verification).toEqual({ google: "g1", other: { "naver-site-verification": "n1" } });
+    // og:locale 이 없으면 Open Graph 는 en_US 로 본다 — 한국어 사이트로 알린다
+    expect(m.openGraph).toMatchObject({ locale: "ko_KR", siteName: "모임터" });
     expect(siteMetadata({ ...site, indexable: false }).robots).toEqual({ index: false, follow: false });
   });
 
@@ -34,7 +36,7 @@ describe("SEO 메타", () => {
     expect(m.title).toBe("회의 안내 – 자유게시판");
     expect(m.alternates?.canonical).toBe("/boards/free/7");
     expect(m.robots).toBeUndefined();
-    expect(m.openGraph).toMatchObject({ type: "article", publishedTime: "2026-10-15T00:00:00Z", modifiedTime: "2026-10-15T00:00:00Z" });
+    expect(m.openGraph).toMatchObject({ type: "article", locale: "ko_KR", publishedTime: "2026-10-15T00:00:00Z", modifiedTime: "2026-10-15T00:00:00Z" });
     expect(m.twitter).toMatchObject({ card: "summary_large_image" });
   });
 

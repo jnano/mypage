@@ -6,6 +6,11 @@ import { absolute, type SiteSeo } from "./site";
 
 const HIDDEN: Metadata["robots"] = { index: false, follow: false };
 
+// 사이트 언어 — <html lang="ko">(app/layout.tsx)와 짝. Open Graph 는 og:locale 이 없으면 en_US 로 본다(ogp.me) —
+// 링크 미리보기·SEO 도구가 영문 페이지로 판정하지 않게 모든 화면에 둔다. 하위 화면이 openGraph 를 정하면
+// Next 는 부모의 openGraph 를 통째로 바꾸므로(얕은 병합) 그 화면에도 넣는다
+export const OG_LOCALE = "ko_KR";
+
 /** 사이트 기본 — 루트 레이아웃. 이름 틀·설명·검색엔진 확인 메타·전체 피드 */
 export function siteMetadata(site: SiteSeo): Metadata {
   const other: Record<string, string> = {};
@@ -17,6 +22,7 @@ export function siteMetadata(site: SiteSeo): Metadata {
     description: site.description || undefined,
     verification: { google: site.google_verification || undefined, other },
     alternates: { types: { "application/rss+xml": [{ url: "/rss.xml", title: site.site_name }] } },
+    openGraph: { type: "website", locale: OG_LOCALE, siteName: site.site_name },
     ...(site.indexable ? {} : { robots: HIDDEN }),
   };
 }
@@ -36,6 +42,7 @@ export function postMetadata(site: SiteSeo, data: PostPage): Metadata {
     alternates: { canonical: path, types: { "application/rss+xml": [{ url: `/boards/${board.slug}/rss.xml`, title: board.name }] } },
     openGraph: {
       type: "article",
+      locale: OG_LOCALE,
       url: path,
       siteName: site.site_name,
       title: post.title,

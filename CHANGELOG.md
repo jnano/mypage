@@ -5,6 +5,9 @@
 
 ## [Unreleased]
 
+### Fixed
+- 링크 미리보기·SEO 도구가 사이트를 영문 페이지로 판정하던 것 — 모든 화면에 og:locale ko_KR(Open Graph 는 값이 없으면 en_US 로 본다)
+
 ### Changed
 - 관리 화면 디자인 1단계(관리디자인 지시서 v0.2): 단추 모양 — 주·보조·조용한·위험 단추, 처리 중 표시, 편집기 줄 단추에 아이콘(Lucide)과 작은 크기, 모바일에서 누르는 곳 44px, 관리 화면 글꼴(Pretendard·JetBrains Mono). 색 대비를 WCAG AA 로 맞춘 기초 디자인 토큰. 접근성 점검이 관리 화면 단추의 터치 대상 크기도 봄
 

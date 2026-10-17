@@ -1,0 +1,68 @@
+/* mypage 관리 화면 — 2단계 확인 대화
+   dialog[data-slot="confirm"] > h2 + p + div[data-slot="actions"] (취소 · 위험 확정)
+   모바일: 아래 시트(위 모서리 16px, 안전 영역만큼 띄움). sm 이상: 가운데. 첫 초점은 '취소'(autofocus). */
+
+[data-slot="admin"] dialog[data-slot="confirm"] {
+  box-sizing: border-box;
+  position: fixed;
+  inset: auto 0 0 0;
+  width: 100%;
+  max-width: 100%;
+  max-height: calc(100dvh - var(--space-8));
+  margin: 0;
+  padding: var(--space-6) var(--ui-gutter) calc(var(--space-4) + env(safe-area-inset-bottom));
+  border: 0;
+  border-radius: var(--radius-xl) var(--radius-xl) 0 0;
+  background: var(--surface-card);
+  color: var(--text-body);
+  box-shadow: var(--shadow-xl);
+  overflow: auto;
+  overscroll-behavior: contain;
+}
+[data-slot="admin"] dialog[data-slot="confirm"][open] {
+  display: grid;
+  gap: var(--space-3);
+  animation: ui-sheet-in var(--dur-slow) var(--ease-out);
+}
+/* 손잡이 표시(장식) */
+[data-slot="admin"] dialog[data-slot="confirm"]::before {
+  content: "";
+  justify-self: center;
+  width: 36px;
+  height: 4px;
+  margin: calc(var(--space-3) * -1) 0 var(--space-1);
+  border-radius: var(--radius-pill);
+  background: var(--zinc-300);
+}
+[data-slot="admin"] dialog[data-slot="confirm"]::backdrop {
+  background: rgba(12, 12, 14, 0.42);
+  -webkit-backdrop-filter: blur(2px);
+          backdrop-filter: blur(2px);
+}
+[data-slot="admin"] dialog[data-slot="confirm"] > :is(h2, h3) {
+  margin: 0;
+  color: var(--text-strong);
+  font: var(--weight-bold) var(--text-xl) / var(--leading-snug) var(--font-sans);
+  letter-spacing: var(--tracking-tight);
+}
+[data-slot="admin"] dialog[data-slot="confirm"] > p { margin: 0; text-wrap: pretty; }
+[data-slot="admin"] dialog[data-slot="confirm"] > [data-slot="actions"] { margin-top: var(--space-3); }
+
+@media (min-width: 640px) {
+  [data-slot="admin"] dialog[data-slot="confirm"] {
+    inset: 0;
+    width: min(440px, calc(100% - var(--space-12)));
+    height: fit-content;
+    margin: auto;
+    padding: var(--space-6);
+    border-radius: var(--radius-xl);
+  }
+  [data-slot="admin"] dialog[data-slot="confirm"][open] { animation-name: ui-pop-in; }
+  [data-slot="admin"] dialog[data-slot="confirm"]::before { content: none; }
+}
+
+@keyframes ui-sheet-in { from { transform: translateY(24px); opacity: 0; } }
+@keyframes ui-pop-in { from { transform: translateY(8px); opacity: 0; } }
+@media (prefers-reduced-motion: reduce) {
+  [data-slot="admin"] dialog[open] { animation: none !important; }
+}

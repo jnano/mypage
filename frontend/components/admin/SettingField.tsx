@@ -6,11 +6,16 @@ export function SettingField({ field, value, options }: { field: FieldSpec; valu
   const help = field.help ? <small id={`${id}-help`}>{field.help}</small> : null;
   const described = field.help ? { "aria-describedby": `${id}-help` } : {};
   if (field.type === "bool") {
+    // 켜고 끄는 칸은 스위치(관리디자인 지시서 §5.2, 안2 — 손잡이 안 체크·가로줄). 폼 값은 체크 상자 그대로 보낸다
     return (
       <p>
-        <label>
-          <input type="checkbox" name={field.name} defaultChecked={value === true} {...described} /> {field.label}
-        </label>{" "}
+        <label data-slot="switch-field" data-variant="icon">
+          <span>{field.label}</span>
+          <input type="checkbox" role="switch" name={field.name} defaultChecked={value === true} {...described} />
+          <span data-slot="switch-track" aria-hidden="true">
+            <span data-slot="switch-thumb" />
+          </span>
+        </label>
         {help}
       </p>
     );

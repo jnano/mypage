@@ -41,7 +41,7 @@ async function Dashboard() {
           .map(([label, n, href]) => (
             <li key={label}>
               <Link href={href}>
-                {label} <strong>{n}</strong>
+                {label} <span data-slot="badge">{n}</span>
               </Link>
             </li>
           ))}

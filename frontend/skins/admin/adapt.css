@@ -1,0 +1,76 @@
+/* 관리 화면 스킨 — 받아 온 부품 CSS(Claude Design)를 mypage 골격에 맞추는 조정. 맨 마지막에 싣는다.
+   받아 온 파일은 그대로 두고 여기서만 덮는다 — 다음 판을 받아 올 때 바꿈이 섞이지 않게(관리디자인 지시서 §4). */
+
+/* ── 루트 건너뛰기 링크(관리 화면일 때) — 머리 밖, body 바로 아래에 있다(app/layout.tsx) ── */
+body:has(> [data-slot="admin"]) > [data-slot="skip-link"] {
+  position: absolute;
+  top: 6px;
+  left: var(--space-2);
+  z-index: 40;
+  display: inline-flex;
+  align-items: center;
+  min-height: var(--ui-target);
+  padding: 0 var(--space-4);
+  border-radius: var(--radius-pill);
+  background: var(--surface-card);
+  color: var(--text-strong);
+  font: var(--weight-semibold) 15px / 1 var(--font-sans);
+  text-decoration: none;
+  box-shadow: var(--shadow-lg);
+  transform: translateY(-200%);
+}
+body:has(> [data-slot="admin"]) > [data-slot="skip-link"]:focus {
+  transform: none;
+  outline: 2px solid var(--coral-700);
+  outline-offset: 2px;
+}
+
+/* ── 설정 묶음: 지금 골격은 form > fieldset > legend(받아 온 CSS 는 form > section 을 카드로) ── */
+[data-slot="admin"] form[data-slot="admin-form"] > fieldset:not([data-slot="segmented"]) {
+  display: block;
+  padding: var(--space-4);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-lg);
+  background: var(--surface-card);
+  box-shadow: var(--shadow-sm);
+}
+[data-slot="admin"] form[data-slot="admin-form"] > fieldset:not([data-slot="segmented"]) > legend {
+  float: left;
+  width: 100%;
+  margin: 0 0 var(--space-4);
+  color: var(--text-strong);
+  font: var(--weight-semibold) var(--text-lg) / var(--leading-snug) var(--font-sans);
+  letter-spacing: var(--tracking-snug);
+}
+[data-slot="admin"] form[data-slot="admin-form"] > fieldset:not([data-slot="segmented"]) > legend + * { clear: both; }
+[data-slot="admin"] form[data-slot="admin-form"] > fieldset:not([data-slot="segmented"]) > * + * { margin-top: var(--space-4); }
+@media (min-width: 640px) {
+  [data-slot="admin"] form[data-slot="admin-form"] > fieldset:not([data-slot="segmented"]) { padding: var(--space-6); }
+}
+
+/* ── 스위치 칸(설정의 켜고 끄기): 도움말은 라벨 글자와 같은 줄 시작 ── */
+[data-slot="admin"] p:has(> label[data-slot="switch-field"]) > :is(small, [data-slot="field-help"]) { padding-inline-start: 0; }
+
+/* ── 결과 알림(aria-live): 비어 있을 때도 접근성 트리에 남긴다 — display:none 이면 나중에 채운 글을 읽지 않는 화면낭독기가 있다 ── */
+[data-slot="admin"] [data-slot="form-status"]:empty {
+  display: block;
+  min-height: 0;
+  padding: 0;
+  border: 0;
+  background: none;
+}
+[data-slot="admin"] [data-slot="form-status"]:empty::before { content: none; }
+
+/* ── 본문의 링크 목록(대시보드 게시판 목록 등): 줄마다 누르는 곳 44px — 목록 부품(3단계) 전까지의 최소 규칙 ── */
+[data-slot="admin"] main[data-slot="admin-main"] ul:not([data-slot]) > li > a:only-child {
+  display: inline-flex;
+  align-items: center;
+  min-height: var(--ui-target);
+}
+
+/* ── 선택 목록의 펼침 화살표·오른쪽 여백: forms.css 의 입력칸 공통 규칙(:is(input:not(…), select, textarea))이
+   우선순위가 더 높아 select 규칙의 배경·여백을 덮었다 — 같은 우선순위로 뒤에서 다시 준다 ── */
+[data-slot="admin"] :is(select):not([multiple]) {
+  padding-inline-end: 40px;
+  background: var(--surface-card) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%233f3f46' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E") right 12px center / 20px no-repeat;
+}

@@ -25,10 +25,8 @@ const TAGS = ["wcag2a", "wcag2aa", "wcag21a", "wcag21aa", "wcag22aa", "best-prac
 // 크기는 스킨의 몫(§13 '터치 대상 44px 목표, 하한 24px', §13.1). 에디터 도구 단추는 이미 24/44px(§8.5 A7)
 const SKELETON_EXCLUDED = values.skin ? [] : ["target-size"];
 // 스킨이 붙은 화면과 그 스킨이 모양을 정한 요소 — 그 요소에는 골격에서 빼던 규칙(target-size)도 돈다.
-// 관리 화면은 단계마다 넓힌다(관리디자인 지시서 §4): 1단계 단추 세트 → 2단계에서 머리·메뉴 링크까지(그때 '[data-slot="admin"]' 하나로)
-const SKINNED: { prefix: string; targets: string[] }[] = [
-  { prefix: "/admin", targets: ['[data-slot="admin"] button', '[data-slot="admin"] a[data-slot="button-link"]'] },
-];
+// 관리 화면은 단계마다 넓혔다(관리디자인 지시서 §4): 1단계 단추 → 2단계 골격·폼·안내까지 관리 화면 전체와 그 화면의 건너뛰기 링크
+const SKINNED: { prefix: string; targets: string[] }[] = [{ prefix: "/admin", targets: ['[data-slot="admin"]', '[data-slot="skip-link"]'] }];
 const skinnedTargets = (path: string) => SKINNED.find(({ prefix }) => path === prefix || path.startsWith(`${prefix}/`))?.targets ?? [];
 
 /** 스킨이 모양을 정한 요소에만 골격에서 빼던 규칙을 돈다(그 요소가 화면에 없으면 돌지 않는다) */

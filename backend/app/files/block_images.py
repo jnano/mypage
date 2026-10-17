@@ -7,26 +7,32 @@
 """
 
 from collections.abc import Iterable
+from types import SimpleNamespace
 from typing import Any
 
 from sqlalchemy import select, update
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import aliased
 
 from app.auth.viewer import GUEST
 from app.core import outbox
 from app.models import Attachment, Block, Page
 from app.permissions import block_view
 
+PARENT = aliased(Block, name="parent")
 ROW_COLUMNS = (
     Attachment.id, Attachment.block_id, Attachment.storage_key, Attachment.visibility, Attachment.thumbs_ready,
     Block.is_active, Block.audience, Block.min_level, Block.layout_id, Block.page_id,
     Page.status.label("page_status"), Page.view_level.label("page_view_level"),
+    PARENT.id.label("parent_id"), PARENT.is_active.label("p_active"), PARENT.audience.label("p_audience"),
+    PARENT.min_level.label("p_min_level"),
 )  # fmt: skip
 
 
 def desired(row: Any) -> str:
     owner_public = row.layout_id is not None or (row.page_status == "published" and row.page_view_level == 0)
-    return "public" if owner_public and block_view(GUEST, row) else "private"
+    parent_public = row.parent_id is None or block_view(GUEST, SimpleNamespace(is_active=row.p_active, audience=row.p_audience, min_level=row.p_min_level))
+    return "public" if owner_public and parent_public and block_view(GUEST, row) else "private"
 
 
 async def load(db: AsyncSession, block_ids: Iterable[int]) -> list[Any]:
@@ -38,6 +44,7 @@ async def load(db: AsyncSession, block_ids: Iterable[int]) -> list[Any]:
             select(*ROW_COLUMNS)  # post-clause: exempt — 첨부·블록 칸(글 아님)
             .join(Block, Block.id == Attachment.block_id)
             .outerjoin(Page, Page.id == Block.page_id)
+            .outerjoin(PARENT, PARENT.id == Block.parent_id)
             .where(Attachment.block_id.in_(ids))
         )
     )

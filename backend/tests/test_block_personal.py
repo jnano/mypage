@@ -146,3 +146,25 @@ def test_block_view_table(active, audience, min_level, member, level, expected) 
     row = SimpleNamespace(is_active=active, audience=audience, min_level=min_level)
     viewer = Viewer(member_id=7 if member else None, level=level)
     assert block_view(viewer, row) is expected
+
+
+async def test_children_of_hidden_or_leveled_group_by_id(db: AsyncSession) -> None:
+    """묶음 안 자식을 id 로 바로 물어도 부모 묶음의 보이기를 본다(코드 검토 v9 B-1 재현 그대로)"""
+    user = await make_member(db, level=1)
+    lid = await _layout(db)
+    vip = await _block(db, lid, "group", {"title": "VIP"}, min_level=5)
+    code = await _block(db, lid, "heading", {"text": "VIP 할인 코드 1234"}, parent=vip)
+    draft = await _block(db, lid, "group", {"title": "초안"}, is_active=False)
+    secret = await _block(db, lid, "heading", {"text": "초안 내용"}, parent=draft)
+    members = await _block(db, lid, "group", {"title": "회원"}, audience="member")
+    inside = await _block(db, lid, "heading", {"text": "회원 묶음 안"}, parent=members)
+    got = await personal_blocks(db, viewer(user), [code, secret, inside])
+    assert set(got) == {inside}  # 등급·숨김 묶음의 자식은 없고, 볼 수 있는 묶음의 자식만
+    assert set(await personal_blocks(db, viewer(user, 5), [code, secret])) == {code}
+
+
+async def test_http_board_and_blocks_together_rejected(dev_header, committed_db, client) -> None:
+    user = await make_member(committed_db, level=1)
+    await committed_db.commit()
+    res = await client.get("/api/me/page-state", params={"board": "free", "blocks": "1"}, headers=as_member(user.id))
+    assert res.status_code == 422

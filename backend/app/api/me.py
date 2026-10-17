@@ -67,6 +67,8 @@ async def page_state(
 ):
     """게시판 화면의 개인 조각(board) 또는 틀의 회원 블록(blocks) — 틀과 화면은 Next 에서 따로 그려지므로 보통 따로
     부른다(홈블록 §5.2 '회원 블록 호출', 사용자 결정 A). blocks 만이면 게시판 몫은 비운다"""
+    if board is not None and blocks:
+        raise Problem(422, "validation_error", "board 와 blocks 는 따로 부릅니다(홈블록 §5.2 '회원 블록 호출')")
     if board is None:
         block_ids = _parse_ids(blocks)
         if len(block_ids) > frame.MAX_PERSONAL_BLOCKS:

@@ -5,12 +5,14 @@
 홈블록 §4.7). 볼 수 없는 글·블록은 존재를 숨긴다(404).
 """
 
+from types import SimpleNamespace
 from typing import Literal
 
 from fastapi import APIRouter, Depends, Header, Query, Request
 from fastapi.responses import JSONResponse, Response
 from sqlalchemy import delete, select
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import aliased
 
 from app.auth.viewer import Viewer, get_viewer
 from app.core import outbox
@@ -45,14 +47,23 @@ async def upload(
 
 async def _block_visible(db: AsyncSession, viewer: Viewer, block_id: int) -> bool:
     """block.view ∧ 주인을 볼 수 있음 — 틀은 누구나, 페이지는 게시 ∧ 열람 등급(§6.1 page.read)"""
+    parent = aliased(Block, name="parent")
     blk = (
         await db.execute(
-            select(Block.is_active, Block.audience, Block.min_level, Block.layout_id, Page.status, Page.view_level)
+            select(
+                Block.is_active, Block.audience, Block.min_level, Block.layout_id, Page.status, Page.view_level,
+                parent.id.label("parent_id"), parent.is_active.label("p_active"), parent.audience.label("p_audience"),
+                parent.min_level.label("p_min_level"),
+            )  # fmt: skip
             .outerjoin(Page, Page.id == Block.page_id)
+            .outerjoin(parent, parent.id == Block.parent_id)
             .where(Block.id == block_id)
         )
     ).one_or_none()
     if blk is None or not block_view(viewer, blk):
+        return False
+    # 묶음 안의 그림 블록이면 부모 묶음도 보여야 한다 — 가지째(코드 검토 v9 B-1 과 같은 빈틈)
+    if blk.parent_id is not None and not block_view(viewer, SimpleNamespace(is_active=blk.p_active, audience=blk.p_audience, min_level=blk.p_min_level)):
         return False
     return blk.layout_id is not None or (blk.status == "published" and blk.view_level <= viewer.level)
 

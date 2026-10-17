@@ -143,3 +143,17 @@ async def test_images_per_block_limit(dev_header, committed_db, client) -> None:
     source = " ".join(f"![그림](attachment:{i})" for i in (1, 2, 3))
     res = await _save(client, admin, lid, 1, {"top": [{"type": "text", "config": {"source": source}}]})
     assert res.status_code == 422 and "2개까지" in res.json()["errors"][0]["message"]
+
+
+async def test_image_inside_member_group(dev_header, committed_db, client) -> None:
+    """회원 묶음 안의 그림 블록 — 공개 저장소로 가지 않고, 비회원이 그림 id 로 바로 받지 못한다(부모 묶음 보이기, v9 B-1 과 같은 빈틈)"""
+    admin, user = await _setup(committed_db)
+    att = (await _upload(client, admin, jpeg_with_gps(), "회원 묶음.jpg")).json()["attachment"]["id"]
+    await process_available(50)
+    lid = await _layout(client, admin)
+    group = {"type": "group", "config": {"title": "회원 소식"}, "audience": "member", "children": [image_block(att)]}
+    assert (await _save(client, admin, lid, 1, {"aside": [group]})).status_code == 200
+    await process_available(50)
+    assert (await _row(committed_db, att)).visibility == "private"
+    assert (await client.get(f"/api/attachments/{att}/thumb")).status_code == 404
+    assert (await client.get(f"/api/attachments/{att}/thumb", headers=as_member(user))).status_code == 200

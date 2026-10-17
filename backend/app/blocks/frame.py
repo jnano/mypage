@@ -156,6 +156,7 @@ async def _targets(db: AsyncSession, board_ids: set[int], page_ids: set[int], vi
     for row in rows:
         if row.kind == "board":
             listable = row.listable if guest else can(viewer, roles[row.id], "board.list", row)
+            # readable 은 비회원 기준(공개 묶음의 개인 블록 판정용) — 회원 경로의 글 판정은 readable_posts_clause(viewer)(코드 검토 v9 N-2)
             out.boards[row.id] = SimpleNamespace(key=row.key, name=row.name, listable=listable, readable=row.readable, last_posted_at=row.last_posted_at)
         elif row.listable:
             out.pages[row.id] = row.key
@@ -436,7 +437,10 @@ async def personal_blocks(db: AsyncSession, viewer: Viewer, block_ids: Sequence[
         return {}
     rows = list(  # ① 요청한 블록 + 그 자식(묶음·칸 나누기)
         await db.execute(
-            select(*BLOCK_COLUMNS, Block.layout_id).where(or_(Block.id.in_(ids), Block.parent_id.in_(ids)), Block.layout_id.is_not(None))  # post-clause: exempt — 블록 칸(글 아님)
+            select(*BLOCK_COLUMNS, Block.layout_id).where(  # post-clause: exempt — 블록 칸(글 아님)
+                or_(Block.id.in_(ids), Block.parent_id.in_(ids), Block.id.in_(select(Block.parent_id).where(Block.id.in_(ids)).scalar_subquery())),
+                Block.layout_id.is_not(None),
+            )
         )
     )
     nodes: dict[int, Node] = {}
@@ -451,7 +455,14 @@ async def personal_blocks(db: AsyncSession, viewer: Viewer, block_ids: Sequence[
     for row in sorted(rows, key=lambda x: (x.sort_order, x.id)):
         if row.id in nodes and row.parent_id in nodes:
             nodes[row.parent_id].children.append(nodes[row.id])
-    tops = [nodes[i] for i in ids if i in nodes]
+    by_id = {row.id: row for row in rows}
+
+    def parent_ok(i: int) -> bool:
+        # 묶음 안의 블록을 id 로 바로 물어도 부모 묶음의 보이기(숨김·등급·대상)를 함께 본다 — 가지째(코드 검토 v9 B-1). 깊이 2 라 한 단
+        parent = by_id[i].parent_id
+        return parent is None or (parent in by_id and block_view(viewer, by_id[parent]))
+
+    tops = [nodes[i] for i in ids if i in nodes and parent_ok(i)]
     every = [n for top in tops for n in _walk(top.children)] + tops
     refs = Refs()
     for n in every:

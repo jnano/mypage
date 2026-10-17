@@ -9,20 +9,11 @@ from app.admin.scope import StaffScope
 from app.api.admin_boards import admin_scope
 from app.blocks import menus
 from app.core import rate_limit
+from app.core.if_match import expected_version
 from app.core.invalidation import tags_for
-from app.core.problems import Problem
 from app.db.session import SessionLocal, get_db
 
 router = APIRouter(prefix="/admin")
-
-
-def _version(if_match: str | None) -> int:
-    if if_match is None:
-        raise Problem(428, "precondition_required", "If-Match 헤더(메뉴 version)가 필요합니다")
-    raw = if_match.strip().removeprefix("W/").strip('"')
-    if not raw.isdigit():
-        raise Problem(400, "if_match_invalid", 'If-Match 는 "버전" 형식입니다')
-    return int(raw)
 
 
 def _saved(body: dict, status: int = 200) -> JSONResponse:
@@ -57,7 +48,7 @@ async def save_menu(
     scope: StaffScope = Depends(admin_scope),
 ):
     """항목 트리 통째 저장(§4.6) — 버전이 다르면 412 + 지금 ETag"""
-    expected = _version(if_match)
+    expected = expected_version(if_match, "메뉴")
     await rate_limit.hit("site.design", f"m:{scope.viewer.member_id}")
     async with SessionLocal() as db, db.begin():
         out = await menus.save_menu(db, scope.viewer, menu_id, body, expected)

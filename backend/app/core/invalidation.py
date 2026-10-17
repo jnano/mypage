@@ -38,6 +38,8 @@ TABLE: dict[str, tuple[tuple[str, Expire], ...]] = {
     "post.relations_changed": (("post:{post_id}", NOW),),  # 관련 글 편집(§6.2) — 원본 글 묶음 응답에만 실린다
     "settings.updated": (("settings:{group}", NOW), ("sitemap", MAX)),  # 사이트 설정(SEO 메타 등) — 읽는 화면이 이 태그를 단다
     "menu.updated": (("menu:{menu_id}", NOW),),  # 메뉴 저장·삭제(홈블록 §5.3) — 그 메뉴를 읽는 틀 묶음이 이 태그를 단다
+    "layout.updated": (("layout:{layout_id}", NOW),),  # 틀 저장·삭제(홈블록 §5.3)
+    "layouts.bindings": (("layouts:bindings", NOW),),  # 기본 틀·화면 종류 대응 — 어느 틀을 쓸지가 바뀐다(모든 틀 묶음이 단다)
     # 탈퇴 — 작성자 이름이 '탈퇴 회원'으로 바뀐 글·댓글(인증 설계도 §4.9). 급하지 않아 max
     "member.withdrawn.post": (("post:{post_id}", MAX), ("board:{board_slug}", MAX), ("recent:posts", MAX), ("feed:{board_slug}", MAX)),
     "member.withdrawn.comment": (("post:{post_id}", MAX), ("recent:comments", MAX)),

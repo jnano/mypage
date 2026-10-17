@@ -18,6 +18,8 @@ EXPECTED = {
     "post.relations_changed": (["post:1"], []),
     "settings.updated": (["settings:seo"], ["sitemap"]),  # v3.0.12 — 사이트 설정(SEO 메타 등)
     "menu.updated": (["menu:1"], []),  # 홈블록 §5.3
+    "layout.updated": (["layout:1"], []),
+    "layouts.bindings": (["layouts:bindings"], []),
     # 회원 탈퇴(인증 설계도 §4.9) — 작성자 이름이 바뀐 글·댓글
     "member.withdrawn.post": ([], ["post:1", "board:free", "recent:posts", "feed:free"]),
     "member.withdrawn.comment": ([], ["post:1", "recent:comments"]),
@@ -30,7 +32,7 @@ def test_table_has_exactly_the_designed_events() -> None:
 
 @pytest.mark.parametrize("event", sorted(EXPECTED))
 def test_event_tags(event: str) -> None:
-    got = tags_for(event, post_id=1, board_slug="free", group="seo", menu_id=1)
+    got = tags_for(event, post_id=1, board_slug="free", group="seo", menu_id=1, layout_id=1)
     assert (list(got.now), list(got.max)) == EXPECTED[event]
 
 

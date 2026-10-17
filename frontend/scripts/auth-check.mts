@@ -106,6 +106,28 @@ try {
     check((await gp.locator('[data-slot="post-title"]').textContent())?.includes(title) === true, "비회원 글: 쓴 글이 보인다");
     check((await gp.locator('a[href$="/edit"]').count()) === 1, "비회원 글: 쓴 사람에게 수정 단추");
     check((await gp.locator('[data-slot="guest-mark"]').count()) >= 1, "비회원 글: '(비회원)' 표시");
+    // 쿠키가 없는 다른 브라우저 — 비밀번호로 수정 화면에 들어가 고치고 휴지통으로(수정 화면은 첨부가 없어도 attachments: [] 를 보낸다)
+    const postUrl = gp.url();
+    const other = await browser.newContext();
+    const op = await other.newPage();
+    await op.goto(`${postUrl}/guest?purpose=edit`);
+    await op.fill("#guest-password", "wrong-password");
+    await op.click('button[type="submit"]');
+    await op.waitForSelector("#guest-password-error");
+    check(true, "비회원 글: 틀린 비밀번호는 거부");
+    await op.fill("#guest-password", "check-pass-01");
+    await op.click('button[type="submit"]');
+    await op.waitForURL(`${postUrl}/edit`);
+    check((await op.locator('input[type="file"]').count()) === 0, "비회원 글 수정: 비밀번호 뒤 수정 화면, 올리기 없음");
+    await op.fill("#title", `${title} 고침`);
+    await op.click('button[type="submit"]');
+    await op.waitForURL(postUrl);
+    check((await op.locator('[data-slot="post-title"]').textContent())?.includes("고침") === true, "비회원 글 수정: 반영");
+    await op.click('form[data-slot="inline-form"] button');
+    await op.waitForURL(/\/boards\/open$/);
+    const status = sql(`SELECT status FROM posts WHERE id = ${postUrl.split("/").pop()}`);
+    check(status === "trashed", `비회원 글 삭제: 휴지통(${status})`);
+    await other.close();
     await gctx.close();
   }
 
@@ -129,7 +151,7 @@ try {
   }
 } finally {
   await browser.close();
-  sql("DELETE FROM rate_limit_counters WHERE key LIKE 'auth.%' OR key LIKE 'post.view:%' OR key LIKE 'post.create_guest%'");
+  sql("DELETE FROM rate_limit_counters WHERE key LIKE 'auth.%' OR key LIKE 'post.view:%' OR key LIKE 'post.create_guest%' OR key LIKE 'guest.token%' OR key LIKE 'post.update_guest%'");
 }
 console.log(failed ? `\n인증 점검 실패 ${failed}건` : "\n인증 점검 통과");
 process.exitCode = failed ? 1 : 0;

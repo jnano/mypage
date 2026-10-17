@@ -211,7 +211,8 @@ async def test_edit_repends_and_keeps_first_published_at(dev_header, committed_d
     first = (await committed_db.execute(select(Post.published_at).where(Post.id == pid))).scalar_one()  # post-clause: exempt — 시험
     edit = await client.get(f"/api/posts/{pid}", headers=_tok(client, token))
     assert edit.status_code == 200
-    res = await client.patch(f"/api/posts/{pid}", json={"title": "고친 제목"}, headers=_tok(client, token) | {"If-Match": f'"{edit.json()["version"]}"'})
+    # 수정 화면은 첨부가 없어도 attachments: [] 를 보낸다 — 받아야 한다
+    res = await client.patch(f"/api/posts/{pid}", json={"title": "고친 제목", "attachments": []}, headers=_tok(client, token) | {"If-Match": f'"{edit.json()["version"]}"'})
     assert res.status_code == 200, res.text
     assert f"board:open" in res.json()["invalidate"]["now"]  # 공개 글이 비공개가 됐다
     committed_db.expire_all()
@@ -223,6 +224,7 @@ async def test_edit_repends_and_keeps_first_published_at(dev_header, committed_d
     # 이름·관리 칸은 못 고친다, read 토큰으로는 수정 403
     v = (await client.get(f"/api/posts/{pid}", headers=_tok(client, token))).json()["version"]
     assert (await client.patch(f"/api/posts/{pid}", json={"is_pinned": True}, headers=_tok(client, token) | {"If-Match": f'"{v}"'})).status_code == 422
+    assert (await client.patch(f"/api/posts/{pid}", json={"attachments": [{"id": 1}]}, headers=_tok(client, token) | {"If-Match": f'"{v}"'})).status_code == 422
     read = guest.sign_token(pid, "read")
     assert (await client.patch(f"/api/posts/{pid}", json={"title": "x"}, headers=_tok(client, read) | {"If-Match": f'"{v}"'})).status_code == 403
 

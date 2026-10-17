@@ -254,7 +254,8 @@ async def update_post(
     """회원 또는 비회원 작성자(edit 토큰, §6.3). 비회원은 관리 칸·첨부를 쓰지 않는다."""
     if guest_token is None:
         _require_member(viewer)
-    elif body.model_fields_set & (MODERATE_FIELDS | {"attachments"}):
+    elif body.model_fields_set & MODERATE_FIELDS or body.attachments:
+        # 빈 첨부 목록은 받는다(수정 화면은 늘 attachments 를 보낸다) — 비회원은 올릴 수 없어 붙일 것이 없다
         raise Problem(422, "validation_error", "비회원 글은 제목·본문·카테고리·비밀만 고칠 수 있습니다")
     expected_version = parse_if_match(if_match)
     if body.model_fields_set <= MODERATE_FIELDS:

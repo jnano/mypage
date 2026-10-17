@@ -37,6 +37,15 @@ function readAttachments(formData: FormData): AttachmentRefBody[] {
 export interface PostFormState {
   problem?: ProblemBody;
   values?: PostFormValues;
+  /** 비회원 폼(§6.3) — 보안 문자·폼 토큰은 한 번 쓰면 끝이라, 실패하면 새 것을 함께 돌려준다 */
+  guest?: GuestFormTokens;
+  /** 비회원이 넣은 이름(비밀번호는 돌려주지 않는다) */
+  authorName?: string;
+}
+
+export interface GuestFormTokens {
+  form_token: string;
+  captcha: { token: string; question: string };
 }
 
 function readForm(formData: FormData): PostFormValues {

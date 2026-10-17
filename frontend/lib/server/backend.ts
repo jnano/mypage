@@ -2,7 +2,7 @@ import "server-only";
 import { cookies, headers } from "next/headers";
 import { personalHeaders, publicHeaders } from "@/lib/api/headers";
 import { readJson } from "@/lib/api/problem";
-import { cookieNames } from "@/lib/auth/cookies";
+import { cookieNames, guestCookiePostId } from "@/lib/auth/cookies";
 import { serverConfig } from "@/lib/server/config";
 
 // FastAPI 호출 도구 두 개(설계도 §2.2 P1). 공개 도구는 'use cache' 함수 안에서, 개인 도구는 Suspense 안·Server Action 에서 쓴다.
@@ -26,7 +26,18 @@ export async function personalContext() {
     devViewerSecret: config.devViewerSecret,
     internalApiSecret: config.internalApiSecret,
     clientIp: (await headers()).get("x-real-ip"),
+    // 비회원 토큰 쿠키(§6.3) — 그 글의 비회원 작성자임을 FastAPI 에 보인다
+    guestTokens: jar
+      .getAll()
+      .filter((c) => guestCookiePostId(config.appEnv, c.name) !== null)
+      .map((c) => c.value),
   };
+}
+
+/** 이 글의 비회원 토큰 쿠키가 있는지 — 공개 캐시 대신 개인 묶음 응답을 쓸지(판정은 FastAPI) */
+export async function hasGuestToken(postId: number): Promise<boolean> {
+  const config = serverConfig();
+  return (await cookies()).getAll().some((c) => guestCookiePostId(config.appEnv, c.name) === postId);
 }
 
 /** 보는 사람이 있는지 — 공개 캐시를 쓸지 정할 때. 쿠키 유무만 본다(유효성은 FastAPI 가 판정) */

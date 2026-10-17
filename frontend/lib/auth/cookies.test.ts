@@ -61,3 +61,20 @@ describe("조회 쿠키(설계도 §6.1)", () => {
     expect(VIEW_TOKEN.test("A".repeat(42) + "=")).toBe(false);
   });
 });
+
+describe("비회원 토큰 쿠키(설계도 §6.3)", () => {
+  it("글마다 gt_{id}, 운영은 __Host-, HttpOnly·Lax", async () => {
+    const { guestCookie, guestCookieName, guestCookiePostId } = await import("./cookies");
+    expect(guestCookieName("prod", 12)).toBe("__Host-gt_12");
+    expect(guestCookie("dev", 12, "t".repeat(20), 1800)).toEqual({
+      name: "gt_12",
+      value: "t".repeat(20),
+      options: { httpOnly: true, sameSite: "lax", path: "/", secure: false, maxAge: 1800 },
+    });
+    expect(guestCookiePostId("prod", "__Host-gt_12")).toBe(12);
+    expect(guestCookiePostId("prod", "gt_12")).toBeNull(); // 운영은 접두어가 있어야
+    expect(guestCookiePostId("dev", "gt_0")).toBeNull();
+    expect(guestCookiePostId("dev", "gt_x")).toBeNull();
+    expect(guestCookiePostId("dev", "session")).toBeNull();
+  });
+});

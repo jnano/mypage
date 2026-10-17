@@ -62,6 +62,7 @@ async function EditScreen({ params }: PageProps<"/boards/[slug]/[id]/edit">) {
         }}
         submitLabel="수정"
         boardSlug={post.board_slug}
+        uploads={!post.is_guest}
         initialAttachments={post.attachments.map((a) => ({
           id: a.id,
           name: a.name,

@@ -80,6 +80,30 @@ export function failureState(problem: AuthFormState["problem"], values: { email?
   return state;
 }
 
+/** 비회원 토큰 쿠키(설계도 §6.3) — 글마다 하나, 이름 gt_{글 id}. 값은 FastAPI 가 서명한 토큰(서버만 읽는다) */
+export const GUEST_TOKEN = /^[A-Za-z0-9._-]{10,300}$/;
+const GUEST_PREFIX = "gt_";
+
+export function guestCookieName(appEnv: AppEnv, postId: number): string {
+  return `${appEnv === "prod" ? "__Host-" : ""}${GUEST_PREFIX}${postId}`;
+}
+
+/** 쿠키 이름 → 글 id(비회원 토큰 쿠키가 아니면 null) */
+export function guestCookiePostId(appEnv: AppEnv, name: string): number | null {
+  const prefix = `${appEnv === "prod" ? "__Host-" : ""}${GUEST_PREFIX}`;
+  if (!name.startsWith(prefix)) return null;
+  const id = name.slice(prefix.length);
+  return /^[1-9][0-9]{0,17}$/.test(id) ? Number(id) : null;
+}
+
+export function guestCookie(appEnv: AppEnv, postId: number, token: string, maxAge: number): CookieSpec {
+  return {
+    name: guestCookieName(appEnv, postId),
+    value: token,
+    options: { httpOnly: true, sameSite: "lax", path: "/", secure: appEnv === "prod", maxAge },
+  };
+}
+
 export function viewCookie(appEnv: AppEnv, value: string): CookieSpec {
   return {
     name: cookieNames(appEnv).view,

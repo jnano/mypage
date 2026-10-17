@@ -94,6 +94,12 @@ try {
   for (const path of ["/", "/boards/free", "/boards/notice", ...(postPath ? [postPath] : []), "/search?q=회의", "/dev/login", "/login", "/signup", "/privacy", "/reset"]) {
     findings.push(...(await check(guest, path, "비회원")));
   }
+  // 비회원 글쓰기(설계도 §6.3) — 손님 게시판(시드 open, 쓰기 등급 0)의 글쓰기 폼과 비회원 글의 비밀번호 폼
+  findings.push(...(await check(guest, "/boards/open/write", "비회원")));
+  await guest.goto(base + "/boards/open");
+  await settle(guest);
+  const guestPost = await guest.locator('[data-slot="post-list"] a[href^="/boards/open/"]').first().getAttribute("href");
+  if (guestPost) findings.push(...(await check(guest, `${guestPost}/guest?purpose=edit`, "비회원")));
   // 회원 — 글쓰기(마크다운·리치)·알림·글 보기(댓글 폼)·내 목록 셋
   const member = await open(browser, values.member!);
   findings.push(...(await check(member, "/boards/free/write", "회원")));

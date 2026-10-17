@@ -3,7 +3,7 @@ import { cacheLife, cacheTag } from "next/cache";
 import { ApiError } from "@/lib/api/problem";
 import { applyUnmask, boardQueryString, maskedIds, planBoard, planPost } from "@/lib/boards/plan";
 import type { BoardPage, BoardQuery, CommentPage, Fetched, PageState, PostPage } from "@/lib/boards/types";
-import { hasViewer, personalGet, publicGet } from "@/lib/server/backend";
+import { hasGuestToken, hasViewer, personalGet, publicGet } from "@/lib/server/backend";
 import { redirectIfExpired } from "@/lib/server/session";
 
 // 화면 데이터 — 화면 하나당 FastAPI 호출: 공개 ≤ 2, 로그인 ≤ 3(§3.6, §15)
@@ -74,7 +74,13 @@ export interface PostScreen {
 
 export async function loadPostScreen(slug: string, id: number): Promise<PostScreen> {
   const pub = await getPublicPostPage(id);
-  if (!(await hasViewer()) || (!pub.ok && pub.problem.status === 410)) {
+  if (!pub.ok && pub.problem.status === 410) return { result: pub, state: null, canEdit: false };
+  if (!(await hasViewer())) {
+    // 비회원 작성자(§6.3) — 이 글의 비회원 토큰 쿠키가 있으면 개인 묶음 응답(대기·비밀 글도 열린다, 판정은 FastAPI)
+    if (await hasGuestToken(id)) {
+      const mine = await settle(() => personalGet<PostPage>(`/api/posts/${id}/page`));
+      return { result: mine, state: null, canEdit: mine.ok && mine.data.guest_can_edit === true };
+    }
     return { result: pub, state: null, canEdit: false };
   }
   const boardSlug = pub.ok ? pub.data.board.slug : slug;

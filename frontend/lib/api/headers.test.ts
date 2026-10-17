@@ -69,3 +69,14 @@ describe("기동 가드(§11)", () => {
     expect(() => assertSafeConfig(parseServerConfig({ APP_ENV: "prod", INTERNAL_API_SECRET: "x".repeat(32) }))).not.toThrow();
   });
 });
+
+describe("비회원 토큰 머리(설계도 §6.3)", () => {
+  it("쿠키 값들을 쉼표로 묶어 싣고, 모양이 틀린 값은 버린다(20개까지)", () => {
+    const good = ["12.edit.1760000000.abcDEF_-x", "13.read.1760000000.zzzzzzzzzz"];
+    expect(personalHeaders({ ...ctx, guestTokens: good }).get("x-guest-token")).toBe(good.join(","));
+    expect(personalHeaders({ ...ctx, guestTokens: ["bad value\r\n", "short"] }).has("x-guest-token")).toBe(false);
+    const many = Array.from({ length: 30 }, (_, i) => `${i + 1}.edit.1760000000.abcdefghij`);
+    expect(personalHeaders({ ...ctx, guestTokens: many }).get("x-guest-token")?.split(",")).toHaveLength(20);
+    expect(personalHeaders(ctx).has("x-guest-token")).toBe(false);
+  });
+});

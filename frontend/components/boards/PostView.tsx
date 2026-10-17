@@ -29,7 +29,8 @@ export function PostView({ data, canEdit }: { data: PostPage; canEdit: boolean }
           {post.title}
         </h1>
         <p data-slot="post-meta">
-          {post.author_name} ·{" "}
+          {post.author_name}
+          {post.author_is_guest && <span data-slot="guest-mark"> (비회원)</span>} ·{" "}
           <time dateTime={post.published_at ?? undefined}>{formatDateTime(post.published_at)}</time>
           {post.edited && <span data-slot="edited-mark"> (수정됨)</span>}
           {post.expired && <span data-slot="post-badge"> 지난 글</span>}
@@ -65,6 +66,13 @@ export function PostView({ data, canEdit }: { data: PostPage; canEdit: boolean }
             <form action={trashPostAction.bind(null, board.slug, post.id)} data-slot="inline-form">
               <button type="submit">삭제(휴지통)</button>
             </form>
+          </>
+        )}
+        {!canEdit && post.author_is_guest && (
+          <>
+            {" "}
+            {/* 비회원 글(§6.3) — 비밀번호를 확인하면 수정·삭제 단추가 나온다 */}
+            <Link href={`/boards/${board.slug}/${post.id}/guest?purpose=edit`}>비밀번호로 수정·삭제</Link>
           </>
         )}
       </nav>

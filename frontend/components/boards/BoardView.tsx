@@ -42,7 +42,10 @@ function Row({ slug, row, categories }: { slug: string; row: ListRow; categories
         {row.stats.comments > 0 && <span data-slot="post-meta"> [{row.stats.comments}]</span>}
         {row.edited && <span data-slot="edited-mark"> (수정됨)</span>}
       </td>
-      <td data-slot="post-meta">{row.author_name}</td>
+      <td data-slot="post-meta">
+        {row.author_name}
+        {row.author_is_guest && <span data-slot="guest-mark"> (비회원)</span>}
+      </td>
       <td data-slot="post-meta">
         <time dateTime={row.published_at ?? undefined}>{formatDate(row.published_at)}</time>
       </td>

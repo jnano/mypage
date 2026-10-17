@@ -2,7 +2,7 @@
 
 import dynamic from "next/dynamic";
 import { useActionState, useCallback, useEffect, useMemo, useRef, useState, useTransition } from "react";
-import type { PostFormState, PostFormValues } from "@/app/boards/actions";
+import type { GuestFormTokens, PostFormState, PostFormValues } from "@/app/boards/actions";
 import { deleteTempAttachmentAction, previewAction } from "@/app/boards/actions";
 import type { EditorApi } from "@/components/editor/RichTextEditor";
 import { uploadAttachment } from "@/lib/boards/upload";
@@ -24,6 +24,10 @@ interface Props {
   submitLabel: string;
   boardSlug: string;
   initialAttachments?: AttachmentDraft[];
+  /** 비회원 글쓰기(§6.3) — 이름·비밀번호·보안 문자·숨은 칸. 있으면 파일 올리기는 꺼진다 */
+  guest?: { tokens: GuestFormTokens; honeypot: boolean };
+  /** 파일 올리기(비회원 글을 고칠 때는 false) */
+  uploads?: boolean;
 }
 
 const EMPTY: PostFormValues = { title: "", content: "", category_ids: [], is_secret: false };
@@ -38,8 +42,12 @@ export function PostForm({
   submitLabel,
   boardSlug,
   initialAttachments = [],
+  guest,
+  uploads = true,
 }: Props) {
   const [state, formAction, pending] = useActionState(action, {});
+  const canUpload = uploads && !guest;
+  const tokens = state.guest ?? guest?.tokens;
   const values = state.values ?? initial;
   const errors = new Map((state.problem?.errors ?? []).map((e) => [e.field.replace(/^body\./, ""), e.message]));
   const [content, setContent] = useState(values.content);
@@ -132,6 +140,55 @@ export function PostForm({
         {pending ? "저장하는 중…" : state.problem && errors.size === 0 ? state.problem.title : ""}
       </p>
 
+      {guest && tokens && (
+        <fieldset data-slot="guest-fields">
+          <legend>비회원으로 쓰기</legend>
+          <div>
+            <label htmlFor="author_name">이름</label>
+            <input id="author_name" name="author_name" defaultValue={state.authorName ?? ""} minLength={2} maxLength={20} required autoComplete="nickname" {...fieldProps("author_name")} />
+            {errors.has("author_name") && <p id="author_name-error">{errors.get("author_name")}</p>}
+          </div>
+          <div>
+            <label htmlFor="password">비밀번호(고치거나 지울 때 씁니다)</label>
+            <input
+              id="password"
+              name="password"
+              type="password"
+              minLength={6}
+              maxLength={64}
+              required
+              autoComplete="new-password"
+              aria-describedby={errors.has("password") ? "password-error password-help" : "password-help"}
+              aria-invalid={errors.has("password") || undefined}
+            />
+            <p id="password-help">6자 이상. 숫자만 쓰지 말고, 다른 곳에 쓰지 않는 말로 정해 주세요.</p>
+            {errors.has("password") && <p id="password-error">{errors.get("password")}</p>}
+          </div>
+          <div>
+            <label htmlFor="captcha_answer">보안 문자: {tokens.captcha.question}</label>
+            <input
+              id="captcha_answer"
+              name="captcha_answer"
+              inputMode="numeric"
+              autoComplete="off"
+              required
+              key={tokens.captcha.token}
+              {...fieldProps("captcha_answer")}
+            />
+            {errors.has("captcha_answer") && <p id="captcha_answer-error">{errors.get("captcha_answer")}</p>}
+          </div>
+          <input type="hidden" name="form_token" value={tokens.form_token} />
+          <input type="hidden" name="captcha_token" value={tokens.captcha.token} />
+          {guest.honeypot && (
+            <div data-slot="honeypot" aria-hidden="true" hidden>
+              <label>
+                비워 두세요 <input name="website" tabIndex={-1} autoComplete="off" defaultValue="" />
+              </label>
+            </div>
+          )}
+        </fieldset>
+      )}
+
       <div>
         <label htmlFor="title">제목</label>
         <input id="title" name="title" defaultValue={values.title} maxLength={300} required {...fieldProps("title")} />
@@ -157,14 +214,16 @@ export function PostForm({
         </label>
       )}
 
-      <AttachmentPanel
-        items={items}
-        status={attachStatus}
-        onItemsChange={setItems}
-        onPick={pickFiles}
-        onRemove={removeAttachment}
-        onAlt={panelAlt}
-      />
+      {canUpload && (
+        <AttachmentPanel
+          items={items}
+          status={attachStatus}
+          onItemsChange={setItems}
+          onPick={pickFiles}
+          onRemove={removeAttachment}
+          onAlt={panelAlt}
+        />
+      )}
       {errors.has("attachments") && <p role="alert">{errors.get("attachments")}</p>}
 
       {format === "rich" ? (
@@ -181,6 +240,10 @@ export function PostForm({
             invalid={errors.has("content")}
             media={media}
             onUploadImage={async (file) => {
+              if (!canUpload) {
+                setAttachStatus("이 글에는 사진을 올릴 수 없습니다");
+                return null;
+              }
               const up = await upload(file);
               return up?.isImage ? { id: up.id } : null;
             }}

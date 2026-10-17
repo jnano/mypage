@@ -28,6 +28,8 @@ export interface ListRow {
   title_bold: boolean;
   title_color: string | null;
   author_name: string;
+  /** 비회원 글 — 화면이 이름 옆에 '(비회원)'(§6.3) */
+  author_is_guest: boolean;
   posted_as: "personal" | "admin";
   published_at: string | null;
   edited: boolean;
@@ -72,6 +74,7 @@ export interface PostPage {
     title_bold: boolean;
     title_color: string | null;
     author_name: string;
+    author_is_guest: boolean;
     posted_as: "personal" | "admin";
     status: string;
     content_format: "rich" | "markdown";
@@ -91,6 +94,8 @@ export interface PostPage {
   related: { id: number; title: string; board_slug: string }[];
   attachments: AttachmentItem[];
   comments: CommentPage;
+  /** 비회원 작성자가 edit 토큰으로 보고 있으면 true(§6.3) */
+  guest_can_edit?: boolean;
   cache: { tags: string[] };
 }
 
@@ -142,6 +147,7 @@ export interface PageState {
 
 export interface EditablePost {
   id: number;
+  is_guest: boolean;
   board_slug: string;
   title: string;
   content_format: "rich" | "markdown";

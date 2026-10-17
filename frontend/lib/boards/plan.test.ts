@@ -9,6 +9,7 @@ const row = (id: number, masked: ListRow["masked"] = null): ListRow => ({
   title_bold: false,
   title_color: null,
   author_name: "작성자",
+  author_is_guest: false,
   posted_as: "personal",
   published_at: null,
   edited: false,

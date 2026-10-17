@@ -5,6 +5,8 @@
 // 읽기·쓰기 모두 싣는다 — FastAPI 는 내부 비밀이 맞는 요청에서만 보는 사람·IP 머리를 믿는다(인증 설계도 §2.2·§2.3).
 // 쓰기 경계(CSRF)는 그대로다: FastAPI 는 비안전 메서드에만 내부 비밀을 요구하고, 그 값은 Next 서버만 안다.
 
+import { GUEST_TOKEN } from "@/lib/auth/cookies";
+
 /** 공개 요청에 있으면 안 되는 헤더(소문자) */
 export const PRIVATE_HEADERS = [
   "cookie",
@@ -15,6 +17,7 @@ export const PRIVATE_HEADERS = [
   "x-device",
   "x-client-ip",
   "x-view-token",
+  "x-guest-token",
 ] as const;
 
 export function publicHeaders(extra?: HeadersInit): Headers {
@@ -38,7 +41,11 @@ export interface PersonalContext {
   internalApiSecret: string;
   /** nginx 가 실제 연결 주소로 덮어쓴 X-Real-IP(없으면 null — 개발, nginx 없음). 형식 판정은 FastAPI 가 한다 */
   clientIp: string | null;
+  /** 비회원 토큰 쿠키 값들(설계도 §6.3) — X-Guest-Token 으로. 서명·글 판정은 FastAPI */
+  guestTokens?: string[];
 }
+
+const MAX_GUEST_TOKENS = 20;
 
 export function personalHeaders(ctx: PersonalContext, extra?: HeadersInit): Headers {
   const headers = new Headers(extra);
@@ -52,6 +59,8 @@ export function personalHeaders(ctx: PersonalContext, extra?: HeadersInit): Head
   if (ctx.clientIp && /^[0-9A-Fa-f:.]{2,45}$/.test(ctx.clientIp)) {
     headers.set("x-client-ip", ctx.clientIp);
   }
+  const guest = (ctx.guestTokens ?? []).filter((t) => GUEST_TOKEN.test(t)).slice(0, MAX_GUEST_TOKENS);
+  if (guest.length) headers.set("x-guest-token", guest.join(","));
   headers.set("x-internal-secret", ctx.internalApiSecret);
   return headers;
 }

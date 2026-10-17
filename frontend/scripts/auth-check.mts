@@ -83,6 +83,32 @@ try {
   check(res.status() === 303 && !cleared, "다른 사이트에서 부른 /auth/expired 는 쿠키를 지우지 않는다");
   await ctx.close();
 
+  // 6. 비회원 글쓰기(설계도 §6.3) — 실제 브라우저로 폼(보안 문자 덧셈을 풀어)을 내면 글이 생기고, 그 글의 비회원 토큰이
+  //    HttpOnly 쿠키로 심겨 쓴 사람이 '수정' 단추를 본다. 손님 게시판(시드 open)은 승인 없이 공개, 최소 경과 3초
+  {
+    const gctx = await browser.newContext();
+    const gp = await gctx.newPage();
+    await gp.goto(`${base}/boards/open/write`);
+    const question = (await gp.locator('label[for="captcha_answer"]').textContent()) ?? "";
+    const m = /(\d+) 더하기 (\d+)/.exec(question);
+    check(m !== null, `비회원 폼: 보안 문자 문제가 보인다 [${question.trim()}]`);
+    const title = `손님 점검 ${Date.now()}`;
+    await gp.fill("#author_name", "점검손님");
+    await gp.fill("#password", "check-pass-01");
+    await gp.fill("#captcha_answer", m ? String(Number(m[1]) + Number(m[2])) : "0");
+    await gp.fill("#title", title);
+    await gp.fill("#content", "브라우저 점검으로 쓴 글입니다.");
+    await gp.waitForTimeout(3500); // 정책의 최소 경과 시간
+    await gp.click('button[type="submit"]');
+    await gp.waitForURL(/\/boards\/open\/\d+$/);
+    const cookie = (await gctx.cookies()).find((c) => /gt_\d+$/.test(c.name));
+    check(cookie?.httpOnly === true, "비회원 글: 그 글의 토큰이 HttpOnly 쿠키로");
+    check((await gp.locator('[data-slot="post-title"]').textContent())?.includes(title) === true, "비회원 글: 쓴 글이 보인다");
+    check((await gp.locator('a[href$="/edit"]').count()) === 1, "비회원 글: 쓴 사람에게 수정 단추");
+    check((await gp.locator('[data-slot="guest-mark"]').count()) >= 1, "비회원 글: '(비회원)' 표시");
+    await gctx.close();
+  }
+
   // 5. 조회 신호(설계도 §6.1) — 서로 다른 실제 IP 의 비회원이 Route Handler 를 거쳐 따로 세어지고, 조회 쿠키가 심어진다.
   //    자동화 브라우저는 ViewBeacon 이 보내지 않으므로(navigator.webdriver) 화면에서 직접 한 번 부른다
   const postId = sql(
@@ -103,7 +129,7 @@ try {
   }
 } finally {
   await browser.close();
-  sql("DELETE FROM rate_limit_counters WHERE key LIKE 'auth.%' OR key LIKE 'post.view:%'");
+  sql("DELETE FROM rate_limit_counters WHERE key LIKE 'auth.%' OR key LIKE 'post.view:%' OR key LIKE 'post.create_guest%'");
 }
 console.log(failed ? `\n인증 점검 실패 ${failed}건` : "\n인증 점검 통과");
 process.exitCode = failed ? 1 : 0;

@@ -1,3 +1,4 @@
+import Link from "next/link";
 import type { Metadata } from "next";
 import { notFound, permanentRedirect } from "next/navigation";
 import { connection } from "next/server";
@@ -45,7 +46,17 @@ async function PostScreen({ params, searchParams }: PageProps<"/boards/[slug]/[i
   const { result, state, canEdit } = await loadPostScreen(slug, postId);
   if (!result.ok) {
     if (result.problem.status === 404) notFound();
-    return <ProblemNotice problem={result.problem} />;
+    return (
+      <>
+        <ProblemNotice problem={result.problem} />
+        {result.problem.code === "post_secret" && (
+          <p>
+            {/* 비밀 비회원 글(§6.3) — 쓴 사람이면 비밀번호로 연다. 회원 글인지는 가르지 않는다 */}
+            <Link href={`/boards/${slug}/${postId}/guest?purpose=read`}>비회원으로 쓴 글이면 비밀번호로 열기</Link>
+          </p>
+        )}
+      </>
+    );
   }
   const data = result.data;
   // 글은 전역 id — 게시판을 옮겼거나 주소가 바뀌었으면 지금 주소로(§6)

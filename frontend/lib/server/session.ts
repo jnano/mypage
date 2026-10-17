@@ -30,9 +30,10 @@ async function currentPath(): Promise<string> {
  * - public(게시판): 공개 화면이라 로그인으로 보내지 않고 같은 화면으로
  * 쿠키가 없으면 아무것도 하지 않는다(호출한 쪽이 지금처럼 안내한다).
  */
-export async function redirectIfExpired(kind: "personal" | "public"): Promise<void> {
+export async function redirectIfExpired(kind: "personal" | "public", path?: string): Promise<void> {
   if (!(await hasSessionCookie())) return;
-  const here = await currentPath();
+  // 지금 경로 머리(x-mypage-path)는 proxy matcher 의 경로에만 있다 — 그 밖(사용자 페이지)은 부르는 쪽이 경로를 넘긴다
+  const here = path !== undefined ? safeNextPath(path) : await currentPath();
   const next = kind === "personal" ? `/login?next=${encodeURIComponent(here)}` : here;
   redirect(`/auth/expired?next=${encodeURIComponent(next)}`);
 }

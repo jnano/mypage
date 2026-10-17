@@ -32,8 +32,8 @@ class Lookup:
     viewer_level: int = 0  # 메뉴 항목 min_level 비교(표시용 — 권한이 아니다, §6). 공개 묶음은 0
 
 
-# 걸음 5(동적)·6(모듈)에서 해결한다. outlet 은 행이 없다
-NOT_YET = frozenset({"recent_posts", "recent_comments", "board_links", "module", "outlet"})
+# 동적 셋은 틀 묶음(frame._dynamic_view)이 조회 결과로 푼다. outlet 은 행이 없다
+NOT_YET = frozenset({"recent_posts", "recent_comments", "board_links", "outlet"})
 
 
 def link(target: BaseModel | None, lookup: Lookup) -> View | None:
@@ -182,4 +182,8 @@ def resolve(block_type: str, config: Any, lookup: Lookup, *, attachment_ids: Col
             return {"count": c.count}
         case t.Empty():  # account·divider
             return {}
+        case t.Module(module="board"):
+            # 모듈 자리는 연결 정보만 — 데이터는 모듈이 자기 API·캐시 태그로 부른다(§3.4). 게시판 id → 지금 slug(slug 변경에 안 깨짐)
+            slug = lookup.board_slugs.get(c.params["board_id"])
+            return None if slug is None else {"module": "board", "params": c.params, "board": {"slug": slug}}
     raise NotImplementedError(block_type)

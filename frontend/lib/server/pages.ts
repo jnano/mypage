@@ -6,6 +6,7 @@ import { isPagePath } from "@/lib/blocks/pagePath";
 import type { FrameBundle } from "@/lib/blocks/types";
 import { hasAdminHint, hasViewer, personalGet, publicGet } from "@/lib/server/backend";
 import { getFrame } from "@/lib/server/frame";
+import { redirectIfExpired } from "@/lib/server/session";
 
 type PagePaths = { pages: Record<string, { id: number; personal: boolean }>; moved: Record<string, string> };
 
@@ -29,6 +30,8 @@ async function personal(path: string, draft: boolean): Promise<FrameBundle | nul
   try {
     return await personalGet<FrameBundle>(`/api/me/frame?${new URLSearchParams({ path, ...(draft ? { draft: "1" } : {}) })}`);
   } catch (e) {
+    // 세션 쿠키는 있는데 FastAPI 가 비회원으로 봤다(만료·폐기) — 지우고 로그인으로(게시판 화면과 같은 길, 코드 검토 v13 N-2)
+    if (e instanceof ApiError && e.problem.code === "signed_out") await redirectIfExpired("personal", path);
     if (e instanceof ApiError && (e.status === 404 || e.status === 429)) return null;
     throw e;
   }

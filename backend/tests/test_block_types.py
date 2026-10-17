@@ -237,6 +237,13 @@ def test_video_embed() -> None:
     assert out == {"title": "안내", "embed_url": "https://www.youtube-nocookie.com/embed/aaaaaaaaaaa"}
 
 
+def test_board_module_slot() -> None:
+    """모듈 자리는 연결 정보만 — 게시판 id → 지금 slug, 볼 수 없는(lookup 에 없는) 게시판이면 그리지 않는다(§3.4)"""
+    out = resolve("module", {"module": "board", "params": {"board_id": 3, "count": 5}}, LOOKUP)
+    assert out == {"module": "board", "params": {"board_id": 3, "view": None, "count": 5}, "board": {"slug": "notice"}}
+    assert resolve("module", {"module": "board", "params": {"board_id": 4}}, LOOKUP) is None
+
+
 @pytest.mark.parametrize("block_type", sorted(NOT_YET))
 def test_not_yet_types_raise(block_type: str) -> None:
     with pytest.raises(NotImplementedError):

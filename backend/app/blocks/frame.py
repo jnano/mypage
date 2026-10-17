@@ -167,7 +167,7 @@ def _decide(nodes: Sequence[Node], menus: dict[int, list[Any]], targets: Targets
             n.personal = True
         elif row.type in ("recent_posts", "recent_comments"):
             n.personal = not n.refs.boards <= readable  # 회원 전용 게시판의 글이 공개 캐시에 섞이지 않게(P1)
-        elif row.type == "board_links":
+        elif row.type in ("board_links", "module"):  # 게시판 모듈: 비회원이 목록을 못 보는 게시판이면 자리만(회원이면 그 사람 기준으로)
             n.personal = not n.refs.boards <= listable
         else:
             menu_rows = [i for m in n.refs.menus for i in menus.get(m, [])]

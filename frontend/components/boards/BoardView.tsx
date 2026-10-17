@@ -11,7 +11,7 @@ const MASK_TEXT: Record<MaskReason, string> = {
   level: "열람 등급이 필요한 글입니다",
 };
 
-function Title({ slug, row }: { slug: string; row: ListRow }) {
+export function PostTitle({ slug, row }: { slug: string; row: ListRow }) {
   if (row.masked) return <span data-slot="post-title" data-masked={row.masked}>{MASK_TEXT[row.masked]}</span>;
   return (
     <Link
@@ -38,7 +38,7 @@ function Row({ slug, row, categories }: { slug: string; row: ListRow; categories
         {row.category_ids.length > 0 && (
           <span data-slot="post-badge">{row.category_ids.map((id) => categories.get(id)).join(", ")} </span>
         )}
-        <Title slug={slug} row={row} />
+        <PostTitle slug={slug} row={row} />
         {row.stats.comments > 0 && <span data-slot="post-meta"> [{row.stats.comments}]</span>}
         {row.edited && <span data-slot="edited-mark"> (수정됨)</span>}
       </td>
@@ -122,7 +122,7 @@ export function BoardView({ data, query }: { data: BoardPage; query: BoardQuery 
           <ul>
             {data.pinned.map((row) => (
               <li key={row.id} data-slot="post-item" data-pinned>
-                <Title slug={slug} row={row} />
+                <PostTitle slug={slug} row={row} />
               </li>
             ))}
           </ul>

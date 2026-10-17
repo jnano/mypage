@@ -14,11 +14,12 @@ import {
 } from "./ContentBlocks";
 import { BoardLinksBlock, RecentCommentsBlock, RecentPostsBlock } from "./DynamicBlocks";
 import { BreadcrumbBlock, MenuBlock, SubMenuBlock } from "./MenuBlocks";
+import { ModuleSlot } from "./ModuleSlot";
 import { AccountBlock, FooterInfoBlock, SearchBoxBlock, SiteBrandBlock } from "./SiteBlocks";
 
 // 블록 하나를 종류에 맞는 부품으로(홈블록 설계도 §3·§4.4.2). 등록부는 지금 그릴 수 있는 종류 전부를 빠짐없이 가져야 한다 —
 // satisfies Record<RenderableType, …> 가 빠진 종류를 타입 검사에서 잡고, RenderableType 은 생성 파일의 견본 종류와
-// 같아야 한다(아래 _registryMatchesBackend). 모듈·outlet 은 걸음 6 에서 더한다
+// 같아야 한다(아래 _registryMatchesBackend). outlet 은 행이 없다(틀이 children 자리에 놓는다)
 
 type Props<K extends RenderableType> = { node: Extract<BlockNode, { type: K }>; level: number };
 
@@ -42,6 +43,7 @@ const REGISTRY = {
   recent_posts: ({ node, level }) => <RecentPostsBlock data={node.data} level={level} />,
   recent_comments: ({ node, level }) => <RecentCommentsBlock data={node.data} level={level} />,
   board_links: ({ node, level }) => <BoardLinksBlock data={node.data} level={level} />,
+  module: ({ node, level }) => <ModuleSlot data={node.data} level={level} />,
   group: ({ node, level }) => <GroupBlock node={node} level={level} />,
   columns: ({ node, level }) => <ColumnsBlock node={node} level={level} />,
 } satisfies { [K in RenderableType]: (props: Props<K>) => ReactNode };

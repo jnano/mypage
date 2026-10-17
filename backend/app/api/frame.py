@@ -58,7 +58,9 @@ async def me_frame(
 ):
     """개인 틀 — 열람 등급 페이지(§6.2)와 운영자의 초안 보기(draft=1, §5.5). 보는 사람 기준, 캐시하지 않는다.
     초안 보기는 운영자 표시 쿠키로 들어오는 길이라 쿠키를 위조해 호출 수를 늘릴 수 있다 — 회원 단위 분당 60(frame.draft)"""
-    if viewer.member_id is None or not is_page_path(path):
+    if viewer.member_id is None:  # 쿠키는 있는데 세션이 만료·폐기 — 화면이 '볼 수 없음' 대신 다시 로그인으로 가르게(코드 검토 v13 N-2)
+        raise Problem(404, "signed_out", "페이지를 찾을 수 없습니다")
+    if not is_page_path(path):
         raise Problem(404, "page_not_found", "페이지를 찾을 수 없습니다")
     if draft:
         await rate_limit.hit("frame.draft", f"m:{viewer.member_id}")

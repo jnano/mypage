@@ -18,6 +18,13 @@ export type ImageView = {
   pending?: true;
 };
 
+/** 모듈 자리(§3.4) — 연결 정보만. 데이터는 모듈 부품이 자기 API 로 */
+export type ModuleSlotData = {
+  module: "board";
+  params: { board_id: number; view: "list" | "card" | "photo" | "line" | null; count: number };
+  board: { slug: string };
+};
+
 export type BlockData = {
   site_brand: { href: string; name: string | null; logo: ImageView | null };
   menu: { label: string; items: MenuItemView[] };
@@ -45,6 +52,7 @@ export type BlockData = {
     items: { id: number; excerpt: string; author: string; post_title: string; href: string; created_at: string }[];
   };
   board_links: { title: string | null; items: { name: string; href: string; last_posted_at: string | null }[] };
+  module: ModuleSlotData;
   group: { title: string | null; landmark: boolean };
   columns: { count: number };
 };

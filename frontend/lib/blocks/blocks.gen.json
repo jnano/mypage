@@ -362,13 +362,12 @@
       "available": false
     }
   ],
-  "modules": [
-    {
-      "key": "board",
+  "modules": {
+    "board": {
       "label": "게시판",
       "available": true
     }
-  ],
+  },
   "examples": {
     "site_brand": {
       "href": "/",
@@ -664,6 +663,17 @@
     },
     "columns": {
       "count": 2
+    },
+    "module": {
+      "module": "board",
+      "params": {
+        "board_id": 1,
+        "view": null,
+        "count": 10
+      },
+      "board": {
+        "slug": "notice"
+      }
     },
     "recent_posts": {
       "title": "최근 글",

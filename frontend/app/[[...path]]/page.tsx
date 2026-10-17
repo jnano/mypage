@@ -22,8 +22,11 @@ export async function generateMetadata({ params }: PageProps<"/[[...path]]">): P
       notFound();
     case "moved":
       permanentRedirect(resolved.to);
-    case "page":
-      return pageMetadata((await getSite()).seo, resolved.bundle.page!, resolved.mode);
+    case "page": {
+      // 메타는 길(mode)이 아니라 페이지 상태로 — 운영자가 주소 집합 캐시 틈에 게시된 페이지를 초안 길로 받아도 초안이 아니다(코드 검토 v13 N-1)
+      const page = resolved.bundle.page!;
+      return pageMetadata((await getSite()).seo, page, page.draft ? "draft" : page.view_level > 0 ? "personal" : "public");
+    }
     case "home-fallback":
       return {};
     default: // 로그인·403 — 제목도 알리지 않는다
@@ -66,7 +69,7 @@ async function PageScreen({ path }: { path: Promise<string> }) {
   const blocks = await visibleIn(resolved.bundle, page.blocks);
   return (
     <article data-slot="user-page" data-page-id={page.id}>
-      {resolved.mode === "draft" && (
+      {resolved.bundle.page?.draft && (
         <p data-slot="draft-banner" role="status">
           초안 — 공개되지 않음
         </p>

@@ -4,10 +4,11 @@ import pytest
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.blocks.frame import frame_bundle
+from app.auth.viewer import Viewer
+from app.blocks.frame import frame_bundle, personal_blocks, viewer_frame
 from app.core import rate_limit
 from app.models import Block, Layout, Page
-from tests.factories import make_member
+from tests.factories import make_board, make_member
 from tests.helpers import as_member, count_queries
 
 pytestmark = pytest.mark.anyio
@@ -90,8 +91,10 @@ async def test_viewer_frame(dev_header, client, committed_db) -> None:
     admin = await make_member(committed_db, level=9, is_admin=True)
     await committed_db.commit()
     get = lambda who, path, **q: client.get("/api/me/frame", params={"path": path, **q}, headers=as_member(who) if who else {})  # noqa: E731
-    assert (await get(None, "/vip")).status_code == 404  # 비회원
-    assert (await get(low.id, "/vip")).status_code == 404  # 등급이 모자람 — 있는 줄 모르게
+    res = await get(None, "/vip")
+    assert (res.status_code, res.json()["code"]) == (404, "signed_out")  # 비회원(만료 쿠키) — 화면이 로그인으로 가른다(v13 N-2)
+    res = await get(low.id, "/vip")
+    assert (res.status_code, res.json()["code"]) == (404, "page_not_found")  # 등급이 모자람 — 있는 줄 모르게
     res = await get(high.id, "/vip")
     assert res.status_code == 200 and res.headers["cache-control"] == "no-store"
     assert res.json()["page"]["blocks"][0]["data"]["text"] == "VIP 본문"
@@ -120,3 +123,33 @@ async def test_page_bundle_query_budget(db: AsyncSession) -> None:
     with count_queries() as q:
         await frame_bundle(db, path="/about")
     assert q["n"] <= 8, q["sql"]
+
+
+async def test_board_module_on_page(db: AsyncSession) -> None:
+    """게시판 모듈(§3.4·U-5): 공개 게시판이면 공개 묶음에 연결 정보(slug), 회원 전용이면 자리만 — 회원은 그 사람 기준으로 풀고,
+    목록을 못 보는 회원에게는 없다. 모듈 데이터(글 목록)는 묶음에 싣지 않는다"""
+    free = await make_board(db, slug="free-m")
+    club = await make_board(db, slug="club-m", list_level=2)
+    layout = Layout(name="기본", is_default=True)
+    db.add(layout)
+    await db.flush()
+    open_page = await _page(db, "/open")
+    club_page = await _page(db, "/club")
+    db.add_all([
+        Block(page_id=open_page, type="module", config={"module": "board", "params": {"board_id": free.id, "count": 5}}),
+        Block(page_id=club_page, type="module", config={"module": "board", "params": {"board_id": club.id}}),
+    ])  # fmt: skip
+    await db.flush()
+    out = await frame_bundle(db, path="/open")
+    [slot] = out["page"]["blocks"]
+    assert slot["data"] == {"module": "board", "params": {"board_id": free.id, "view": None, "count": 5}, "board": {"slug": "free-m"}}
+    assert "posts" not in str(slot) and "boards:structure" in out["cache"]["tags"]
+    out = await frame_bundle(db, path="/club")
+    [slot] = out["page"]["blocks"]
+    assert slot.get("personal") is True and "data" not in slot and out["personal_block_ids"] == [slot["id"]]
+    low, high = (await make_member(db, level=1)), (await make_member(db, level=2))
+    assert await personal_blocks(db, Viewer(member_id=low.id, level=1), [slot["id"]]) == {}
+    mine = await personal_blocks(db, Viewer(member_id=high.id, level=2), [slot["id"]])
+    assert mine[slot["id"]]["data"]["board"] == {"slug": "club-m"}
+    page = (await viewer_frame(db, Viewer(member_id=high.id, level=2), "/club", draft=False))["page"]
+    assert page["blocks"][0]["data"]["board"] == {"slug": "club-m"}

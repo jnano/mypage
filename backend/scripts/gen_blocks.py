@@ -85,7 +85,7 @@ def render() -> str:
             {"type": k, "label": s.label, "group": s.group, "places": list(s.places), "available": s.available}
             for k, s in t.SPECS.items()
         ],
-        "modules": [{"key": m.key, "label": m.label, "available": m.available} for m in MODULES.values()],
+        "modules": {m.key: {"label": m.label, "available": m.available} for m in MODULES.values()},  # 키를 객체 키로 — 프런트 타입이 글자 그대로 읽는다
         # 지금 그릴 수 있는 종류의 견본(개발 견본 화면 /dev/blocks)
         "examples": {
             k: resolve(k, s.example, EXAMPLE_LOOKUP, attachment_ids=(1,))

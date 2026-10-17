@@ -14,7 +14,6 @@ EXPECTED = {
     "comment.updated": (["post:1", "recent:comments"], []),
     "comment.deleted": (["post:1", "recent:comments"], []),
     "board.updated": (["board:free", "boards:structure"], []),
-    "search_terms.aggregated": ([], ["search-terms"]),
     "thumbnail.ready": (["post:1"], []),
     "post.relations_changed": (["post:1"], []),
     "settings.updated": (["settings:seo"], ["sitemap"]),  # v3.0.12 — 사이트 설정(SEO 메타 등)

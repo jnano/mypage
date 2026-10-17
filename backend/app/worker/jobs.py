@@ -31,10 +31,13 @@ from app.models import (
     PostViewOnce,
     RateLimitCounter,
     PasswordResetToken,
+    SearchTermDaily,
+    SearchTermSearcher,
     Report,
     WithdrawnEmailMark,
 )
-from app.posts import reactions
+from app.core.site_date import site_today
+from app.search.terms import rebuild_popular
 from app.posts.purge import purge_posts
 
 HOUR = 3600
@@ -132,7 +135,7 @@ async def cleanup_rate_limits(db: AsyncSession) -> int:
 
 async def cleanup_view_records(db: AsyncSession) -> int:
     """daily 기록은 하루, 비회원 once 기록은 30일(§3.2). 회원 once(m:…)는 남긴다."""
-    daily = await _delete_limited(db, PostViewDaily, PostViewDaily.view_date < reactions.site_today() - 1)
+    daily = await _delete_limited(db, PostViewDaily, PostViewDaily.view_date < site_today() - 1)
     once = await _delete_limited(
         db,
         PostViewOnce,
@@ -140,6 +143,14 @@ async def cleanup_view_records(db: AsyncSession) -> int:
         PostViewOnce.created_at < func.now() - text("interval '30 days'"),
     )
     return daily + once
+
+
+async def cleanup_search_terms(db: AsyncSession) -> int:
+    """검색어 사람 해시는 날짜가 바뀐 뒤 한 시간 안에(매시), 날짜별 검색 수는 90일(§9.1). 날짜는 사이트 날짜"""
+    today = site_today()
+    searchers = await _delete_limited(db, SearchTermSearcher, SearchTermSearcher.day < today)
+    daily = await _delete_limited(db, SearchTermDaily, SearchTermDaily.day < today - 90)
+    return searchers + daily
 
 
 async def cleanup_outbox(db: AsyncSession) -> int:
@@ -272,6 +283,8 @@ JOBS: dict[str, Job] = {
         Job("idempotency.cleanup", HOUR, cleanup_idempotency),
         Job("rate_limit.cleanup", HOUR, cleanup_rate_limits),
         Job("view_records.cleanup", DAY, cleanup_view_records),
+        Job("search_terms.cleanup", HOUR, cleanup_search_terms),
+        Job("search_terms.popular", HOUR, rebuild_popular),
         Job("outbox.cleanup", DAY, cleanup_outbox),
         Job("board_daily_stats", HOUR, aggregate_board_daily_stats),
         Job("moderation_logs.redact", DAY, redact_moderation_logs),

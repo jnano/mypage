@@ -603,6 +603,19 @@ SPEC: dict[str, T] = {
         cols=["term varchar(100)", "count bigint =0", "last_searched_at timestamptz"],
         pk=("term",),
     ),
+    # §9.1 (v4.0.12) — 날짜별 검색 수·사람 수, 그날만 두는 사람 해시
+    "search_term_daily": T(
+        cols=["day date", "term varchar(100)", "display varchar(100)", "searches integer =0", "people integer =0", "members integer =0"],
+        pk=("day", "term"),
+    ),
+    "search_popular": T(
+        cols=["rank smallint", "term varchar(100)", "display varchar(100)"],
+        pk=("rank",),
+    ),
+    "search_term_searchers": T(
+        cols=["day date", "term varchar(100)", "searcher char(22)"],
+        pk=("day", "term", "searcher"),
+    ),
     "search_synonyms": T(
         cols=["term varchar(100)", "synonym varchar(100)"],
         pk=("term", "synonym"),

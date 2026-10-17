@@ -16,7 +16,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.auth.viewer import Viewer
 from app.core import rate_limit
-from app.core.config import settings
+from app.core.site_date import site_today
 from app.core.problems import Problem
 from app.db.session import SessionLocal, engine
 from app.models import Board, Post, PostReaction, PostScrap, PostStat, PostViewDaily, PostViewOnce
@@ -150,11 +150,6 @@ def viewer_key(viewer: Viewer, view_token: str | None) -> str | None:
         return None
     digest = hashlib.sha256(view_token.encode()).digest()
     return "g:" + base64.urlsafe_b64encode(digest).rstrip(b"=").decode()
-
-
-def site_today():
-    """사이트 시간대의 오늘(§3.7) — DB 세션 시간대의 current_date 가 아니다. daily 기록과 그 정리가 같은 규칙을 쓴다"""
-    return func.date(func.timezone(settings.site_time_zone, func.now()))
 
 
 async def _countable(viewer: Viewer, post_id: int) -> Board | None:

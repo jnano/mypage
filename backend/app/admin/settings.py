@@ -75,10 +75,14 @@ class SeoSettings(BaseModel):
 
 
 class SearchSettings(BaseModel):
-    """검색 — 추천 검색어(동의어·검색 제외는 2단계)."""
+    """검색 — 추천 검색어, 인기 검색어의 검색 제외 목록과 노출 문턱(§9.1). 동의어는 보류(§1.5)."""
 
     model_config = ConfigDict(extra="forbid")
     recommended: Annotated[list[Annotated[str, Field(min_length=1, max_length=50)]], Field(max_length=20)] = []
+    # 인기 검색어에서 뺄 말 — compact(띄어쓰기·대소문자 무시)가 같으면 뺀다
+    excluded_terms: Annotated[list[Annotated[str, Field(min_length=1, max_length=100)]], Field(max_length=100)] = []
+    # 그날 서로 다른 사람이 이 수 이상 검색한 날이 기간 안에 있어야 인기 검색어에 오른다(사용자 결정 2026-10-17)
+    popular_min_people: Annotated[int, Field(ge=2, le=50)] = 5
 
 
 class SignupSettings(BaseModel):

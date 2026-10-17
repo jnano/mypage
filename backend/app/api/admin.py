@@ -7,12 +7,15 @@ from fastapi import APIRouter, Depends, Query
 from sqlalchemy import func, literal_column, select, text
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.admin import settings as site_settings
 from app.admin.scope import StaffScope, load_staff_scope
+from app.admin.settings import SearchSettings
 from app.auth.viewer import Viewer, get_viewer
 from app.core.config import settings
 from app.db.session import get_db
 from app.models import Board, LevelRequest, Member, ModerationLog, OutboxEvent, Post, Report
 from app.models.enums import MODERATION_TARGET_TYPES
+from app.search import terms as search_terms
 
 router = APIRouter(prefix="/admin")
 
@@ -74,9 +77,16 @@ async def summary(scope: StaffScope = Depends(staff_scope), db: AsyncSession = D
     boards = (
         await db.execute(select(Board.id, Board.slug, Board.name).where(scope.board_clause(Board.id)).order_by(Board.sort_order, Board.id))
     ).all()
+    # 지금 공개 화면에 나가는 인기 검색어(§9.1) — 이상한 말을 빨리 보고 검색 제외에 넣게(사용자 결정). 사이트 운영자만
+    popular_terms = None
+    if scope.is_admin:
+        search = await site_settings.load(db, "search")
+        assert isinstance(search, SearchSettings)
+        popular_terms = await search_terms.popular(db, search)
     return {
         "viewer": {"member_id": scope.viewer.member_id, "is_admin": scope.is_admin},
         "boards": [{"id": b.id, "slug": b.slug, "name": b.name} for b in boards],
+        "popular_terms": popular_terms,
         "badges": {
             "reports": row.reports,
             "pending": row.pending,

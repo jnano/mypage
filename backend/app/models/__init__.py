@@ -38,8 +38,11 @@ from app.models.system import (
     IdempotencyKey,
     OutboxEvent,
     RateLimitCounter,
+    SearchPopular,
     SearchSynonym,
     SearchTerm,
+    SearchTermDaily,
+    SearchTermSearcher,
     WorkerSchedule,
 )
 
@@ -86,8 +89,11 @@ __all__ = [
     "PrivacyNotice",
     "RateLimitCounter",
     "Report",
+    "SearchPopular",
     "SearchSynonym",
     "SearchTerm",
+    "SearchTermDaily",
+    "SearchTermSearcher",
     "SiteSetting",
     "TEMP_UPLOAD",
     "WithdrawnEmailMark",

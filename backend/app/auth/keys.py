@@ -1,7 +1,7 @@
 """인증용 키와 서명 토큰 — 인증 설계도 §3.7 '파생 키'.
 
 비밀은 EMAIL_HMAC_SECRET 하나이고, 용도마다 subkey(용도) = HMAC(비밀, 용도) 를 쓴다. 한 용도의 서명으로
-다른 용도의 토큰을 만들 수 없다. 용도: email(제한 키·탈퇴 표시) · device(기기 쿠키) · form(폼 토큰) · consent(재동의 토큰).
+다른 용도의 토큰을 만들 수 없다. 용도: email(제한 키·탈퇴 표시) · device(기기 쿠키) · form(폼 토큰) · consent(재동의 토큰) · search(검색어 집계의 날짜별 사람 해시 — 제1부 §9.1).
 
 서명 토큰 모양: '본문 칸들(점으로 구분)' + '.' + base64url(HMAC-SHA256(subkey, 본문)). 본문에 비밀 정보는 없다.
 """
@@ -14,7 +14,7 @@ from typing import Literal
 
 from app.core.config import settings
 
-Purpose = Literal["email", "device", "form", "consent"]
+Purpose = Literal["email", "device", "form", "consent", "search"]
 
 
 def subkey(purpose: Purpose) -> bytes:

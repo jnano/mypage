@@ -1,11 +1,12 @@
 """기반 표(작업자·멱등·요청 수 제한·검색어) — 설계도 §4.5"""
 
-from datetime import datetime
+from datetime import date, datetime
 from typing import Any
 
 from sqlalchemy import (
     CHAR,
     BigInteger,
+    Date,
     DateTime,
     Index,
     Integer,
@@ -90,6 +91,39 @@ class SearchTerm(Base):
     term: Mapped[str] = mapped_column(String(100), primary_key=True)
     count: Mapped[int] = mapped_column(BigInteger, server_default=ZERO)
     last_searched_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+
+
+class SearchTermDaily(Base):
+    """날짜별 검색 수·서로 다른 사람 수(§9.1). 사람 칸은 없다 — 90일 보관."""
+
+    __tablename__ = "search_term_daily"
+
+    day: Mapped[date] = mapped_column(Date, primary_key=True)
+    term: Mapped[str] = mapped_column(String(100), primary_key=True)
+    display: Mapped[str] = mapped_column(String(100))
+    searches: Mapped[int] = mapped_column(Integer, server_default=ZERO)
+    people: Mapped[int] = mapped_column(Integer, server_default=ZERO)  # 그날 서로 다른 사람
+    members: Mapped[int] = mapped_column(Integer, server_default=ZERO)  # 그 가운데 회원
+
+
+class SearchTermSearcher(Base):
+    """그날 그 검색어를 센 사람의 해시(§9.1) — HMAC(날짜별 키, 사람) 앞 22자(132비트). 날짜가 바뀐 뒤 한 시간 안에 지운다."""
+
+    __tablename__ = "search_term_searchers"
+
+    day: Mapped[date] = mapped_column(Date, primary_key=True)
+    term: Mapped[str] = mapped_column(String(100), primary_key=True)
+    searcher: Mapped[str] = mapped_column(CHAR(22), primary_key=True)
+
+
+class SearchPopular(Base):
+    """인기 검색어 후보 — 작업자가 매시 다시 만든다(§9.1). 요청마다 7일치를 모으지 않게. 검색 제외·금지어는 읽을 때 거른다."""
+
+    __tablename__ = "search_popular"
+
+    rank: Mapped[int] = mapped_column(SmallInteger, primary_key=True, autoincrement=False)
+    term: Mapped[str] = mapped_column(String(100))
+    display: Mapped[str] = mapped_column(String(100))
 
 
 class SearchSynonym(Base):

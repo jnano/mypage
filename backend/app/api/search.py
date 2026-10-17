@@ -2,16 +2,20 @@
 
 from typing import Literal
 
-from fastapi import APIRouter, Depends, Query
+from fastapi import APIRouter, Depends, Query, Request
 from fastapi.responses import JSONResponse
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.auth.viewer import Viewer, get_viewer
+from app.admin import settings as site_settings
+from app.admin.settings import SearchSettings
 from app.core import rate_limit
+from app.core.client_ip import client_ip
 from app.core.problems import Problem
 from app.db.session import get_db
 from app.permissions import can, load_board_role
 from app.posts import queries
+from app.search import terms
 from app.search.backend import COUNT_CAP, PER_PAGE, backend, parse_query
 
 router = APIRouter()
@@ -19,6 +23,7 @@ router = APIRouter()
 
 @router.get("/search")
 async def search(
+    request: Request,
     q: str = Query(..., max_length=1000),
     board: str | None = None,
     scope: Literal["all", "title"] = "all",
@@ -40,6 +45,8 @@ async def search(
         await rate_limit.hit("search", f"m:{viewer.member_id}")
 
     result = await backend.search(db, viewer, query)
+    if page == 1:  # 검색어 집계(§9.1) — 결과를 낸 첫 쪽만, 메모리에 넣고 끝
+        terms.record(query.text, q, terms.searcher_of(viewer, client_ip(request)))
     body = {
         "q": query.text,
         "results": [
@@ -62,6 +69,15 @@ async def search(
         },
     }
     return JSONResponse(body, headers={"Cache-Control": "no-store"})
+
+
+@router.get("/search/terms")
+async def search_terms(db: AsyncSession = Depends(get_db)):
+    """인기·추천 검색어 묶음 응답(§9.1) — 공개 캐시(사람마다 다르지 않다). 태그 settings:search, 집계로는 무효화하지 않는다"""
+    search = await site_settings.load(db, "search")
+    assert isinstance(search, SearchSettings)
+    body = {"popular": await terms.popular(db, search), "recommended": search.recommended, "cache": {"tags": ["settings:search"]}}
+    return JSONResponse(body)
 
 
 @router.get("/health/search")

@@ -34,7 +34,6 @@ TABLE: dict[str, tuple[tuple[str, Expire], ...]] = {
     "comment.updated": (("post:{post_id}", NOW), ("recent:comments", NOW)),  # v3.0.8 — 수정도 글 화면에 바로 보여야 한다
     "comment.deleted": (("post:{post_id}", NOW), ("recent:comments", NOW)),
     "board.updated": (("board:{board_slug}", NOW), ("boards:structure", NOW)),
-    "search_terms.aggregated": (("search-terms", MAX),),
     "thumbnail.ready": (("post:{post_id}", NOW),),
     "post.relations_changed": (("post:{post_id}", NOW),),  # 관련 글 편집(§6.2) — 원본 글 묶음 응답에만 실린다
     "settings.updated": (("settings:{group}", NOW), ("sitemap", MAX)),  # 사이트 설정(SEO 메타 등) — 읽는 화면이 이 태그를 단다

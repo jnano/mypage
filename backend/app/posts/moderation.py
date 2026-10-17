@@ -17,7 +17,7 @@ from sqlalchemy import bindparam, delete, func, insert, literal_column, select, 
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.admin.logs import LogEntry, changed, record
-from app.auth.viewer import Viewer
+from app.auth.viewer import GuestToken, Viewer
 from app.core import outbox
 from app.core.invalidation import tags_for
 from app.core.problems import Problem
@@ -92,13 +92,16 @@ async def load_targets(db: AsyncSession, ids: Sequence[int]) -> list[tuple[Any, 
     return [(r, r.Board) for r in rows]
 
 
-async def authorize(db: AsyncSession, viewer: Viewer, action: str, targets: list[tuple[Any, Board]]) -> dict[int, BoardRole]:
-    """글마다 판정. 하나라도 안 되면 403 + 그 id 들(원자적, §6 bulk)."""
-    if viewer.member_id is None:
+async def authorize(
+    db: AsyncSession, viewer: Viewer, action: str, targets: list[tuple[Any, Board]], guest_token: GuestToken | None = None
+) -> dict[int, BoardRole]:
+    """글마다 판정. 하나라도 안 되면 403 + 그 id 들(원자적, §6 bulk).
+    비회원 작성자(edit 토큰)는 자기 글 하나의 휴지통만(§6.3)."""
+    if viewer.member_id is None and not (guest_token is not None and action == "trash" and len(targets) == 1):
         raise Problem(401, "login_required", "로그인이 필요합니다")
     roles = await load_board_roles(db, viewer, {b.id for _, b in targets})
     need = REQUIRED.get(action, "post.moderate")
-    denied = [p.id for p, b in targets if not can(viewer, roles[b.id], need, b, p, has_comments=p.comment_count > 0)]
+    denied = [p.id for p, b in targets if not can(viewer, roles[b.id], need, b, p, guest_token, has_comments=p.comment_count > 0)]
     if denied:
         raise Problem(403, "bulk_forbidden", "권한이 없는 글이 있습니다", detail=f"ids={denied}")
     return roles
@@ -288,11 +291,15 @@ async def _publish(db: AsyncSession, targets, action: str, reason, out: Outcome)
     if wrong := [p.id for p, _ in targets if p.status not in allowed]:
         raise Problem(409, "post_status", "이 상태의 글에는 할 수 없습니다", detail=f"ids={wrong}")
     for p, b in targets:
-        await _update(db, p.id, {"status": "published", "published_at": func.now()})
+        # 게시 시각은 처음 승인 때만(§4.3·§6.3) — 비회원이 고쳐 다시 대기였다가 승인되어도 목록 맨 위로 뜨지 않게
+        await _update(db, p.id, {"status": "published", "published_at": func.coalesce(Post.published_at, func.now())})
         _log(p, b, action, {"status": "published"}, reason, out)
         out.reopen.add(p.id)
         out.invalidate("post.status_changed", post_id=p.id, board_slug=b.slug)
-        await outbox.enqueue(db, [outbox.Event("post.created", {"post_id": p.id, "board_id": b.id}, f"post.created:{p.id}")])
+        # 구독자 '새 글' 알림은 처음 게시될 때만 — 다시 승인(비회원이 고쳐 대기였던 글, §6.3)은 알리지 않는다.
+        # 중복 제거 키는 글 작성 때의 post.created:{id} 와 따로(대기로 만들어진 글을 승인하면 같은 키가 겹쳤다)
+        if p.published_at is None:
+            await outbox.enqueue(db, [outbox.Event("post.created", {"post_id": p.id, "board_id": b.id}, f"post.published:{p.id}")])
 
 
 async def _reject(db: AsyncSession, targets, reason: str | None, out: Outcome) -> None:
@@ -336,6 +343,7 @@ async def apply(
     category_ids: list[int] | None = None,
     min_view_level: int | None = None,
     reason: str | None = None,
+    guest_token: GuestToken | None = None,
 ) -> Outcome:
     """조치 하나를 여러 글에(트랜잭션 안). 판정 → 조치 → 검색·첨부 맞춤 → 운영 기록."""
     if not ids:
@@ -343,7 +351,7 @@ async def apply(
     if len(ids) > MAX_BULK:
         raise _field_error("ids", f"한 번에 {MAX_BULK}건까지입니다")
     targets = await load_targets(db, ids)
-    await authorize(db, viewer, action, targets)
+    await authorize(db, viewer, action, targets, guest_token)
     out = Outcome()
     match action:
         case "trash":

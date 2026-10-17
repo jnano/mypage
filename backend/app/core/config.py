@@ -46,6 +46,8 @@ class Settings(BaseSettings):
     # 인증(인증 설계도 §3.7) — 용도별 파생 키의 바탕 비밀 하나(app/auth/keys.py). 본 설계서 §11 의 IP 해시 비밀과 따로 둔다.
     # 바꾸면 탈퇴 표시·기기 쿠키·폼 토큰·재동의 토큰이 무효가 된다. dev·test 에서 비우면 고정 개발용 값
     email_hmac_secret: str = ""
+    # 비회원 글의 IP 해시(설계도 §6.3·§11) — 인증 비밀과 따로. ENV=prod 에서는 32자 이상 필수, dev·test 에서 비우면 고정 개발값
+    ip_hash_secret: str = ""
     # 세션 만료(§3.2.1) — 유지 안 함은 브라우저 세션 쿠키 + 서버 12시간
     session_hours: int = 12
     session_member_days: int = 30
@@ -70,8 +72,12 @@ class Settings(BaseSettings):
             raise ValueError("ENV=prod 에서는 INTERNAL_API_SECRET(32자 이상)이 필요합니다")
         if self.env == "prod" and len(self.email_hmac_secret) < 32:
             raise ValueError("ENV=prod 에서는 EMAIL_HMAC_SECRET(32자 이상)이 필요합니다")
+        if self.env == "prod" and len(self.ip_hash_secret) < 32:
+            raise ValueError("ENV=prod 에서는 IP_HASH_SECRET(32자 이상)이 필요합니다")
         if not self.email_hmac_secret:
             self.email_hmac_secret = "dev-only-email-hmac-secret-not-for-prod"
+        if not self.ip_hash_secret:
+            self.ip_hash_secret = "dev-only-ip-hash-secret-not-for-prod"
         return self
 
 

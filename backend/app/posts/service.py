@@ -9,7 +9,7 @@ from typing import Any
 from sqlalchemy import delete, func, insert, literal_column, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.auth.viewer import Viewer
+from app.auth.viewer import GuestToken, Viewer
 from app.core import idempotency, outbox, rate_limit
 from app.core.invalidation import tags_for
 from app.core.problems import Problem
@@ -135,6 +135,16 @@ async def create_post(
         raise
 
 
+@dataclass(frozen=True)
+class GuestAuthor:
+    """비회원 작성자 칸(설계도 §6.3) — 이름·비밀번호 해시·IP 해시와 그 기간"""
+
+    name: str
+    password_hash: str
+    ip_hash: str
+    ip_hash_period: int
+
+
 async def insert_post(
     db: AsyncSession,
     viewer: Viewer,
@@ -144,20 +154,30 @@ async def insert_post(
     search: dict[str, Any],
     *,
     has_files: bool = False,
+    guest: GuestAuthor | None = None,
+    status: str = "published",
 ) -> WriteResult:
     await _check_categories(db, board.id, body.category_ids)
-    author_name = (
-        await db.execute(select(Member.display_name).where(Member.id == viewer.member_id))
-    ).scalar_one()
-    status = "published"
+    if guest is None:
+        author_name = (
+            await db.execute(select(Member.display_name).where(Member.id == viewer.member_id))
+        ).scalar_one()
+        author = {"member_id": viewer.member_id, "is_guest": False, "author_name_snapshot": author_name}
+    else:
+        author = {
+            "member_id": None,
+            "is_guest": True,
+            "author_name_snapshot": guest.name,
+            "guest_password_hash": guest.password_hash,
+            "ip_hash": guest.ip_hash,
+            "ip_hash_period": guest.ip_hash_period,
+        }
     row = (
         await db.execute(
             insert(Post)
             .values(
                 board_id=board.id,
-                member_id=viewer.member_id,
-                is_guest=False,
-                author_name_snapshot=author_name,
+                **author,
                 title=body.title,
                 content_format=content.format,
                 content_source=content.source,
@@ -165,7 +185,7 @@ async def insert_post(
                 content_rendered=content.rendered,
                 sanitizer_version=content.sanitizer_version,
                 status=status,
-                published_at=func.now(),
+                published_at=func.now() if status == "published" else None,  # 승인 대기는 승인 때(§4.3)
                 is_secret=body.is_secret,
                 posted_as="personal",
             )
@@ -221,8 +241,21 @@ def parse_if_match(value: str | None) -> int:
     return int(raw)
 
 
-async def update_post(viewer: Viewer, post_id: int, body: PostUpdate, if_match: str | None, reason: str | None = None) -> WriteResult:
-    _require_member(viewer)
+async def update_post(
+    viewer: Viewer,
+    post_id: int,
+    body: PostUpdate,
+    if_match: str | None,
+    reason: str | None = None,
+    *,
+    guest_token: GuestToken | None = None,
+    ip: str = "",
+) -> WriteResult:
+    """회원 또는 비회원 작성자(edit 토큰, §6.3). 비회원은 관리 칸·첨부를 쓰지 않는다."""
+    if guest_token is None:
+        _require_member(viewer)
+    elif body.model_fields_set & (MODERATE_FIELDS | {"attachments"}):
+        raise Problem(422, "validation_error", "비회원 글은 제목·본문·카테고리·비밀만 고칠 수 있습니다")
     expected_version = parse_if_match(if_match)
     if body.model_fields_set <= MODERATE_FIELDS:
         return await _moderate_fields(viewer, post_id, body, expected_version, reason)
@@ -239,7 +272,7 @@ async def update_post(viewer: Viewer, post_id: int, body: PostUpdate, if_match: 
         else:
             files = await attach.load_for_post(db, post_id)
         policy = None if spam.exempt(viewer, role) else await spam.policy_for(db, board)
-    if not can(viewer, role, "post.update", board, post):
+    if not can(viewer, role, "post.update", board, post, guest_token):
         raise Problem(403, "post_update_forbidden", "이 글을 수정할 권한이 없습니다")
     if post.status not in EDITABLE_STATUSES:
         raise Problem(409, "post_not_editable", "이 상태의 글은 수정할 수 없습니다")
@@ -263,7 +296,12 @@ async def update_post(viewer: Viewer, post_id: int, body: PostUpdate, if_match: 
         search |= title_fields(body.title)
     if content is not None:
         search |= content_fields(content.text)
-    await rate_limit.hit("post.update", f"m:{viewer.member_id}")
+    if guest_token is None:
+        await rate_limit.hit("post.update", f"m:{viewer.member_id}")
+    else:
+        await rate_limit.hit("post.update_guest", ip)  # 재승인 알림 폭주를 묶는다(검토 v4.0.14 N-2)
+    # 승인이 필요한 게시판에서 공개된 비회원 글을 고치면 다시 승인 대기(§6.3) — published_at 은 그대로(처음 승인 때 정해졌다)
+    repending = guest_token is not None and post.status == "published" and policy is not None and policy.guest_requires_approval
 
     async with SessionLocal() as db, db.begin():
         if body.category_ids is not None:
@@ -282,6 +320,8 @@ async def update_post(viewer: Viewer, post_id: int, body: PostUpdate, if_match: 
             }
         if body.title is not None or content is not None:
             values["content_updated_at"] = func.now()
+        if repending:
+            values["status"] = "pending"
         row = (
             await db.execute(
                 update(Post)
@@ -324,10 +364,11 @@ async def update_post(viewer: Viewer, post_id: int, body: PostUpdate, if_match: 
             await attach.apply(db, post_id, body.attachments, uploader_id=viewer.member_id, used_inline=attach.inline_ids(html), remove_others=True)
         if body.attachments is not None or content is not None or body.is_secret is not None:
             await attach.reconcile(db, post_id)  # 공개 여부가 바뀌었을 수 있다(§12.1)
-        await outbox.enqueue(
-            db, [outbox.Event("post.updated", {"post_id": post_id, "version": row.version})]
-        )
-    invalidate = tags_for("post.updated", post_id=post_id, board_slug=board.slug)
+        events = [outbox.Event("post.updated", {"post_id": post_id, "version": row.version})]
+        if repending:  # 담당자에게 다시 알림(대기 알림의 중복 제거 키에 판 번호)
+            events.append(outbox.Event("post.created", {"post_id": post_id, "board_id": board.id, "version": row.version}, f"post.repending:{post_id}:{row.version}"))
+        await outbox.enqueue(db, events)
+    invalidate = tags_for("post.status_changed" if repending else "post.updated", post_id=post_id, board_slug=board.slug)
     return WriteResult(
         200,
         {"post": {"id": post_id, "version": row.version}, "invalidate": invalidate.as_dict()},

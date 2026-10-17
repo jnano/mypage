@@ -56,6 +56,7 @@ def list_row(viewer: Viewer, role: BoardRole, row: Row, now: datetime) -> dict[s
         "title_bold": row.title_bold and not reason,
         "title_color": None if reason else row.title_color,
         "author_name": row.author_name_snapshot,
+        "author_is_guest": row.is_guest,  # 화면이 '(비회원)'을 붙인다 — 사칭 구분(§6.3)
         "posted_as": row.posted_as,
         "published_at": _iso(row.published_at),
         "edited": _edited(row.published_at, row.content_updated_at),
@@ -89,6 +90,7 @@ def post_view(row: Row, board: Board, now: datetime) -> dict[str, Any]:
         "title_bold": row.title_bold,
         "title_color": row.title_color,
         "author_name": row.author_name_snapshot,
+        "author_is_guest": row.is_guest,  # 화면이 '(비회원)'을 붙인다 — 사칭 구분(§6.3)
         "posted_as": row.posted_as,
         "status": row.status,
         "content_format": row.content_format,

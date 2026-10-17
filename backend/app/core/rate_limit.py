@@ -34,8 +34,7 @@ LIMITS: dict[str, Limit] = {
     "upload": Limit(30, 60),
     "editor.preview": Limit(60, 60),
     "report.create": Limit(10, 600),
-    # 비회원 검색은 실제 IP 를 믿을 수 있는 배포 구성(§17 nginx real_ip) 뒤에 붙인다
-    "search": Limit(30, 60),
+    "search": Limit(30, 60),  # 회원 id 또는 비회원 client_ip()(§6.3)
     # 인증(인증 설계도 §7.5) — IP 는 client_ip(), 이메일은 HMAC(원문을 키에 넣지 않는다). 검증 전에 세므로 성공도 센다
     "auth.login": Limit(10, 900),  # 이메일 + IP
     "auth.login_account": Limit(100, 900),  # 이메일 단독 — 이 이메일의 유효한 기기 쿠키면 건너뛴다
@@ -52,10 +51,17 @@ LIMITS: dict[str, Limit] = {
     "post.react": Limit(60, 60),  # 회원 id — 추천·스크랩 켜기·끄기
     "post.view": Limit(60, 60),  # client_ip() — 조회 신호
     "post.share": Limit(3, 3600),  # client_ip() + 글 id — 공유. 넘으면 세지 않는다
+    # 비회원 글쓰기(§6.3) — 시도(성공·실패 모두, 맨 앞)·성공·사이트 전체(경보)·수정, 비회원 토큰(IP·글 + 글 전체)
+    "post.create_guest_attempt": Limit(20, 600),
+    "post.create_guest": Limit(3, 600),
+    "post.create_guest_all": Limit(60, 3600),
+    "post.update_guest": Limit(5, 600),
+    "guest.token": Limit(5, 600),
+    "guest.token_post": Limit(50, 600),
 }
 
 # 넘어도 운영 기록이 남지 않는 키 — 한도 값을 나중에 다시 보려고 창마다 처음 넘는 순간 로그 한 줄(키 종류·한도만, 주체 원문 없음)
-WARN_ON_EXCEED = frozenset({"post.react", "post.view", "post.share"})
+WARN_ON_EXCEED = frozenset({"post.react", "post.view", "post.share", "post.create_guest_attempt", "post.create_guest", "post.update_guest", "guest.token", "guest.token_post"})
 
 
 async def tally(action: str, subject: str, count: int | None = None) -> tuple[int, Limit, float]:

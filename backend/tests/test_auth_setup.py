@@ -177,8 +177,23 @@ def test_prod_requires_email_hmac_secret() -> None:
 
     from app.core.config import Settings
 
-    base = {"env": "prod", "internal_api_secret": "x" * 32}
+    base = {"env": "prod", "internal_api_secret": "x" * 32, "ip_hash_secret": "z" * 32}
     with pytest.raises(ValidationError, match="EMAIL_HMAC_SECRET"):
         Settings(**base, email_hmac_secret="short")
     assert Settings(**base, email_hmac_secret="y" * 32).email_hmac_secret == "y" * 32
     assert Settings(env="test").email_hmac_secret  # dev·test 에서 비우면 개발용 고정 값
+
+
+def test_prod_requires_ip_hash_secret() -> None:
+    """비회원 글의 IP 해시 비밀(설계도 §6.3) — prod 32자 이상, dev·test 는 비우면 개발값"""
+    from pydantic import ValidationError
+
+    from app.core.config import Settings
+
+    base = {"env": "prod", "internal_api_secret": "x" * 32, "email_hmac_secret": "y" * 32}
+    with pytest.raises(ValidationError, match="IP_HASH_SECRET"):
+        Settings(**base, ip_hash_secret="short")
+    with pytest.raises(ValidationError, match="IP_HASH_SECRET"):
+        Settings(**base)
+    assert Settings(**base, ip_hash_secret="z" * 32).ip_hash_secret == "z" * 32
+    assert Settings(env="test").ip_hash_secret

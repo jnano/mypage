@@ -23,9 +23,12 @@ def _rejected() -> Problem:
     return Problem(422, "form_rejected", "폼이 만료되었거나 올바르지 않습니다. 화면을 새로 고친 뒤 다시 보내 주세요")
 
 
-def check(token: str | None, form: str, honeypot: str | None) -> None:
-    if honeypot:  # 사람에게는 보이지 않는 칸 — 채워져 있으면 자동 입력
+def check(token: str | None, form: str, honeypot: str | None, *, min_elapsed: int | None = None, use_honeypot: bool = True) -> None:
+    """min_elapsed·use_honeypot 은 비회원 글쓰기가 게시판 스팸 정책 값으로 넘긴다(설계도 §6.3). 없으면 MIN_ELAPSED(부를 때 읽는다)"""
+    if min_elapsed is None:
+        min_elapsed = MIN_ELAPSED
+    if use_honeypot and honeypot:  # 사람에게는 보이지 않는 칸 — 채워져 있으면 자동 입력
         raise _rejected()
     fields = keys.verify("form", token or "", 2, MAX_AGE)
-    if fields is None or fields[0] != form or time.time() - int(fields[1]) < MIN_ELAPSED:
+    if fields is None or fields[0] != form or time.time() - int(fields[1]) < min_elapsed:
         raise _rejected()

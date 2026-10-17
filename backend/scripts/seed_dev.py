@@ -11,7 +11,7 @@ from sqlalchemy import select, update
 
 from app.auth.names import display_name_key
 from app.auth.passwords import hash_password
-from app.auth.viewer import Viewer
+from app.auth.viewer import GUEST, Viewer
 from app.boards.settings import UploadPolicy, default_display
 from app.db.session import SessionLocal, engine
 from app.editor.content import build_content
@@ -25,9 +25,12 @@ from app.models import (
     Post,
 )
 from app.posts.schemas import PostCreate
-from app.posts.service import insert_post
+from app.posts.guest import ip_hash, ip_period
+from app.posts.service import GuestAuthor, insert_post
 from app.search.index import content_fields, title_fields
 from scripts.dev_auth import DEV_PASSWORD, ensure_dev_notice
+
+GUEST_PASSWORD = "guest-pass-01"  # 개발 시드의 비회원 글 비밀번호(접근성·브라우저 점검이 쓴다)
 
 POSTS = {
     "notice": [
@@ -98,7 +101,13 @@ async def main() -> None:
             editor="rich", upload_policy=upload,
             display=default_display("default").model_dump(),
         )  # fmt: skip
-        db.add_all([notice, free, members_board, meeting])
+        # 비회원 글쓰기(설계도 §6.3) — 쓰기 등급 0, 승인 없이 공개(접근성 검사가 비회원 글쓰기·비밀번호 화면을 본다)
+        open_board = Board(
+            slug="open", name="손님 게시판", kind="default", sort_order=5, write_level=0,
+            editor="markdown", upload_policy=upload, spam_policy={"guest_requires_approval": False},
+            display=default_display("default").model_dump(),
+        )  # fmt: skip
+        db.add_all([notice, free, members_board, meeting, open_board])
         await db.flush()
         db.add_all(
             [
@@ -134,6 +143,15 @@ async def main() -> None:
                 search = title_fields(body.title) | content_fields(content.text)
                 await insert_post(db, viewer, board, body, content, search)
 
+        # 비회원 글 하나 — 비밀번호 GUEST_PASSWORD
+        body = PostCreate(title="손님 인사", content="처음 들렀습니다. 잘 부탁드립니다.")
+        content = await build_content(open_board.editor, body.content)
+        period = ip_period()
+        await insert_post(
+            db, GUEST, open_board, body, content, title_fields(body.title) | content_fields(content.text),
+            guest=GuestAuthor("손님", hash_password(GUEST_PASSWORD), ip_hash("127.0.0.1", period), period),
+        )  # fmt: skip
+
         # 자유게시판 첫 글을 고정 글(띠)로
         first = (
             await db.execute(
@@ -146,6 +164,7 @@ async def main() -> None:
     for m in (admin, mod, m1, m3):
         print(f"  회원 {m.id}: {m.display_name} {m.email} (레벨 {m.level}{', 운영자' if m.is_admin else ''})")
     print(f"비밀번호(모두): {DEV_PASSWORD}")
+    print(f"비회원 글(손님 게시판 open) 비밀번호: {GUEST_PASSWORD}")
     print("개발용 헤더 예: X-Dev-Member: <회원 id>; key=<DEV_VIEWER_SECRET>")
     await engine.dispose()
 

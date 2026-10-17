@@ -41,8 +41,8 @@ async def search(
             raise Problem(403, "board_forbidden", "이 게시판을 볼 권한이 없습니다")
         board_id = found.id
     query = parse_query(q, board_id=board_id, scope=scope, page=page)
-    if viewer.member_id is not None:
-        await rate_limit.hit("search", f"m:{viewer.member_id}")
+    # 회원은 회원 id, 비회원은 실제 IP(§6.3 — client_ip() 가 생겨 비회원도 센다. 검색어 집계의 30초 기억에도 상한이 생긴다)
+    await rate_limit.hit("search", f"m:{viewer.member_id}" if viewer.member_id is not None else f"ip:{client_ip(request)}")
 
     result = await backend.search(db, viewer, query)
     if page == 1:  # 검색어 집계(§9.1) — 결과를 낸 첫 쪽만, 메모리에 넣고 끝

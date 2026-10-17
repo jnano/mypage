@@ -8,12 +8,12 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.admin.scope import StaffScope
 from app.api.admin import day_start, staff_scope
-from app.auth.viewer import Viewer, get_viewer
+from app.auth.viewer import GuestToken, Viewer, get_viewer
 from app.boards.admin import find_board
 from app.db.session import SessionLocal, get_db
 from app.models import Board, Post, PostStat, Report
 from app.models.enums import POST_STATUSES
-from app.posts import moderation
+from app.posts import guest, moderation
 from app.posts.schemas import BulkRequest, PinnedOrder, ReasonBody
 
 router = APIRouter()
@@ -31,16 +31,24 @@ async def bulk(body: BulkRequest, viewer: Viewer = Depends(get_viewer)):
     return out.body(done=len(body.ids), created=out.created)
 
 
-async def _single(viewer: Viewer, action: str, post_id: int, reason: str | None) -> dict:
+async def _single(viewer: Viewer, action: str, post_id: int, reason: str | None, guest_token: GuestToken | None = None) -> dict:
     async with SessionLocal() as db, db.begin():
-        out = await moderation.apply(db, viewer, action, [post_id], reason=reason)
+        out = await moderation.apply(db, viewer, action, [post_id], reason=reason, guest_token=guest_token)
     return out.body(post={"id": post_id})
 
 
 @router.delete("/posts/{post_id}")
-async def trash_post(post_id: int, reason: str | None = Query(None, max_length=500), viewer: Viewer = Depends(get_viewer)):
-    """휴지통으로(§6 DELETE = 휴지통). 작성자도 할 수 있다(post.trash)."""
-    return await _single(viewer, "trash", post_id, reason)
+async def trash_post(
+    post_id: int,
+    reason: str | None = Query(None, max_length=500),
+    viewer: Viewer = Depends(get_viewer),
+    tokens: list[GuestToken] = Depends(guest.guest_tokens),
+):
+    """휴지통으로(§6 DELETE = 휴지통). 작성자도 할 수 있다(post.trash) — 비회원 작성자는 edit 토큰(§6.3)."""
+    token = guest.token_for(tokens, post_id) if viewer.member_id is None else None
+    if token is not None and token.purpose != "edit":
+        token = None
+    return await _single(viewer, "trash", post_id, reason, token)
 
 
 @router.post("/posts/{post_id}/restore")

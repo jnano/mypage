@@ -7,11 +7,12 @@
 from collections.abc import Awaitable, Callable
 from dataclasses import dataclass
 
-from sqlalchemy import and_, bindparam, delete, exists, func, literal_column, not_, or_, select, text, tuple_, update
+from sqlalchemy import and_, bindparam, delete, exists, func, literal_column, not_, or_, select, text, true, tuple_, update
 from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.admin.logs import redact_log_payload
+from app.admin.logs import LogEntry, record, redact_log_payload
+from app.auth.viewer import GUEST
 from app.core.outbox import Event, enqueue
 from app.files import storage
 from app.models import (
@@ -27,16 +28,19 @@ from app.models import (
     Notification,
     OutboxEvent,
     Post,
+    PostSearch,
     PostViewDaily,
     PostViewOnce,
     RateLimitCounter,
     PasswordResetToken,
     SearchTermDaily,
     SearchTermSearcher,
+    UsedNonce,
     Report,
     WithdrawnEmailMark,
 )
 from app.core.site_date import site_today
+from app.posts.guest import ip_period as guest_ip_period
 from app.search.terms import rebuild_popular
 from app.posts.purge import purge_posts
 
@@ -151,6 +155,49 @@ async def cleanup_search_terms(db: AsyncSession) -> int:
     searchers = await _delete_limited(db, SearchTermSearcher, SearchTermSearcher.day < today)
     daily = await _delete_limited(db, SearchTermDaily, SearchTermDaily.day < today - 90)
     return searchers + daily
+
+
+async def cleanup_used_nonces(db: AsyncSession) -> int:
+    """쓴 보안 문자 nonce 가운데 수명이 지난 것(§6.3)"""
+    return await _delete_limited(db, UsedNonce, UsedNonce.expires_at < func.now())
+
+
+async def cleanup_guest_ip_hash(db: AsyncSession) -> int:
+    """비회원 글의 IP 해시를 두 기간(최대 180일) 뒤 지운다(§6.3·§11). 수정 시각은 그대로(D-215)"""
+    keep_from = guest_ip_period() - 1
+    victims = (
+        select(Post.id)  # post-clause: exempt — 정리 작업이 IP 해시를 지울 글만 고른다
+        .where(Post.ip_hash_period < keep_from)
+        .limit(DELETE_BATCH)
+    )
+    result = await db.execute(
+        update(Post).where(Post.id.in_(victims)).values(ip_hash=None, ip_hash_period=None, updated_at=Post.updated_at)
+    )
+    return result.rowcount or 0
+
+
+async def trash_stale_guest_pending(db: AsyncSession) -> int:
+    """30일 지난 비회원 승인 대기 글을 휴지통으로(§6.3) — 행위자 없는 운영 기록, 공개 캐시에 없는 글이라 무효화 없음"""
+    rows = list(
+        await db.execute(
+            select(Post.id, Post.board_id)  # post-clause: exempt — 정리 작업 대상(비회원 대기 글)
+            .where(Post.status == literal_column("'pending'"), Post.is_guest.is_(true()), Post.created_at < func.now() - text("interval '30 days'"))
+            .order_by(Post.id)
+            .limit(500)
+            .with_for_update(skip_locked=True)
+        )
+    )
+    if not rows:
+        return 0
+    ids = [r.id for r in rows]
+    await db.execute(
+        update(Post)
+        .where(Post.id.in_(ids))
+        .values(status="trashed", trashed_from_status="pending", trashed_at=func.now(), version=Post.version + 1, updated_at=func.now())
+    )
+    await db.execute(update(PostSearch).where(PostSearch.post_id.in_(ids)).values(post_open=False))
+    await record(db, GUEST, [LogEntry("post.auto_trash", "post", r.id, board_id=r.board_id, before={"status": "pending"}, after={"status": "trashed"}, reason="비회원 승인 대기 30일") for r in rows])
+    return len(ids)
 
 
 async def cleanup_outbox(db: AsyncSession) -> int:
@@ -285,6 +332,9 @@ JOBS: dict[str, Job] = {
         Job("view_records.cleanup", DAY, cleanup_view_records),
         Job("search_terms.cleanup", HOUR, cleanup_search_terms),
         Job("search_terms.popular", HOUR, rebuild_popular),
+        Job("used_nonces.cleanup", HOUR, cleanup_used_nonces),
+        Job("guest_ip_hash.cleanup", DAY, cleanup_guest_ip_hash),
+        Job("guest_pending.cleanup", DAY, trash_stale_guest_pending),
         Job("outbox.cleanup", DAY, cleanup_outbox),
         Job("board_daily_stats", HOUR, aggregate_board_daily_stats),
         Job("moderation_logs.redact", DAY, redact_moderation_logs),

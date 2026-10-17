@@ -40,3 +40,8 @@ async def signup_received(hourly_limit: int) -> None:
         if n == limit.count + 1:
             await _alert("alert.signup_cap", limit, start)
         raise rate_limit.exceeded(limit, start)
+
+
+async def guest_posts_capped(limit, start: float) -> None:
+    """비회원 글 사이트 전체 시간당 상한을 처음 넘는 순간(설계도 §6.3) — 가입 상한과 같은 경보"""
+    await _alert("alert.guest_posts", limit, start)

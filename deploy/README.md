@@ -70,6 +70,7 @@ sudo -u postgres createdb -O mypage mypage
 | `WEB_CONCURRENCY` | uvicorn 프로세스 수 — 코어 수의 절반(최소 2), 2절 '연결 수' 표와 맞춘다. 적지 않으면 유닛 기본 2, 빈 값은 금지 |
 | `INTERNAL_API_SECRET` | 32자 이상 무작위(`python3 -c "import secrets; print(secrets.token_urlsafe(32))"`). frontend.env 와 같은 값 |
 | `EMAIL_HMAC_SECRET` | 32자 이상 무작위(만드는 법은 위와 같음, `INTERNAL_API_SECRET` 과 **다른 값**). 인증의 파생 키 바탕(이메일 제한 키·탈퇴 표시·기기 쿠키·폼 토큰·재동의 토큰). 바꾸면 그것들이 모두 무효가 된다(로그인 세션은 그대로) |
+| `IP_HASH_SECRET` | 32자 이상 무작위(만드는 법은 위와 같음, 다른 두 비밀과 **다른 값**). 비회원 글의 IP 해시(설계도 §6.3) — 90일 기간 키의 바탕. 바꾸면 그 뒤 해시는 이전 글과 이어지지 않는다(보관 최대 180일이라 영향이 작다) |
 | `NEXT_REVALIDATE_URL` | `http://127.0.0.1:3000/api/revalidate` |
 | `MEDIA_ROOT` · `PRIVATE_ROOT` | `/srv/mypage/shared/media` · `/srv/mypage/shared/private` |
 | `FILE_SENDER` | `nginx`(비공개 파일을 X-Accel-Redirect 로) |
@@ -122,7 +123,7 @@ TLS: `sudo certbot --nginx -d 실제.도메인` — certbot 이 server 블록에
 - 관리 → 사이트 설정: 사이트 주소(`https://도메인`), 사이트 이름·설명, 검색엔진 확인 값, 색인 허용
 - 검색엔진에 `https://도메인/sitemap.xml` 과 `/posts/sitemap/0.xml`… 제출(robots.txt 에 모두 적혀 있다), RSS `/rss.xml`
 - 백업: `pg_dump` 일 1회 + `/srv/mypage/shared` 파일 백업(데이터는 저장소에 없다)
-- 개인정보 고지문에 '쿠키' 문단(조회수 중복 판정용 `view_id` 쿠키 1년, 서버에는 해시만 30일)과 '검색어' 문단(인기 검색어용 날짜별 횟수, 같은 사람을 한 번만 세려는 회원 번호·IP 의 해시는 그날만 — 설계도 §9.1)이 있는지 — 없으면 관리 → 개인정보 고지에서 **재동의 불필요** 새 판으로 게시한다(설계도 §6.1. 코드가 강제하지 않는다)
+- 개인정보 고지문에 '쿠키' 문단(조회수 중복 판정용 `view_id` 쿠키 1년, 서버에는 해시만 30일)과 '검색어' 문단(인기 검색어용 날짜별 횟수, 같은 사람을 한 번만 세려는 회원 번호·IP 의 해시는 그날만 — 설계도 §9.1)과 '비회원 글' 문단(이름·비밀번호 해시는 글과 함께, IP 해시는 최대 180일 — 설계도 §6.3)이 있는지 — 없으면 관리 → 개인정보 고지에서 **재동의 불필요** 새 판으로 게시한다(설계도 §6.1. 코드가 강제하지 않는다)
 
 ## 7. 갱신·되돌리기
 

@@ -616,6 +616,12 @@ SPEC: dict[str, T] = {
         cols=["day date", "term varchar(100)", "searcher char(22)"],
         pk=("day", "term", "searcher"),
     ),
+    # §6.3 (v4.0.15) — 보안 문자 한 번만
+    "used_nonces": T(
+        cols=["nonce char(22)", "expires_at timestamptz"],
+        pk=("nonce",),
+        indexes={"ix_used_nonces_expires": "expires_at"},
+    ),
     "search_synonyms": T(
         cols=["term varchar(100)", "synonym varchar(100)"],
         pk=("term", "synonym"),

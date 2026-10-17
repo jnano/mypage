@@ -8,7 +8,7 @@ from fastapi.responses import JSONResponse
 from sqlalchemy import Row
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.auth.viewer import Viewer, get_viewer
+from app.auth.viewer import GuestToken, Viewer, get_viewer
 from app.comments import present as comment_present
 from app.comments import queries as comment_queries
 from app.core.client_ip import client_ip
@@ -17,8 +17,8 @@ from app.core.problems import Problem
 from app.db.session import get_db
 from app.models import Board
 from app.permissions import BoardRole, can, load_board_role
-from app.posts import present, queries, reactions, relations, service
-from app.posts.schemas import PostUpdate
+from app.posts import guest, present, queries, reactions, relations, service
+from app.posts.schemas import GuestTokenRequest, PostUpdate
 from app.seo import queries as seo_queries
 
 router = APIRouter()
@@ -42,6 +42,7 @@ def _read_denied(viewer: Viewer, role: BoardRole, board: Board, post: Row) -> Pr
 async def post_page(
     post_id: int,
     viewer: Viewer = Depends(get_viewer),
+    tokens: list[GuestToken] = Depends(guest.guest_tokens),
     db: AsyncSession = Depends(get_db),
 ):
     found = await queries.find_post_for_view(db, post_id)
@@ -51,7 +52,8 @@ async def post_page(
         raise Problem(404, "post_not_found", "글을 찾을 수 없습니다")
     post, board = found
     role = await load_board_role(db, viewer, board.id)
-    if not can(viewer, role, "post.read", board, post):
+    token = guest.token_for(tokens, post.id)  # 비회원 작성자(§6.3) — 대기·비밀 글을 연다
+    if not can(viewer, role, "post.read", board, post, token):
         raise _read_denied(viewer, role, board, post)
 
     neighbors: dict = {"prev": None, "next": None}
@@ -74,6 +76,8 @@ async def post_page(
         "attachments": [present.attachment_item(a) for a in attachments],
         # 첫 쪽 댓글을 함께 — 따로 부르면 화면당 FastAPI 호출 예산(로그인 ≤ 3)을 넘는다(§3.6)
         "comments": comment_present.comments_page(viewer, role, comment_rows, next_cursor),
+        # 비회원 작성자가 edit 토큰으로 보고 있으면 — 화면의 수정·삭제 단추(판정은 FastAPI)
+        "guest_can_edit": token is not None and can(viewer, role, "post.update", board, post, token),
         "cache": {"tags": [f"post:{post.id}", f"board:{board.slug}"]},
     }
 
@@ -82,15 +86,16 @@ async def post_page(
 async def get_post_for_edit(
     post_id: int,
     viewer: Viewer = Depends(get_viewer),
+    tokens: list[GuestToken] = Depends(guest.guest_tokens),
     db: AsyncSession = Depends(get_db),
 ):
-    """수정 화면용 — 쓴 형식의 원문(마크다운) 또는 정본(리치)과 version(ETag)."""
+    """수정 화면용 — 쓴 형식의 원문(마크다운) 또는 정본(리치)과 version(ETag). 비회원 글은 edit 토큰(§6.3)."""
     found = await queries.find_post_for_edit(db, post_id)
     if found is None:
         raise Problem(404, "post_not_found", "글을 찾을 수 없습니다")
     post, board = found
     role = await load_board_role(db, viewer, board.id)
-    if not can(viewer, role, "post.update", board, post):
+    if not can(viewer, role, "post.update", board, post, guest.token_for(tokens, post.id)):
         raise Problem(403, "post_update_forbidden", "이 글을 수정할 권한이 없습니다")
     files = await queries.list_attachments(db, post.id, include_inline=True)
     body = {
@@ -101,6 +106,7 @@ async def get_post_for_edit(
         "content": post.content_source if post.content_format == "markdown" else post.content_html,
         "category_ids": list(post.category_ids or []),
         "is_secret": post.is_secret,
+        "is_guest": post.is_guest,  # 비회원 글은 첨부·관리 칸 없이 고친다(§6.3)
         "status": post.status,
         "version": post.version,
         "attachments": [present.attachment_item(a) for a in files],
@@ -111,12 +117,15 @@ async def get_post_for_edit(
 @router.patch("/posts/{post_id}")
 async def update_post(
     post_id: int,
+    request: Request,
     body: PostUpdate,
     if_match: str | None = Header(None, alias="If-Match"),
     reason: str | None = Query(None, max_length=500, description="관리 칸 조치의 사유(운영 기록)"),
     viewer: Viewer = Depends(get_viewer),
+    tokens: list[GuestToken] = Depends(guest.guest_tokens),
 ):
-    result = await service.update_post(viewer, post_id, body, if_match, reason)
+    token = guest.token_for(tokens, post_id) if viewer.member_id is None else None
+    result = await service.update_post(viewer, post_id, body, if_match, reason, guest_token=token, ip=client_ip(request))
     return JSONResponse(result.body, status_code=result.status_code, headers=result.headers)
 
 
@@ -183,3 +192,11 @@ async def relations_add(post_id: int, body: RelationAdd, viewer: Viewer = Depend
 @router.delete("/posts/{post_id}/relations/{target_id}")
 async def relations_remove(post_id: int, target_id: int, viewer: Viewer = Depends(get_viewer)):
     return JSONResponse(await relations.remove(viewer, post_id, target_id), headers=NO_STORE)
+
+
+# ── 비회원 토큰(§6.3) — Server Action 이 받아 HttpOnly 쿠키로 심는다 ──
+
+
+@router.post("/posts/{post_id}/guest-token")
+async def guest_token(post_id: int, body: GuestTokenRequest, request: Request):
+    return JSONResponse(await guest.issue_token(post_id, body.password, body.purpose, client_ip(request)), headers=NO_STORE)

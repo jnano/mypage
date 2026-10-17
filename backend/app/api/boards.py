@@ -12,8 +12,9 @@ from app.auth.viewer import Viewer, get_viewer
 from app.core.problems import Problem
 from app.db.session import get_db
 from app.permissions import can, load_board_role
-from app.posts import present, queries, service
-from app.posts.schemas import PostCreate
+from app.core.client_ip import client_ip
+from app.posts import guest, present, queries, service
+from app.posts.schemas import GuestPostCreate, PostCreate
 
 router = APIRouter()
 
@@ -83,9 +84,25 @@ async def board_page(
 @router.post("/boards/{slug}/posts", status_code=201)
 async def create_post(
     slug: str,
-    body: PostCreate,
+    body: PostCreate | GuestPostCreate,
+    request: Request,
     idempotency_key: str | None = Header(None, alias="Idempotency-Key"),
     viewer: Viewer = Depends(get_viewer),
 ):
-    result = await service.create_post(viewer, slug, body, idempotency_key)
+    """회원 글과 비회원 글(§6.3)이 같은 경로 — 비회원 칸(이름·비밀번호·폼·보안 문자)이 있으면 비회원 글.
+    비회원 글은 멱등 키를 쓰지 않는다(보안 문자가 한 번만이라 같은 제출이 두 번 들어가지 않는다)."""
+    if isinstance(body, GuestPostCreate):
+        if viewer.member_id is not None:
+            raise Problem(422, "validation_error", "로그인한 회원은 비회원 칸을 보낼 수 없습니다")
+        result = await guest.create(slug, body, client_ip(request))
+    else:
+        result = await service.create_post(viewer, slug, body, idempotency_key)
     return JSONResponse(result.body, status_code=result.status_code, headers=result.headers)
+
+
+@router.get("/boards/{slug}/guest-form")
+async def guest_form(slug: str, viewer: Viewer = Depends(get_viewer), db: AsyncSession = Depends(get_db)):
+    """비회원 글쓰기 화면의 묶음 응답(§6.3) — 폼 토큰·보안 문자·정책·게시판. 토큰이 들어 있어 캐시하지 않는다"""
+    if viewer.member_id is not None:
+        raise Problem(409, "already_member", "로그인한 회원은 회원 글쓰기를 씁니다")
+    return JSONResponse(await guest.guest_form(db, slug), headers={"Cache-Control": "no-store"})

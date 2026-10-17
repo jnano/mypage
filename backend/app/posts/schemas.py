@@ -86,6 +86,23 @@ class PostCreate(BaseModel):
     attachments: Attachments = []
 
 
+class GuestPostCreate(PostCreate):
+    """비회원 글(설계도 §6.3) — 회원 칸에 이름·비밀번호와 폼·보안 문자 칸을 더한다. 첨부는 받지 않는다(서버가 422)."""
+
+    author_name: Annotated[str, Field(min_length=1, max_length=50)]
+    password: Annotated[str, Field(min_length=1, max_length=200)]
+    form_token: Annotated[str, Field(max_length=500)]
+    website: Annotated[str, Field(max_length=500)] = ""  # 숨은 칸 — 사람은 비워 둔다
+    captcha_token: Annotated[str, Field(max_length=500)]
+    captcha_answer: Annotated[str, Field(max_length=10)]
+
+
+class GuestTokenRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    password: Annotated[str, Field(min_length=1, max_length=200)]
+    purpose: Literal["read", "edit"]
+
+
 class PostUpdate(BaseModel):
     """content 는 글을 쓴 형식(content_format)으로 해석한다 — 게시판 설정이 바뀌어도 그대로."""
 

@@ -85,6 +85,18 @@ class RateLimitCounter(Base):
     count: Mapped[int] = mapped_column(Integer, server_default=ZERO)
 
 
+class UsedNonce(Base):
+    """한 번만 효과인 토큰의 쓴 nonce(보안 문자 — 설계도 §6.3). 수명이 지나면 정리 작업이 지운다."""
+
+    __tablename__ = "used_nonces"
+
+    nonce: Mapped[str] = mapped_column(CHAR(22), primary_key=True)
+    expires_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+
+
+Index("ix_used_nonces_expires", UsedNonce.expires_at)
+
+
 class SearchTerm(Base):
     __tablename__ = "search_terms"
 

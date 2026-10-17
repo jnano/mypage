@@ -37,7 +37,7 @@ async def test_internal_write_passes_the_boundary(client: AsyncClient) -> None:
 def test_prod_requires_long_internal_secret() -> None:
     with pytest.raises(ValidationError, match="INTERNAL_API_SECRET"):
         Settings(env="prod", internal_api_secret="short")
-    assert Settings(env="prod", internal_api_secret="x" * 32, email_hmac_secret="y" * 32).internal_api_secret
+    assert Settings(env="prod", internal_api_secret="x" * 32, email_hmac_secret="y" * 32, ip_hash_secret="z" * 32).internal_api_secret
 
 
 def test_empty_secret_fails_closed(monkeypatch: pytest.MonkeyPatch) -> None:

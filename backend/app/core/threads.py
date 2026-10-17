@@ -6,8 +6,9 @@ from typing import Literal
 import anyio
 import anyio.to_thread
 
-Kind = Literal["sanitize", "image", "argon2"]
-LIMITS: dict[Kind, int] = {"sanitize": 8, "image": 3, "argon2": 3}
+Kind = Literal["sanitize", "image", "argon2", "argon2_guest"]
+# argon2_guest: 비회원 글쓰기·비회원 토큰(설계도 §6.3) — 회원 로그인·가입의 argon2 한도를 다 쓰지 못하게 따로 둔다
+LIMITS: dict[Kind, int] = {"sanitize": 8, "image": 3, "argon2": 3, "argon2_guest": 2}
 
 _limiters: dict[Kind, anyio.CapacityLimiter] = {}
 

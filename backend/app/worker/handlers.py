@@ -83,7 +83,9 @@ async def post_created(db: AsyncSession, event: OutboxEvent) -> None:
     elif post.status == "pending":
         await send.notify_moderators(
             db, board_id=board.id, type_name="admin.guest_pending", actor_id=post.member_id,
-            post_id=post.id, title=post.title, dedupe_key=f"post.created:{post.id}:pending",
+            post_id=post.id, title=post.title,
+            # 비회원이 공개 글을 고쳐 다시 대기가 되면 판 번호로 다시 알린다(§6.3)
+            dedupe_key=f"post.created:{post.id}:pending" + (f":{event.payload['version']}" if "version" in event.payload else ""),
         )  # fmt: skip
 
 

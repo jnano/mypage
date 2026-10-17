@@ -222,3 +222,19 @@ async def reserved_conflicts(db: AsyncSession) -> list[dict[str, Any]]:
     """예약 첫 단과 겹친 페이지 — 새 라우트 배포로 예약어가 늘면 그 페이지는 라우트에 가려진다(§11, 검토 N-5). 페이지 ≤ 1,000"""
     rows = await db.execute(select(Page.id, Page.path))
     return [{"id": r.id, "path": r.path} for r in rows if reserved(r.path)]
+
+
+async def public_paths(db: AsyncSession) -> dict[str, Any]:
+    """주소 집합(GET /api/pages/paths, §5.5) — 게시된 페이지 주소(personal = 열람 등급 > 0 — 주소가 있다는 것만, 제목·내용은
+    알리지 않는다)와 옛 주소 → 새 주소(게시된 페이지만). 초안은 없다. 페이지 1,000 + 옛 주소 10씩이라 100KB 안팎"""
+    pages = {
+        r.path: {"id": r.id, "personal": r.view_level > 0}
+        for r in await db.execute(select(Page.id, Page.path, Page.view_level).where(Page.status == "published"))
+    }
+    moved = {
+        r.old_path: r.path
+        for r in await db.execute(
+            select(PagePathHistory.old_path, Page.path).join(Page, Page.id == PagePathHistory.page_id).where(Page.status == "published")
+        )
+    }
+    return {"pages": pages, "moved": moved, "cache": {"tags": ["pages:paths"]}}

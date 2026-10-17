@@ -25,11 +25,11 @@ from app.blocks import resolve as r
 from app.blocks import types as t
 from app.blocks.menus import ITEM_COLUMNS
 from app.blocks.limits import RECENT_COMMENT_POSTS
-from app.blocks.tree import BLOCK_COLUMNS, Refs, collect_refs, owner_blocks
+from app.blocks.tree import BLOCK_COLUMNS, Refs, collect_refs
 from app.core.threads import run_in_thread
 from app.editor.render import ImageSource
 from app.files.attach import ROW_COLUMNS, image_sources, thumb_template
-from app.models import Attachment, Block, Board, Comment, Layout, LayoutBinding, MenuItem, Page, Post
+from app.models import Attachment, Block, Board, Comment, Layout, LayoutBinding, MenuItem, Page, PagePathHistory, Post
 from app.permissions import (
     block_view,
     can,
@@ -357,15 +357,83 @@ def _out(n: Node, lookup: r.Lookup, targets: Targets, posts: Sequence[Any], comm
     return out
 
 
-async def frame_bundle(db: AsyncSession, *, board_slug: str | None = None, route: str | None = None) -> dict[str, Any]:
-    tags = ["layouts:bindings", "settings:seo"]
-    if board_slug is not None:
-        tags.append("boards:structure")  # 게시판의 틀(boards.layout_id) 바꾸기는 board.updated 가 이 태그를 즉시 만료한다
-    owner = await _owner(db, board_slug, route)  # ①
-    if owner is None:  # 틀이 하나도 없다 — 화면이 코드의 대체 틀을 쓴다(§3.6)
-        return {"layout": None, "personal_block_ids": [], "cache": {"tags": tags}}
-    tags.append(f"layout:{owner.id}")
-    regions = _tree(await owner_blocks(db, "layout", owner.id))  # ②
+@dataclass
+class Owner:
+    layout_id: int | None
+    layout_version: int | None
+    page: Any | None = None  # 페이지 행(사용자 페이지일 때)
+
+
+PAGE_COLUMNS = (
+    Page.id, Page.path, Page.title, Page.description, Page.layout_id, Page.status, Page.view_level, Page.indexable,
+    Page.version, Page.published_at, Page.content_updated_at,
+)  # fmt: skip
+
+
+class PageNotFound(Exception):
+    """게시되지 않았거나(공개) 볼 수 없는 주소 — moved 가 있으면 옛 주소(308)"""
+
+    def __init__(self, moved: str | None = None):
+        self.moved = moved
+
+
+async def _page_owner(db: AsyncSession, path: str, viewer: Viewer, draft: bool) -> Owner:
+    """① 주인 고르기(페이지) — 페이지 + 그 틀(페이지의 틀 → 기본 틀) 한 문장. 공개는 게시 ∧ 열람 등급 0, 개인은 page.read,
+    draft 는 운영자만 상태와 무관하게. 없으면 옛 주소를 한 번 더 본다(없는 주소일 때만 — 정상 흐름은 Next 의 주소 집합이 먼저 거른다)"""
+    conds = [Page.path == path]
+    if not (draft and viewer.is_admin):
+        conds.append(Page.status == PUBLISHED)
+        conds.append(Page.view_level <= (0 if viewer.member_id is None else viewer.level) if not viewer.is_admin else true())
+    page = select(*PAGE_COLUMNS).where(*conds).subquery("pg")  # post-clause: exempt — 페이지 칸(글 아님)
+    default = select(Layout.id).where(Layout.is_default).scalar_subquery()
+    row = (
+        await db.execute(select(page, Layout.id.label("lid"), Layout.version.label("lversion")).select_from(page).outerjoin(Layout, Layout.id == func.coalesce(page.c.layout_id, default)))
+    ).one_or_none()
+    if row is None:
+        moved = (
+            await db.execute(
+                select(Page.path).join(PagePathHistory, PagePathHistory.page_id == Page.id).where(PagePathHistory.old_path == path, Page.status == PUBLISHED)
+            )
+        ).scalar_one_or_none()
+        raise PageNotFound(moved)
+    return Owner(row.lid, row.lversion, row)
+
+
+async def _route_owner(db: AsyncSession, board_slug: str | None, route: str | None) -> Owner:
+    row = await _owner(db, board_slug, route)
+    return Owner(row.id, row.version) if row is not None else Owner(None, None)
+
+
+async def _blocks(db: AsyncSession, owner: Owner) -> list[Any]:
+    """② 블록 — 틀의 블록 ∪ 페이지 본문 블록(부분 인덱스 둘의 BitmapOr, §5.2)"""
+    conds = []
+    if owner.layout_id is not None:
+        conds.append(Block.layout_id == owner.layout_id)
+    if owner.page is not None:
+        conds.append(Block.page_id == owner.page.id)
+    if not conds:
+        return []
+    return list(await db.execute(select(*BLOCK_COLUMNS).where(or_(*conds))))  # post-clause: exempt — 블록 칸(글 아님)
+
+
+def _prune(nodes: list[Node], viewer: Viewer) -> list[Node]:
+    """보는 사람 기준 묶음 — 못 보는 블록은 가지째 뺀다(block.view, 부모가 안 보이면 자식도 — §6.1)"""
+    out = []
+    for n in nodes:
+        if block_view(viewer, n.row):
+            n.children = _prune(n.children, viewer)
+            out.append(n)
+    return out
+
+
+async def _bundle(db: AsyncSession, viewer: Viewer, owner: Owner, tags: list[str]) -> dict[str, Any]:
+    """비회원(공개 캐시)이면 개인 블록은 자리만·회원이면 다시(_decide), 보는 사람 기준(개인 틀)이면 못 보는 블록을 빼고
+    모두 그 사람 기준으로 푼다. 쿼리 ≤ 8: 주인·블록·메뉴·대상(+역할)·글·댓글·그림·이름 — 개인 틀의 역할 쿼리는 주인 고르기와
+    합쳐 세지 않는다(개인 틀은 공개 묶음이 아니라 회원 블록 호출과 같은 몫, §5.2)"""
+    public = viewer.member_id is None
+    regions = _tree(await _blocks(db, owner))  # ②
+    if not public:
+        regions = {k: _prune(v, viewer) for k, v in regions.items()}
     nodes = [n for top in regions.values() for n in _walk(top)]
     refs = Refs()
     for n in nodes:
@@ -376,14 +444,14 @@ async def frame_bundle(db: AsyncSession, *, board_slug: str | None = None, route
     for rows in menus.values():
         refs.boards |= {i.board_id for i in rows if i.link_kind == "board"}
         refs.pages |= {i.page_id for i in rows if i.link_kind == "page"}
-    targets = await _targets(db, refs.boards, refs.pages)  # ④
-    _decide(nodes, menus, targets)
+    targets = await _targets(db, refs.boards, refs.pages, viewer)  # ④
+    if public:
+        _decide(nodes, menus, targets)
     post_targets = _recent_targets(nodes, "recent_posts")
     pinned = any(n.row.type == "recent_posts" and not n.personal and n.model.include_pinned for n in nodes)
-    posts = await _recent_posts(db, post_targets, pinned)  # ⑤
-    comments = await _recent_comments(db, _recent_targets(nodes, "recent_comments"))  # ⑥
-    public_ids = {n.row.id for n in nodes if not n.personal}
-    image_rows = await _images(db, public_ids)  # ⑦
+    posts = await _recent_posts(db, post_targets, pinned, viewer)  # ⑤
+    comments = await _recent_comments(db, _recent_targets(nodes, "recent_comments"), viewer)  # ⑥
+    image_rows = await _images(db, {n.row.id for n in nodes if not n.personal})  # ⑦
     seo = await site_settings.load(db, "seo")  # ⑧
     assert isinstance(seo, site_settings.SeoSettings)
 
@@ -396,19 +464,20 @@ async def frame_bundle(db: AsyncSession, *, board_slug: str | None = None, route
         board_slugs={i: b.key for i, b in targets.boards.items() if b.listable},
         images=image_sources(image_rows),
         menus=menus,
+        viewer_level=viewer.level,
     )
 
-    def assemble() -> tuple[dict[str, list[r.View]], list[int]]:
+    def assemble() -> tuple[dict[str | None, list[r.View]], list[int]]:
         personal: list[int] = []
-        out: dict[str, list[r.View]] = {}
-        for region in t.REGIONS:
+        out: dict[str | None, list[r.View]] = {}
+        for region in (*t.REGIONS, None):
             views = [v for n in regions.get(region, []) if (v := _out(n, lookup, targets, posts, comments, personal, images)) is not None]
             if views:
                 out[region] = views
         return out, personal
 
     # 마크다운 변환·정화는 CPU 작업 — 이벤트 루프가 아니라 정화 스레드 한도 안에서(글 저장과 같은 한도, 코드 검토 v5 N-2)
-    out_regions, personal = await run_in_thread("sanitize", assemble)
+    out, personal = await run_in_thread("sanitize", assemble)
     tags += [f"menu:{m}" for m in sorted(refs.menus)]
     if refs.boards:
         tags.append("boards:structure")
@@ -416,12 +485,43 @@ async def frame_bundle(db: AsyncSession, *, board_slug: str | None = None, route
         tags.append("recent:posts")
     if any(n.row.type == "recent_comments" and not n.personal for n in nodes):
         tags.append("recent:comments")
-    return {
-        "layout": {"id": owner.id, "version": owner.version, "regions": out_regions},
-        "personal_block_ids": personal,
-        "cache": {"tags": sorted(set(tags))},
-    }
+    page_out = None
+    if owner.page is not None:
+        p = owner.page
+        page_out = {
+            "id": p.id, "path": p.path, "title": p.title, "description": p.description, "indexable": p.indexable,
+            "view_level": p.view_level, "published_at": p.published_at, "content_updated_at": p.content_updated_at,
+            "draft": p.status != "published", "blocks": out.pop(None, []),
+        }  # fmt: skip
+    out.pop(None, None)
+    layout = None if owner.layout_id is None else {"id": owner.layout_id, "version": owner.layout_version, "regions": out}
+    return {"layout": layout, "page": page_out, "personal_block_ids": personal, "cache": {"tags": sorted(set(tags))}}
 
+
+async def frame_bundle(db: AsyncSession, *, board_slug: str | None = None, route: str | None = None, path: str | None = None) -> dict[str, Any]:
+    """공개 틀 묶음(GET /api/frame) — 언제나 비회원 기준(B-2). path 면 게시 ∧ 열람 등급 0 페이지만(아니면 PageNotFound)"""
+    tags = ["layouts:bindings", "settings:seo"]
+    if board_slug is not None:
+        tags.append("boards:structure")  # 게시판의 틀(boards.layout_id) 바꾸기는 board.updated 가 이 태그를 즉시 만료한다
+    if path is not None:
+        owner = await _page_owner(db, path, GUEST, draft=False)  # ①
+        tags += [f"page:{owner.page.id}", "pages:paths"]  # 정지점 N-1 ①
+    else:
+        owner = await _route_owner(db, board_slug, route)  # ①
+    if owner.layout_id is not None:
+        tags.append(f"layout:{owner.layout_id}")
+    if owner.layout_id is None and owner.page is None:  # 틀이 하나도 없다 — 화면이 코드의 대체 틀을 쓴다(§3.6)
+        return {"layout": None, "page": None, "personal_block_ids": [], "cache": {"tags": tags}}
+    return await _bundle(db, GUEST, owner, tags)
+
+
+async def viewer_frame(db: AsyncSession, viewer: Viewer, path: str, *, draft: bool) -> dict[str, Any]:
+    """개인 틀(GET /api/me/frame) — 열람 등급 페이지(§6.2)·운영자의 초안 보기(§5.5). 보는 사람 기준으로 통째로 푼다.
+    캐시하지 않는다. draft 는 운영자만(아니면 없는 주소와 같은 404)"""
+    if draft and not viewer.is_admin:
+        raise PageNotFound()
+    owner = await _page_owner(db, path, viewer, draft=draft)
+    return await _bundle(db, viewer, owner, [])
 
 
 # ── 회원 블록(걸음 5-3) — GET /api/me/page-state?blocks= ─────────────────────

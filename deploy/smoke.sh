@@ -98,9 +98,10 @@ PY
 fi
 
 # 9. 공개 틀 묶음 직접 호출의 요청 수(홈블록 걸음 8 결정 ⑧) — 바깥에서 /api/frame 을 몰아치면 nginx 가 429, 다른 /api/* 는 그대로
-codes=$(for i in $(seq 1 40); do curl -s -o /dev/null -w '%{http_code}\n' "$BASE/api/frame"; done | sort | uniq -c | tr '\n' ' ')
+# 동시에 40(버스트 20 을 반드시 넘게 — 순차면 요청이 느릴 때 초당 5 안에 들어 429 가 안 날 수 있다)
+codes=$(seq 1 40 | xargs -P 20 -I{} curl -s -o /dev/null -w '%{http_code}\n' "$BASE/api/frame" | sort | uniq -c | tr '\n' ' ')
 echo "$codes" | grep -q " 429" && ok "/api/frame 몰아치기에 429 — $codes" || bad "/api/frame 요청 수 제한이 안 걸림 — $codes"
-codes=$(for i in $(seq 1 40); do curl -s -o /dev/null -w '%{http_code}\n' "$BASE/api/health"; done | sort | uniq -c | tr '\n' ' ')
+codes=$(seq 1 40 | xargs -P 20 -I{} curl -s -o /dev/null -w '%{http_code}\n' "$BASE/api/health" | sort | uniq -c | tr '\n' ' ')
 echo "$codes" | grep -q " 429" && bad "/api/health 까지 걸림 — $codes" || ok "다른 /api/* 는 제한 없음 — $codes"
 
 exit $FAIL

@@ -86,7 +86,7 @@ if (values["self-test"]) {
 
 const findings: Finding[] = [];
 // 홈블록 화면 — 게시판 기반 목록과 따로 묶는다(통합 설계도가 게시판 범위 화면 수를 '전체 − 이 묶음'으로 센다)
-const HOMEBLOCK_GUEST_PATHS = ["/sample", "/dev/blocks"];
+const HOMEBLOCK_GUEST_PATHS = ["/sample", "/dev/blocks", "/no-such-page"]; // 없는 주소 — 대체 틀 머리만 쓰는 not-found(걸음 8 결정 ①)
 const HOMEBLOCK_ADMIN_LISTS = ["/admin/layouts", "/admin/pages", "/admin/menus"]; // 목록 + 첫 편집 화면
 try {
   // 비회원

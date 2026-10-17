@@ -279,12 +279,12 @@ def recent_comments_statement(targets: dict[int, int], posts_per_board: int = RE
     return select(sub).select_from(t_).join(sub, true())
 
 
-_IMAGE_FIELDS = ("id", "post_id", "block_id", "uploader_id", "role", "storage_key", "visibility", "is_image", "width", "height", "thumbs_ready")
+_IMAGE_FIELDS = tuple(c.key for c in ROW_COLUMNS)  # 그림 행 칸 — files.attach.ROW_COLUMNS 그대로(두 곳에 적지 않는다)
 
 
 def _images_column():
     """블록 행에 그 블록의 그림 첨부를 JSON 배열로 함께 싣는다(ix_attachments_block) — 그림 쿼리를 따로 하지 않아 묶음 쿼리 하나를
-    줄인다(걸음 8 결정 ⑨: 개인 틀이 보는 사람 조회·요청 수 세기까지 ≤ 8). 칸은 files.attach.ROW_COLUMNS 와 같다"""
+    줄인다(걸음 8 결정 ⑨: 개인 틀이 보는 사람 조회·요청 수 세기까지 ≤ 8)"""
     a = aliased(Attachment, name="blk_att")
     obj = func.json_build_object(*[x for name in _IMAGE_FIELDS for x in (literal_column(f"'{name}'"), getattr(a, name))])
     return (

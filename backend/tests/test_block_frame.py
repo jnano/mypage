@@ -231,7 +231,8 @@ async def test_query_budget_at_max_config(db: AsyncSession) -> None:
     await _max_config(db)
     with count_queries() as q:
         out = await frame_bundle(db, board_slug="b0")
-    assert q["n"] <= 8, q["sql"]
+    # 예산은 ≤ 8, 지금 값은 6(주인+설정·블록+그림·메뉴·대상·글·댓글) — 합친 문장이 풀리면(걸음 8 의 변수 덮어쓰기 같은) 여기서 잡는다(코드 검토 v21 N-3)
+    assert q["n"] <= 6, q["sql"]
     assert len(_flat(out)) == 16  # 사이트 4 + 동적 8 + 게시판 바로가기·단추·글·바닥 정보
 
 

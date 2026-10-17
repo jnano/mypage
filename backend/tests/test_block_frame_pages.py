@@ -219,5 +219,4 @@ async def test_viewer_frame_queries_at_most_8_over_http(dev_header, client, comm
     with count_queries() as q:
         res = await client.get("/api/me/frame", params={"path": "/vip"}, headers=as_member(member.id))
     assert res.status_code == 200
-    framed = [s for s in q["sql"] if "rate_limit_counters" not in s]  # 요청 수 세기는 별도 연결(예산 밖 — 다른 개인 API 와 같음)
-    assert len(framed) <= 8, framed
+    assert q["n"] <= 8, q["sql"]  # 보는 사람 조회·요청 수 세기(frame.view)까지 — 측정 보고서와 같은 정의(코드 검토 v21 N-3)

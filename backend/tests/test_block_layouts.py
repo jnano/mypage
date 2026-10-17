@@ -242,3 +242,22 @@ async def test_bindings_validation(dev_header, committed_db, client) -> None:
     assert res.status_code == 422  # 화면 종류가 아니다
     res = await client.put("/api/admin/layout-bindings", json={"bindings": {"board": 999999}}, headers=as_member(admin))
     assert (res.status_code, res.json()["code"]) == (422, "dangling_ref")
+
+
+async def test_move_another_admins_image_between_blocks(dev_header, committed_db, client) -> None:
+    """다른 운영자가 올려 이 틀에 붙어 있던 그림도 블록 사이로 옮길 수 있다 — 같은 그림을 두 블록에 두지는 못한다(v7 N-1·N-2)"""
+    admin, other, _, _ = await _setup(committed_db)
+    layout = await _create(client, admin)
+    pic = await _image(committed_db, other, "k-other")
+    image = {"type": "image", "config": {"attachment_id": pic, "alt": "회의실"}}
+    res = await _put(client, other, layout["id"], 1, {"top": [image]})  # 올린 운영자가 붙인다
+    assert res.status_code == 200, res.text
+    block = res.json()["regions"]["top"][0]["id"]
+    logo = {"type": "site_brand", "config": {"logo_attachment_id": pic, "logo_alt": "로고"}}
+    res = await _put(client, admin, layout["id"], 2, {"header": [logo], "top": [{"id": block, **image}]})
+    assert (res.status_code, res.json()["errors"][0]["field"]) == (422, "regions.top[0].config"), res.text  # 두 블록에 같은 그림
+    res = await _put(client, admin, layout["id"], 2, {"header": [logo], "top": [{"id": block, **H}]})  # 다른 운영자가 옮긴다
+    assert res.status_code == 200, res.text
+    committed_db.expire_all()
+    owner = (await committed_db.execute(select(Attachment.block_id).where(Attachment.id == pic))).scalar_one()
+    assert owner == res.json()["regions"]["header"][0]["id"]

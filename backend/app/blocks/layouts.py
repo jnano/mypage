@@ -7,7 +7,7 @@
 from typing import Any
 
 from pydantic import BaseModel, ConfigDict
-from sqlalchemy import delete, func, insert, select, update
+from sqlalchemy import delete, func, insert, or_, select, update
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -138,10 +138,12 @@ async def delete_layout(db: AsyncSession, viewer: Viewer, layout_id: int) -> Non
 
 
 async def set_default(db: AsyncSession, viewer: Viewer, layout_id: int) -> None:
-    current = (await db.execute(select(Layout.id).where(Layout.is_default))).scalar_one_or_none()
-    ids = sorted({layout_id} | ({current} if current is not None else set()))
-    locked = list((await db.execute(select(Layout.id).where(Layout.id.in_(ids)).order_by(Layout.id).with_for_update())).scalars())
-    if layout_id not in locked:
+    # 옛 기본 틀과 새 틀을 한 문장으로 id 순 잠금 — 읽고 잠그는 사이에 기본 틀이 바뀌는 틈이 없다(D-401, 코드 검토 v7 N-4)
+    locked = list(
+        await db.execute(select(Layout.id, Layout.is_default).where(or_(Layout.is_default, Layout.id == layout_id)).order_by(Layout.id).with_for_update())
+    )
+    current = next((row.id for row in locked if row.is_default), None)
+    if layout_id not in {row.id for row in locked}:
         raise _not_found()
     try:
         await db.execute(update(Layout).where(Layout.is_default, Layout.id != layout_id).values(is_default=False))

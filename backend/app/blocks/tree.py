@@ -166,6 +166,12 @@ def validate_tree(owner: Owner, groups: Sequence[tuple[str | None, Sequence[Bloc
     ids = [b.item.id for b in flat if b.item.id is not None]
     if len(set(ids)) != len(ids):
         err(path, "같은 블록이 두 번 있습니다")
+    seen: dict[int, str] = {}
+    for b in flat:  # 그림은 블록 하나에만(block_id 하나) — DB 까지 가기 전에 어느 블록인지 알린다(코드 검토 v7 N-2)
+        for a in sorted(b.refs.attachments):
+            if a in seen:
+                err(f"{b.field}.config", f"같은 그림이 이미 다른 블록({seen[a]})에 있습니다 — 그림은 블록 하나에만")
+            seen.setdefault(a, b.field)
     if errors:
         raise TreeErrors(errors)
     return flat
@@ -233,6 +239,8 @@ async def _check_refs(db: AsyncSession, flat: Sequence[FlatBlock]) -> None:
 async def save_tree(db: AsyncSession, member_id: int | None, owner: Owner, owner_id: int, flat: Sequence[FlatBlock]) -> dict[str, list[int]]:
     """주인 행을 잠근 뒤에 부른다(§4.6). 바뀐 블록 id 를 돌려준다(운영 기록용)"""
     existing = {r.id: r for r in await owner_blocks(db, owner, owner_id)}
+    # 이 저장 전에 이 주인의 블록에 붙어 있던 그림 — 블록 사이로 옮길 수 있다(지운 블록의 그림도 다른 블록이 받으면 옮겨진다)
+    owned = set((await db.execute(select(Attachment.id).where(Attachment.block_id.in_(list(existing) or [0])))).scalars())  # post-clause: exempt — 첨부 칸(글 아님)
     foreign = [b.field for b in flat if b.item.id is not None and b.item.id not in existing]
     if foreign:
         raise problem([{"field": f"{f}.id", "message": "이 틀·페이지의 블록이 아닙니다"} for f in foreign], "block_not_in_owner")
@@ -259,12 +267,13 @@ async def save_tree(db: AsyncSession, member_id: int | None, owner: Owner, owner
     if removed:  # 그 블록의 그림은 FK SET NULL 로 임시가 되어 24시간 뒤 정리된다(§4.7)
         await db.execute(delete(Block).where(Block.id.in_(removed)))
         changed["removed"] = removed
-    await _attach_images(db, member_id, flat)
+    await _attach_images(db, member_id, flat, owned)
     return changed
 
 
-async def _attach_images(db: AsyncSession, member_id: int | None, flat: Sequence[FlatBlock]) -> None:
-    """블록 그림 붙이기·떼기(§4.7). 최종 판정은 UPDATE 조건 — 이미 이 블록의 그림이거나, 저장하는 사람의 임시 업로드인
+async def _attach_images(db: AsyncSession, member_id: int | None, flat: Sequence[FlatBlock], owned: set[int]) -> None:
+    """블록 그림 붙이기·떼기(§4.7). 최종 판정은 UPDATE 조건 — 이미 이 블록의 그림이거나, 이 저장 전에 같은 주인(틀·페이지)의
+    블록에 붙어 있던 그림(블록 사이 옮기기 — 올린 사람이 누구든, 코드 검토 v7 N-1)이거나, 저장하는 사람의 임시 업로드인
     그림 파일. 영향 행 수가 모자라면 422(같은 임시 파일을 다른 글·블록이 먼저 붙였거나 남의 파일·그림 아님)"""
     for b in flat:  # 먼저 떼기 — 한 저장 안에서 그림이 다른 블록으로 옮겨 갈 수 있다
         keep = sorted(b.refs.attachments)
@@ -277,7 +286,7 @@ async def _attach_images(db: AsyncSession, member_id: int | None, flat: Sequence
         want = sorted(b.refs.attachments)
         if not want:
             continue
-        mine_temp = and_(Attachment.block_id.is_(None), Attachment.uploader_id == member_id)
+        mine_temp = and_(Attachment.block_id.is_(None), or_(Attachment.uploader_id == member_id, Attachment.id.in_(owned or [0])))
         result = await db.execute(
             update(Attachment)
             .where(

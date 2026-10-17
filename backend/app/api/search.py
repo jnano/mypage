@@ -71,12 +71,16 @@ async def search(
     return JSONResponse(body, headers={"Cache-Control": "no-store"})
 
 
+TERMS_TAGS = ("settings:search", "settings:spam")  # 금지어를 바꿔도 바로(검토 묶음C N-1)
+
+
 @router.get("/search/terms")
 async def search_terms(db: AsyncSession = Depends(get_db)):
-    """인기·추천 검색어 묶음 응답(§9.1) — 공개 캐시(사람마다 다르지 않다). 태그 settings:search, 집계로는 무효화하지 않는다"""
+    """인기·추천 검색어 묶음 응답(§9.1) — 공개 캐시(사람마다 다르지 않다). 태그는 거르기에 쓰는 설정 둘(검색 제외·금지어),
+    집계로는 무효화하지 않는다"""
     search = await site_settings.load(db, "search")
     assert isinstance(search, SearchSettings)
-    body = {"popular": await terms.popular(db, search), "recommended": search.recommended, "cache": {"tags": ["settings:search"]}}
+    body = {"popular": await terms.popular(db, search), "recommended": search.recommended, "cache": {"tags": list(TERMS_TAGS)}}
     return JSONResponse(body)
 
 

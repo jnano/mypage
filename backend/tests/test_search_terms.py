@@ -184,7 +184,7 @@ async def test_popular_threshold_window_and_filters(committed_db, client) -> Non
     body = res.json()
     assert [p["term"] for p in body["popular"]] == ["회의", "모집"]  # 검색 수(50, 40) 순
     assert body["recommended"] == ["공지"]
-    assert body["cache"]["tags"] == ["settings:search"]
+    assert body["cache"]["tags"] == ["settings:search", "settings:spam"]
 
 
 async def test_popular_defaults_and_query_budget(committed_db, client) -> None:

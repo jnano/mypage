@@ -1,0 +1,541 @@
+/* mypage 관리 화면 — 3단계 목록 부품
+   표      table[data-slot="admin-table"] > caption + thead th[scope=col] + tbody tr > td(고르기 체크) + th[scope=row](제목 링크) + td[data-label]
+           role(table·rowgroup·row·columnheader·rowheader·cell) 을 마크업에 붙인다 — 모바일에서 display 를 바꿔도 표로 읽히게.
+           1024px 미만: 줄 하나 = 카드 하나. 칸 이름은 attr(data-label). 1024px 이상: 표.
+   거르기  form[method=get][data-slot="filters"] > label(글자 + select|input) … + fieldset[data-slot="segmented"] + button
+   일괄    form[data-slot="admin-form"] > 표 + fieldset[data-slot="bulk-bar"] (새 슬롯) — 화면에서는 표 위에 붙는다
+   더 보기 p[data-slot="more"] > a  (또는 목록 바로 뒤 p > a 하나)
+   대기    ol[data-slot="pending-list"|"report-list"|"level-requests"|"pending-members"] > li > p + form(승인) + form(거부)
+   빈 목록 p[data-slot="empty"]   불러오는 중 p[data-slot="loading"] */
+
+/* ── 표 → 카드 목록 (기본 = 모바일) ─────────────────────── */
+[data-slot="admin"] table[data-slot="admin-table"] {
+  display: block;
+  width: 100%;
+  min-width: 0;
+  border-collapse: separate;
+  border-spacing: 0;
+  font-size: var(--ui-fs-body);
+}
+[data-slot="admin"] [data-slot="table-scroll"] > table[data-slot="admin-table"] { min-width: 0; }
+[data-slot="admin"] [data-slot="table-scroll"]:has(> table[data-slot="admin-table"]) {
+  overflow: visible;
+  border: 0;
+  border-radius: 0;
+  background: none;
+}
+[data-slot="admin"] table[data-slot="admin-table"] > caption {
+  display: block;
+  margin-bottom: var(--space-2);
+  color: var(--text-strong);
+  font: var(--weight-semibold) var(--ui-fs-label) / var(--leading-snug) var(--font-sans);
+  text-align: start;
+}
+[data-slot="admin"] table[data-slot="admin-table"] > thead { display: block; }
+[data-slot="admin"] table[data-slot="admin-table"] > thead > tr {
+  display: flex;
+  align-items: center;
+  min-height: var(--ui-target);
+}
+/* 칸 머리는 화면에서 숨기고 읽기에는 남긴다. 단, 모두 고르기 체크 칸은 보인다 */
+[data-slot="admin"] table[data-slot="admin-table"] > thead th {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+[data-slot="admin"] table[data-slot="admin-table"] > thead th:first-child:has(> input[type="checkbox"]) {
+  position: static;
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  width: auto;
+  height: auto;
+  min-height: var(--ui-target);
+  padding-inline-start: 11px;
+  overflow: visible;
+  clip-path: none;
+  color: var(--text-body);
+  font: var(--weight-medium) var(--ui-fs-label) / 1 var(--font-sans);
+}
+[data-slot="admin"] table[data-slot="admin-table"] > thead th:first-child:has(> input[type="checkbox"])::after {
+  content: "모두 고르기" / "";
+}
+[data-slot="admin"] table[data-slot="admin-table"] > tbody {
+  display: grid;
+  gap: var(--space-2);
+}
+[data-slot="admin"] table[data-slot="admin-table"] > tbody > tr {
+  display: grid;
+  grid-template-columns: var(--ui-target) minmax(0, 1fr);
+  column-gap: var(--space-1);
+  padding: var(--space-2) var(--space-4) var(--space-3) 0;
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-lg);
+  background: var(--surface-card);
+  box-shadow: var(--shadow-sm);
+  transition: background-color var(--dur-fast) var(--ease-out), border-color var(--dur-fast) var(--ease-out);
+}
+[data-slot="admin"] table[data-slot="admin-table"] > tbody > tr > :is(th, td) {
+  display: block;
+  grid-column: 2;
+  min-width: 0;
+  padding: 0;
+  text-align: start;
+}
+/* 고르기 체크: 왼쪽 44px 칸. 체크 둘레를 늘려 누르는 곳 44px */
+[data-slot="admin"] table[data-slot="admin-table"] > tbody > tr > td:first-child:has(> input[type="checkbox"]) {
+  grid-column: 1;
+  grid-row: 1 / span 12;
+  display: flex;
+  justify-content: center;
+  align-items: flex-start;
+  padding-top: 11px;
+}
+[data-slot="admin"] table[data-slot="admin-table"] input[type="checkbox"]::before {
+  content: "";
+  position: absolute;
+  inset: -11px;
+}
+/* 제목 */
+[data-slot="admin"] table[data-slot="admin-table"] > tbody > tr > th[scope="row"] {
+  margin-bottom: var(--space-1);
+  color: var(--text-strong);
+  font: var(--weight-semibold) var(--ui-fs-body) / var(--leading-snug) var(--font-sans);
+}
+[data-slot="admin"] table[data-slot="admin-table"] th[scope="row"] a {
+  display: flex;
+  align-items: center;
+  min-height: var(--ui-target);
+  color: inherit;
+  text-decoration: none;
+}
+@media (hover: hover) {
+  [data-slot="admin"] table[data-slot="admin-table"] th[scope="row"] a:hover { text-decoration: underline; text-underline-offset: 2px; }
+}
+/* 칸: 이름 | 값 */
+[data-slot="admin"] table[data-slot="admin-table"] > tbody > tr > td {
+  display: grid;
+  grid-template-columns: 5.5em minmax(0, 1fr);
+  gap: var(--space-2);
+  align-items: baseline;
+  padding-block: 3px;
+  color: var(--text-body);
+  font-size: var(--ui-fs-help);
+}
+[data-slot="admin"] table[data-slot="admin-table"] > tbody > tr > td::before {
+  content: attr(data-label);
+  color: var(--zinc-600);
+  font-size: var(--text-sm);
+  font-weight: var(--weight-medium);
+}
+[data-slot="admin"] table[data-slot="admin-table"] > tbody > tr > td:is(:not([data-label]), [data-label=""]) { grid-template-columns: minmax(0, 1fr); }
+[data-slot="admin"] table[data-slot="admin-table"] > tbody > tr > td:is(:not([data-label]), [data-label=""])::before { content: none; }
+/* 날짜·건수는 고정폭 */
+[data-slot="admin"] table[data-slot="admin-table"] :is(time, data) {
+  font-family: var(--font-mono);
+  font-size: 0.93em;
+  font-feature-settings: "tnum" 1;
+}
+/* 동작 칸: 카드 아래 줄 */
+[data-slot="admin"] table[data-slot="admin-table"] > tbody > tr > td:has(> :is(button, a[data-slot="button-link"], form)) {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  margin-top: var(--space-2);
+  padding-top: var(--space-3);
+  border-top: 1px solid var(--border-subtle);
+}
+[data-slot="admin"] table[data-slot="admin-table"] > tbody > tr > td:has(> :is(button, a[data-slot="button-link"], form))::before { content: none; }
+/* 고른 줄: 코랄 테두리 + 옅은 바탕 (칸 이름은 zinc-600 — zinc-500 은 coral-50 위 4.37) */
+[data-slot="admin"] table[data-slot="admin-table"] > tbody > tr:has(> td:first-child input[type="checkbox"]:checked) {
+  border-color: var(--coral-700);
+  background: var(--coral-50);
+  box-shadow: inset 0 0 0 1px var(--coral-700);
+}
+/* 숨김·초안 줄: 제목을 흐리게 + 칸 안 배지 낱말 */
+[data-slot="admin"] table[data-slot="admin-table"] > tbody > tr:is([data-inactive], [data-redacted]) > th[scope="row"] {
+  color: var(--zinc-600);
+  font-weight: var(--weight-medium);
+}
+
+/* ── lg 이상: 표 ──────────────────────────────────────── */
+@media (min-width: 1024px) {
+  [data-slot="admin"] table[data-slot="admin-table"] {
+    display: table;
+    border: 1px solid var(--border-subtle);
+    border-radius: var(--radius-lg);
+    background: var(--surface-card);
+    box-shadow: var(--shadow-sm);
+  }
+  [data-slot="admin"] [data-slot="table-scroll"]:has(> table[data-slot="admin-table"]) { overflow-x: auto; }
+  [data-slot="admin"] table[data-slot="admin-table"] > caption {
+    display: table-caption;
+    caption-side: top;
+  }
+  [data-slot="admin"] table[data-slot="admin-table"] > thead { display: table-header-group; }
+  [data-slot="admin"] table[data-slot="admin-table"] > tbody { display: table-row-group; }
+  [data-slot="admin"] table[data-slot="admin-table"] > :is(thead, tbody) > tr {
+    display: table-row;
+    min-height: 0;
+    padding: 0;
+    border: 0;
+    border-radius: 0;
+    background: none;
+    box-shadow: none;
+  }
+  [data-slot="admin"] table[data-slot="admin-table"] > :is(thead, tbody) > tr > :is(th, td),
+  [data-slot="admin"] table[data-slot="admin-table"] > thead th:first-child:has(> input[type="checkbox"]),
+  [data-slot="admin"] table[data-slot="admin-table"] > tbody > tr > td:first-child:has(> input[type="checkbox"]),
+  [data-slot="admin"] table[data-slot="admin-table"] > tbody > tr > td:has(> :is(button, a[data-slot="button-link"], form)) {
+    position: static;
+    display: table-cell;
+    width: auto;
+    height: auto;
+    min-height: 0;
+    margin: 0;
+    padding: 8px 12px;
+    overflow: visible;
+    clip-path: none;
+    border: 0;
+    border-bottom: 1px solid var(--border-subtle);
+    vertical-align: middle;
+    text-align: start;
+    font-size: var(--text-base);
+  }
+  [data-slot="admin"] table[data-slot="admin-table"] > thead > tr > th[scope] {
+    background: var(--zinc-50);
+    color: var(--zinc-600);
+    font: var(--weight-semibold) var(--text-xs) / 1.3 var(--font-sans);
+    letter-spacing: var(--tracking-wide);
+    white-space: nowrap;
+  }
+  [data-slot="admin"] table[data-slot="admin-table"] > thead th:first-child { border-start-start-radius: var(--radius-lg); }
+  [data-slot="admin"] table[data-slot="admin-table"] > thead th:last-child { border-start-end-radius: var(--radius-lg); }
+  [data-slot="admin"] table[data-slot="admin-table"] > thead th:first-child:has(> input[type="checkbox"])::after { content: none; }
+  [data-slot="admin"] table[data-slot="admin-table"] > :is(thead, tbody) > tr > :is(th, td):first-child:has(> input[type="checkbox"]) {
+    width: 44px;
+    padding-inline: 11px 0;
+  }
+  [data-slot="admin"] table[data-slot="admin-table"] > tbody > tr > td::before { content: none; }
+  [data-slot="admin"] table[data-slot="admin-table"] > tbody > tr > th[scope="row"] { font-size: var(--text-base); }
+  [data-slot="admin"] table[data-slot="admin-table"] th[scope="row"] a { display: inline-flex; min-height: 32px; }
+  [data-slot="admin"] table[data-slot="admin-table"] > tbody > tr > td { color: var(--text-body); }
+  [data-slot="admin"] table[data-slot="admin-table"] > tbody > tr > td:has(> :is(button, a[data-slot="button-link"], form)) {
+    text-align: end;
+    white-space: nowrap;
+  }
+  [data-slot="admin"] table[data-slot="admin-table"] > tbody > tr > td:has(> :is(button, a[data-slot="button-link"], form)) > * + * { margin-inline-start: var(--space-1); }
+  [data-slot="admin"] table[data-slot="admin-table"] > tbody > tr:last-child > * { border-bottom: 0; }
+  @media (hover: hover) {
+    [data-slot="admin"] table[data-slot="admin-table"] > tbody > tr:hover > * { background: var(--zinc-50); }
+  }
+  [data-slot="admin"] table[data-slot="admin-table"] > tbody > tr:has(> td:first-child input[type="checkbox"]:checked) > * {
+    background: var(--coral-50);
+  }
+  [data-slot="admin"] table[data-slot="admin-table"] > tbody > tr:has(> td:first-child input[type="checkbox"]:checked) > :first-child {
+    box-shadow: inset 3px 0 0 var(--coral-700);
+  }
+}
+
+/* ── 거르기 ────────────────────────────────────────────── */
+[data-slot="admin"] form[data-slot="filters"] {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--space-3);
+  align-items: end;
+  margin: 0;
+  padding: var(--space-4);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-lg);
+  background: var(--surface-card);
+}
+[data-slot="admin"] form[data-slot="filters"] > label {
+  display: grid;
+  gap: 6px;
+  min-width: 0;
+  color: var(--text-strong);
+  font: var(--weight-semibold) var(--ui-fs-label) / var(--leading-snug) var(--font-sans);
+}
+/* 찾기 칸·나뉜 단추·단추는 한 줄 전체 */
+[data-slot="admin"] form[data-slot="filters"] > :is(label:has(> input:not([type="checkbox"], [type="radio"])), fieldset, button, [data-slot="actions"]) {
+  grid-column: 1 / -1;
+}
+@media (min-width: 640px) {
+  [data-slot="admin"] form[data-slot="filters"] {
+    grid-template-columns: repeat(auto-fill, minmax(170px, 1fr));
+  }
+  [data-slot="admin"] form[data-slot="filters"] > :is(fieldset, button, [data-slot="actions"]) { grid-column: auto; }
+  [data-slot="admin"] form[data-slot="filters"] > label:has(> input:not([type="checkbox"], [type="radio"])) { grid-column: span 2; }
+  [data-slot="admin"] form[data-slot="filters"] > button { justify-self: start; }
+}
+@media (min-width: 1024px) {
+  [data-slot="admin"] form[data-slot="filters"] {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--space-3) var(--space-4);
+    padding: var(--space-4) var(--space-5);
+  }
+  [data-slot="admin"] form[data-slot="filters"] > label { flex: 1 1 150px; }
+  [data-slot="admin"] form[data-slot="filters"] > label:has(> input:not([type="checkbox"], [type="radio"])) { flex: 2 1 240px; }
+  [data-slot="admin"] form[data-slot="filters"] > :is(fieldset, button) { flex: none; }
+}
+
+/* ── 일괄 조치 막대 ────────────────────────────────────── */
+/* 마크업 순서는 표 → 막대 그대로. 화면에서는 order 로 표 위에 붙이고, 고른 수는 CSS 셈(counter)으로 보인다. */
+[data-slot="admin"] form[data-slot="admin-form"]:has(> fieldset[data-slot="bulk-bar"]) {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  max-width: none;
+  counter-reset: picked;
+}
+[data-slot="admin"] form:has(> fieldset[data-slot="bulk-bar"]) table[data-slot="admin-table"] > tbody input[type="checkbox"]:checked {
+  counter-increment: picked;
+}
+[data-slot="admin"] fieldset[data-slot="bulk-bar"] {
+  order: -1;
+  position: sticky;
+  top: calc(var(--admin-topbar) + var(--space-2));
+  z-index: 5;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: var(--space-2);
+  min-width: 0;
+  margin: 0;
+  padding: var(--space-3);
+  border: 1px solid var(--coral-700);
+  border-radius: var(--radius-lg);
+  background: var(--coral-50);
+  box-shadow: var(--shadow-md);
+}
+[data-slot="admin"] fieldset[data-slot="bulk-bar"] > legend {
+  float: left;
+  width: 100%;
+  margin: 0;
+  padding: 0;
+  color: var(--text-strong);
+  font: var(--weight-bold) var(--ui-fs-label) / var(--leading-snug) var(--font-sans);
+}
+[data-slot="admin"] fieldset[data-slot="bulk-bar"] > legend::after {
+  content: " · " counter(picked) "건 골랐어요";
+  color: var(--coral-700);
+  font-family: var(--font-sans);
+}
+[data-slot="admin"] fieldset[data-slot="bulk-bar"] > label {
+  display: grid;
+  gap: 6px;
+  min-width: 0;
+  color: var(--text-strong);
+  font: var(--weight-semibold) var(--ui-fs-label) / var(--leading-snug) var(--font-sans);
+}
+/* 조치에 따라 나오는 칸: data-action-field="move" 처럼 조치 값을 적는다 (새 속성) */
+[data-slot="admin"] fieldset[data-slot="bulk-bar"] [data-action-field] { display: none; }
+[data-slot="admin"] form:has(table[data-slot="admin-table"] > tbody input[type="checkbox"]:checked) > fieldset[data-slot="bulk-bar"]:has(select[name="action"] option[value="move"]:checked) [data-action-field~="move"],
+[data-slot="admin"] form:has(table[data-slot="admin-table"] > tbody input[type="checkbox"]:checked) > fieldset[data-slot="bulk-bar"]:has(select[name="action"] option[value="category"]:checked) [data-action-field~="category"],
+[data-slot="admin"] form:has(table[data-slot="admin-table"] > tbody input[type="checkbox"]:checked) > fieldset[data-slot="bulk-bar"]:has(select[name="action"] option[value="level"]:checked) [data-action-field~="level"],
+[data-slot="admin"] form:has(table[data-slot="admin-table"] > tbody input[type="checkbox"]:checked) > fieldset[data-slot="bulk-bar"]:has(select[name="action"] option[value="hide"]:checked) [data-action-field~="hide"],
+[data-slot="admin"] form:has(table[data-slot="admin-table"] > tbody input[type="checkbox"]:checked) > fieldset[data-slot="bulk-bar"]:has(select[name="action"] option[value="trash"]:checked) [data-action-field~="trash"] {
+  display: grid;
+}
+/* 되돌리기 어려운 조치(option[data-danger])를 고르면 제출 단추가 위험 모양 */
+[data-slot="admin"] fieldset[data-slot="bulk-bar"]:has(select[name="action"] option[data-danger]:checked) > button[type="submit"] {
+  --_bg: var(--surface-card); --_fg: var(--ui-danger); --_bd: var(--ui-danger);
+  --_bg-h: var(--danger-tint); --_bd-h: var(--ui-danger);
+  --_bg-a: var(--danger-tint); --_bd-a: var(--ui-danger-press);
+}
+/* 아무것도 안 골랐을 때: 막대를 접고 안내만 */
+[data-slot="admin"] form:not(:has(table[data-slot="admin-table"] > tbody input[type="checkbox"]:checked)) > fieldset[data-slot="bulk-bar"] {
+  position: static;
+  border-color: var(--border-subtle);
+  background: var(--zinc-50);
+  box-shadow: none;
+}
+[data-slot="admin"] form:not(:has(table[data-slot="admin-table"] > tbody input[type="checkbox"]:checked)) > fieldset[data-slot="bulk-bar"] > :not(legend) { display: none; }
+[data-slot="admin"] form:not(:has(table[data-slot="admin-table"] > tbody input[type="checkbox"]:checked)) > fieldset[data-slot="bulk-bar"] > legend {
+  color: var(--zinc-600);
+  font-weight: var(--weight-medium);
+}
+[data-slot="admin"] form:not(:has(table[data-slot="admin-table"] > tbody input[type="checkbox"]:checked)) > fieldset[data-slot="bulk-bar"] > legend::after {
+  content: " · 줄을 고르면 조치를 고를 수 있어요";
+  color: var(--zinc-600);
+}
+@media (min-width: 640px) {
+  [data-slot="admin"] fieldset[data-slot="bulk-bar"] {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: flex-end;
+    gap: var(--space-2) var(--space-3);
+    padding: var(--space-3) var(--space-4);
+  }
+  [data-slot="admin"] fieldset[data-slot="bulk-bar"] > :is(label, select) { flex: 1 1 180px; max-width: 280px; }
+  [data-slot="admin"] fieldset[data-slot="bulk-bar"] > button[type="submit"] { margin-inline-start: auto; }
+}
+
+/* ── 더 보기 ───────────────────────────────────────────── */
+[data-slot="admin"] :is(p[data-slot="more"], :is([data-slot="admin-table"], [data-slot="table-scroll"], [data-slot="pending-list"], [data-slot="report-list"], [data-slot="level-requests"], [data-slot="pending-members"]) + p:has(> a:only-child)) {
+  display: flex;
+  justify-content: center;
+  margin: var(--space-3) 0 0;
+}
+[data-slot="admin"] :is(p[data-slot="more"], :is([data-slot="admin-table"], [data-slot="table-scroll"], [data-slot="pending-list"], [data-slot="report-list"], [data-slot="level-requests"], [data-slot="pending-members"]) + p:has(> a:only-child)) > a {
+  box-sizing: border-box;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-2);
+  width: 100%;
+  min-height: var(--ui-target);
+  padding: 0 var(--space-5);
+  border: 1px solid var(--zinc-500);
+  border-radius: var(--radius-pill);
+  background: var(--surface-card);
+  color: var(--text-strong);
+  font: var(--weight-semibold) var(--ui-fs-label) / 1.2 var(--font-sans);
+  text-decoration: none;
+  transition: background-color var(--dur-fast) var(--ease-out);
+}
+[data-slot="admin"] :is(p[data-slot="more"], :is([data-slot="admin-table"], [data-slot="table-scroll"], [data-slot="pending-list"], [data-slot="report-list"], [data-slot="level-requests"], [data-slot="pending-members"]) + p:has(> a:only-child)) > a::after {
+  content: "";
+  width: 18px;
+  height: 18px;
+  background: currentColor;
+  -webkit-mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E") center / contain no-repeat;
+          mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E") center / contain no-repeat;
+}
+@media (hover: hover) {
+  [data-slot="admin"] p[data-slot="more"] > a:hover,
+  [data-slot="admin"] :is([data-slot="admin-table"], [data-slot="table-scroll"], [data-slot="pending-list"], [data-slot="report-list"], [data-slot="level-requests"], [data-slot="pending-members"]) + p:has(> a:only-child) > a:hover {
+    background: var(--zinc-100);
+    border-color: var(--zinc-600);
+  }
+}
+@media (min-width: 640px) {
+  [data-slot="admin"] p[data-slot="more"] > a,
+  [data-slot="admin"] :is([data-slot="admin-table"], [data-slot="table-scroll"], [data-slot="pending-list"], [data-slot="report-list"], [data-slot="level-requests"], [data-slot="pending-members"]) + p:has(> a:only-child) > a { width: auto; }
+}
+
+/* ── 대기 카드 (승인 대기 · 신고 · 승급 신청 · 가입 대기) ────── */
+[data-slot="admin"] :is(ol, ul):is([data-slot="pending-list"], [data-slot="report-list"], [data-slot="level-requests"], [data-slot="pending-members"]) {
+  display: grid;
+  gap: var(--space-3);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+[data-slot="admin"] :is([data-slot="pending-list"], [data-slot="report-list"], [data-slot="level-requests"], [data-slot="pending-members"]) > li {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: var(--space-3);
+  padding: var(--space-4);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-lg);
+  background: var(--surface-card);
+  box-shadow: var(--shadow-sm);
+}
+/* p = 제목 링크 + 게시판 · 작성자 · 날짜 */
+[data-slot="admin"] :is([data-slot="pending-list"], [data-slot="report-list"], [data-slot="level-requests"], [data-slot="pending-members"]) > li > p {
+  margin: 0;
+  color: var(--zinc-600);
+  font: var(--weight-regular) var(--ui-fs-help) / var(--leading-normal) var(--font-sans);
+}
+[data-slot="admin"] :is([data-slot="pending-list"], [data-slot="report-list"], [data-slot="level-requests"], [data-slot="pending-members"]) > li > p > a:first-child {
+  display: flex;
+  align-items: center;
+  min-height: var(--ui-target);
+  color: var(--text-strong);
+  font: var(--weight-semibold) var(--ui-fs-body) / var(--leading-snug) var(--font-sans);
+  text-decoration: none;
+}
+@media (hover: hover) {
+  [data-slot="admin"] :is([data-slot="pending-list"], [data-slot="report-list"], [data-slot="level-requests"], [data-slot="pending-members"]) > li > p > a:first-child:hover { text-decoration: underline; text-underline-offset: 2px; }
+}
+[data-slot="admin"] :is([data-slot="pending-list"], [data-slot="report-list"], [data-slot="level-requests"], [data-slot="pending-members"]) > li > p :is(time, data) {
+  font-family: var(--font-mono);
+  font-size: 0.93em;
+}
+[data-slot="admin"] :is([data-slot="pending-list"], [data-slot="report-list"], [data-slot="level-requests"], [data-slot="pending-members"]) > li > form {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: var(--space-2);
+  max-width: none;
+  margin: 0;
+}
+[data-slot="admin"] :is([data-slot="pending-list"], [data-slot="report-list"], [data-slot="level-requests"], [data-slot="pending-members"]) > li > form > :is(button, label, p) { flex: 1 1 100%; }
+/* 거부 폼: 사유 칸 위에 옅은 선으로 승인과 떼어 놓는다 */
+[data-slot="admin"] :is([data-slot="pending-list"], [data-slot="report-list"], [data-slot="level-requests"], [data-slot="pending-members"]) > li > form:has(:is(input, textarea, select)) {
+  padding-top: var(--space-3);
+  border-top: 1px solid var(--border-subtle);
+}
+[data-slot="admin"] :is([data-slot="pending-list"], [data-slot="report-list"], [data-slot="level-requests"], [data-slot="pending-members"]) > li > form > label {
+  display: grid;
+  gap: 6px;
+  min-width: 0;
+  color: var(--text-strong);
+  font: var(--weight-semibold) var(--ui-fs-label) / var(--leading-snug) var(--font-sans);
+}
+@media (min-width: 640px) {
+  [data-slot="admin"] :is([data-slot="pending-list"], [data-slot="report-list"], [data-slot="level-requests"], [data-slot="pending-members"]) > li {
+    grid-template-columns: minmax(0, 1fr) auto;
+    align-items: center;
+    column-gap: var(--space-4);
+  }
+  [data-slot="admin"] :is([data-slot="pending-list"], [data-slot="report-list"], [data-slot="level-requests"], [data-slot="pending-members"]) > li > form:not(:has(:is(input, textarea, select))) { grid-column: 2; grid-row: 1; }
+  [data-slot="admin"] :is([data-slot="pending-list"], [data-slot="report-list"], [data-slot="level-requests"], [data-slot="pending-members"]) > li > form:has(:is(input, textarea, select)) { grid-column: 1 / -1; }
+  [data-slot="admin"] :is([data-slot="pending-list"], [data-slot="report-list"], [data-slot="level-requests"], [data-slot="pending-members"]) > li > form > button { flex: none; }
+  [data-slot="admin"] :is([data-slot="pending-list"], [data-slot="report-list"], [data-slot="level-requests"], [data-slot="pending-members"]) > li > form > :is(label, p) { flex: 1 1 240px; max-width: 420px; }
+}
+
+/* ── 빈 목록 · 불러오는 중 ─────────────────────────────── */
+[data-slot="admin"] p[data-slot="empty"] {
+  display: grid;
+  justify-items: center;
+  gap: var(--space-3);
+  margin: 0;
+  padding: var(--space-10) var(--space-4);
+  border: 1px dashed var(--zinc-300);
+  border-radius: var(--radius-lg);
+  background: var(--surface-card);
+  color: var(--zinc-700);
+  font: 700 20px / 1.35 var(--font-display);
+  letter-spacing: var(--tracking-tight);
+  text-align: center;
+  text-wrap: balance;
+}
+[data-slot="admin"] p[data-slot="empty"]::before {
+  content: "";
+  width: 36px;
+  height: 36px;
+  background: var(--zinc-400);
+  -webkit-mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M22 12h-6l-2 3h-4l-2-3H2'/%3E%3Cpath d='M5.45 5.11 2 12v6a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-6l-3.45-6.89A2 2 0 0 0 16.76 4H7.24a2 2 0 0 0-1.79 1.11z'/%3E%3C/svg%3E") center / contain no-repeat;
+          mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M22 12h-6l-2 3h-4l-2-3H2'/%3E%3Cpath d='M5.45 5.11 2 12v6a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-6l-3.45-6.89A2 2 0 0 0 16.76 4H7.24a2 2 0 0 0-1.79 1.11z'/%3E%3C/svg%3E") center / contain no-repeat;
+}
+[data-slot="admin"] p[data-slot="loading"] {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-3);
+  min-height: 88px;
+  margin: 0;
+  color: var(--zinc-600);
+  font: var(--weight-medium) var(--ui-fs-label) / 1.3 var(--font-sans);
+}
+[data-slot="admin"] p[data-slot="loading"]::before {
+  content: "";
+  flex: none;
+  box-sizing: border-box;
+  width: 20px;
+  height: 20px;
+  border: 2px solid var(--coral-700);
+  border-inline-end-color: transparent;
+  border-radius: 50%;
+  animation: ui-spin 0.8s linear infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  [data-slot="admin"] p[data-slot="loading"]::before { animation: none; border-style: dotted; border-inline-end-color: var(--coral-700); }
+  [data-slot="admin"] table[data-slot="admin-table"] > tbody > tr { transition: none; }
+}

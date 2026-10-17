@@ -84,44 +84,44 @@ async function Logs({ searchParams }: PageProps<"/admin/logs">) {
       {data.items.length === 0 ? (
         <p data-slot="empty">기록이 없습니다.</p>
       ) : (
-        <table data-slot="admin-table">
+        <table role="table" data-slot="admin-table">
           <caption>운영 기록(최신순)</caption>
-          <thead>
-            <tr>
-              <th scope="col">시각</th>
-              <th scope="col">행위자</th>
-              <th scope="col">게시판</th>
-              <th scope="col">행동</th>
-              <th scope="col">대상</th>
-              <th scope="col">바뀐 칸</th>
-              <th scope="col">사유</th>
+          <thead role="rowgroup">
+            <tr role="row">
+              <th scope="col" role="columnheader">시각</th>
+              <th scope="col" role="columnheader">행위자</th>
+              <th scope="col" role="columnheader">게시판</th>
+              <th scope="col" role="columnheader">행동</th>
+              <th scope="col" role="columnheader">대상</th>
+              <th scope="col" role="columnheader">바뀐 칸</th>
+              <th scope="col" role="columnheader">사유</th>
             </tr>
           </thead>
-          <tbody>
+          <tbody role="rowgroup">
             {data.items.map((log) => (
-              <tr key={log.id} data-redacted={log.redacted || undefined}>
-                <td>{formatDateTime(log.created_at)}</td>
-                <td>{log.actor.name ?? (log.actor.id ? `#${log.actor.id}` : "작업자")}</td>
-                <td>{log.board?.slug ?? ""}</td>
-                <td>{log.action}</td>
-                <td>
+              <tr role="row" key={log.id} data-redacted={log.redacted || undefined}>
+                <td role="cell" data-label="시각">{formatDateTime(log.created_at)}</td>
+                <td role="cell" data-label="행위자">{log.actor.name ?? (log.actor.id ? `#${log.actor.id}` : "작업자")}</td>
+                <td role="cell" data-label="게시판">{log.board?.slug ?? ""}</td>
+                <td role="cell" data-label="행동">{log.action}</td>
+                <td role="cell" data-label="대상">
                   {log.target.type} #{log.target.id}
                 </td>
-                <td>
+                <td role="cell" data-label="바뀐 칸">
                   {log.before || log.after ? (
                     <>
                       <code>{payload(log.before)}</code> → <code>{payload(log.after)}</code>
                     </>
                   ) : null}
                 </td>
-                <td>{log.reason}</td>
+                <td role="cell" data-label="사유">{log.reason}</td>
               </tr>
             ))}
           </tbody>
         </table>
       )}
       {data.next_cursor !== null && (
-        <p>
+        <p data-slot="more">
           <Link href={`/admin/logs${query({ ...params, cursor: String(data.next_cursor) })}`}>더 보기</Link>
         </p>
       )}

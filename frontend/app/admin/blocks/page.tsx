@@ -42,27 +42,27 @@ async function List() {
       {blocks.length === 0 ? (
         <p data-slot="empty">없습니다.</p>
       ) : (
-        <table data-slot="admin-table">
+        <table role="table" data-slot="admin-table">
           <caption>끊긴 블록 {blocks.length}개</caption>
-          <thead>
-            <tr>
-              <th scope="col">블록</th>
-              <th scope="col">있는 곳</th>
-              <th scope="col">문제</th>
+          <thead role="rowgroup">
+            <tr role="row">
+              <th scope="col" role="columnheader">블록</th>
+              <th scope="col" role="columnheader">있는 곳</th>
+              <th scope="col" role="columnheader">문제</th>
             </tr>
           </thead>
-          <tbody>
+          <tbody role="rowgroup">
             {blocks.map((b) => (
-              <tr key={b.id}>
-                <th scope="row">
+              <tr role="row" key={b.id}>
+                <th scope="row" role="rowheader" data-label="블록">
                   {label[b.type] ?? b.type} <code>#{b.id}</code>
                 </th>
-                <td>
+                <td role="cell" data-label="있는 곳">
                   <Link href={`/admin/${b.owner.kind === "layout" ? "layouts" : "pages"}/${b.owner.id}`}>
                     {b.owner.kind === "layout" ? "틀" : "페이지"} {b.owner.name}
                   </Link>
                 </td>
-                <td>
+                <td role="cell" data-label="문제">
                   {b.invalid
                     ? "설정이 지금 형식과 맞지 않습니다 — 블록을 열어 다시 저장하세요"
                     : Object.entries(b.missing)

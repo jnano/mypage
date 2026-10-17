@@ -57,29 +57,29 @@ async function Members({ searchParams }: PageProps<"/admin/members">) {
       {data.items.length === 0 ? (
         <p data-slot="empty">회원이 없습니다.</p>
       ) : (
-        <table data-slot="members">
-          <thead>
-            <tr>
-              <th scope="col">표시 이름</th>
-              <th scope="col">이메일</th>
-              <th scope="col">레벨</th>
-              <th scope="col">가입</th>
-              <th scope="col">마지막 로그인</th>
+        <table role="table" data-slot="admin-table">
+          <thead role="rowgroup">
+            <tr role="row">
+              <th scope="col" role="columnheader">표시 이름</th>
+              <th scope="col" role="columnheader">이메일</th>
+              <th scope="col" role="columnheader">레벨</th>
+              <th scope="col" role="columnheader">가입</th>
+              <th scope="col" role="columnheader">마지막 로그인</th>
             </tr>
           </thead>
-          <tbody>
+          <tbody role="rowgroup">
             {data.items.map((m) => (
-              <tr key={m.id}>
-                <td>
+              <tr role="row" key={m.id}>
+                <td role="cell" data-label="표시 이름">
                   {status === "active" ? <Link href={`/admin/members/${m.id}`}>{m.display_name}</Link> : m.display_name}
                   {m.is_admin ? " · 운영자" : ""}
                 </td>
-                <td>{m.email ?? "—"}</td>
-                <td>{m.level}</td>
-                <td>
+                <td role="cell" data-label="이메일">{m.email ?? "—"}</td>
+                <td role="cell" data-label="레벨">{m.level}</td>
+                <td role="cell" data-label="가입">
                   <time dateTime={m.created_at}>{formatDateTime(m.created_at)}</time>
                 </td>
-                <td>{m.last_login_at ? <time dateTime={m.last_login_at}>{formatDateTime(m.last_login_at)}</time> : "—"}</td>
+                <td role="cell" data-label="마지막 로그인">{m.last_login_at ? <time dateTime={m.last_login_at}>{formatDateTime(m.last_login_at)}</time> : "—"}</td>
               </tr>
             ))}
           </tbody>

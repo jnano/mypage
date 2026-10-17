@@ -3,6 +3,7 @@ import { Suspense } from "react";
 import { bulkPostsAction, pinnedOrderAction } from "@/app/admin/actions";
 import { AdminForm } from "@/components/admin/AdminForm";
 import { AdminProblem } from "@/components/admin/AdminProblem";
+import { SelectAll } from "@/components/admin/SelectAll";
 import { adminGet, query } from "@/lib/admin/load";
 import type { AdminPostRow, AdminSummary, Page } from "@/lib/admin/types";
 import { formatDateTime } from "@/lib/format/time";
@@ -34,6 +35,8 @@ const ACTIONS: [string, string][] = [
   ["publish_now", "지금 발행(예약·임시·승인 대기)"],
 ];
 const STATUS_LABEL = Object.fromEntries(STATUSES);
+// 되돌릴 수 없는 조치 — 고르면 제출 전에 확인 대화(AdminForm), 단추는 위험 모양(lists.css)
+const DANGER_ACTIONS = new Set(["purge"]);
 
 export default function AdminPostsPage(props: PageProps<"/admin/posts">) {
   return (
@@ -122,41 +125,84 @@ async function Posts({ searchParams }: PageProps<"/admin/posts">) {
       {list.data.items.length === 0 ? (
         <p data-slot="empty">글이 없습니다.</p>
       ) : (
-        <AdminForm action={bulkPostsAction} submitLabel="고른 글에 조치" label="일괄 조치">
-          <table data-slot="admin-table">
+        <AdminForm
+          action={bulkPostsAction}
+          submitLabel="고른 글에 조치"
+          label="일괄 조치"
+          bulk={{
+            legend: "조치",
+            fields: (
+              <>
+                <label>
+                  조치{" "}
+                  <select name="action" defaultValue="trash">
+                    {ACTIONS.map(([v, label]) => (
+                      <option key={v} value={v} data-danger={DANGER_ACTIONS.has(v) || undefined}>
+                        {label}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+                <label data-action-field="move copy">
+                  옮길·복사할 게시판{" "}
+                  <select name="board_id" defaultValue="">
+                    <option value="">—</option>
+                    {boards.map((b) => (
+                      <option key={b.id} value={b.id}>
+                        {b.name}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+                <label data-action-field="category">
+                  카테고리 번호(쉼표, 비우면 뗌) <input name="category_ids" />
+                </label>
+                <label data-action-field="view_level">
+                  열람 등급(1~99, 비우면 해제) <input name="min_view_level" inputMode="numeric" />
+                </label>
+                <label>
+                  사유 <input name="reason" maxLength={500} />
+                </label>
+              </>
+            ),
+          }}
+        >
+          <table role="table" data-slot="admin-table">
             <caption>글(최신순) — 조치할 글을 고르세요</caption>
-            <thead>
-              <tr>
-                <th scope="col">고르기</th>
-                <th scope="col">제목</th>
-                <th scope="col">게시판</th>
-                <th scope="col">작성자</th>
-                <th scope="col">상태</th>
-                <th scope="col">표시</th>
-                <th scope="col">댓글·조회·신고</th>
-                <th scope="col">작성</th>
+            <thead role="rowgroup">
+              <tr role="row">
+                <th scope="col" role="columnheader">
+                  <SelectAll name="ids" label="이 쪽 모두 고르기" />
+                </th>
+                <th scope="col" role="columnheader">제목</th>
+                <th scope="col" role="columnheader">게시판</th>
+                <th scope="col" role="columnheader">작성자</th>
+                <th scope="col" role="columnheader">상태</th>
+                <th scope="col" role="columnheader">표시</th>
+                <th scope="col" role="columnheader">댓글·조회·신고</th>
+                <th scope="col" role="columnheader">작성</th>
               </tr>
             </thead>
-            <tbody>
+            <tbody role="rowgroup">
               {list.data.items.map((p) => (
-                <tr key={p.id}>
-                  <td>
+                <tr role="row" key={p.id}>
+                  <td role="cell" data-label="고르기">
                     <input type="checkbox" name="ids" value={p.id} aria-label={`${p.title} 고르기`} />
                   </td>
-                  <th scope="row">
+                  <th scope="row" role="rowheader" data-label="제목">
                     <Link href={`/boards/${p.board.slug}/${p.id}`}>{p.title}</Link>
                   </th>
-                  <td>{p.board.name}</td>
-                  <td>
+                  <td role="cell" data-label="게시판">{p.board.name}</td>
+                  <td role="cell" data-label="작성자">
                     {p.author.name}
                     {p.author.guest ? "(비회원)" : ""}
                   </td>
-                  <td>
+                  <td role="cell" data-label="상태">
                     {STATUS_LABEL[p.status] ?? p.status}
                     {p.trash && ` · ${formatDateTime(p.trash.trashed_at)} 이동${p.trash.purge_at ? `, ${formatDateTime(p.trash.purge_at)} 자동 정리` : ""}`}
                     {p.status === "scheduled" && ` · ${formatDateTime(p.published_at)} 발행 예정`}
                   </td>
-                  <td>
+                  <td role="cell" data-label="표시">
                     {[
                       p.flags.pinned && `고정 ${p.flags.pin_order ?? ""}`,
                       p.flags.blinded && "가림",
@@ -167,51 +213,18 @@ async function Posts({ searchParams }: PageProps<"/admin/posts">) {
                       .filter(Boolean)
                       .join(" · ")}
                   </td>
-                  <td>
+                  <td role="cell" data-label="댓글·조회·신고">
                     {p.comments} · {p.views} · {p.reports}
                   </td>
-                  <td>{formatDateTime(p.created_at)}</td>
+                  <td role="cell" data-label="작성">{formatDateTime(p.created_at)}</td>
                 </tr>
               ))}
             </tbody>
           </table>
-          <fieldset>
-            <legend>조치</legend>
-            <label>
-              조치{" "}
-              <select name="action" defaultValue="trash">
-                {ACTIONS.map(([v, label]) => (
-                  <option key={v} value={v}>
-                    {label}
-                  </option>
-                ))}
-              </select>
-            </label>
-            <label>
-              옮길·복사할 게시판{" "}
-              <select name="board_id" defaultValue="">
-                <option value="">—</option>
-                {boards.map((b) => (
-                  <option key={b.id} value={b.id}>
-                    {b.name}
-                  </option>
-                ))}
-              </select>
-            </label>
-            <label>
-              카테고리 번호(쉼표, 비우면 뗌) <input name="category_ids" />
-            </label>
-            <label>
-              열람 등급(1~99, 비우면 해제) <input name="min_view_level" inputMode="numeric" />
-            </label>
-            <label>
-              사유 <input name="reason" maxLength={500} />
-            </label>
-          </fieldset>
         </AdminForm>
       )}
       {list.data.next_cursor !== null && (
-        <p>
+        <p data-slot="more">
           <Link href={`/admin/posts${query({ ...params, cursor: String(list.data.next_cursor) })}`}>더 보기</Link>
         </p>
       )}

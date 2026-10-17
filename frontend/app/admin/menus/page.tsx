@@ -28,25 +28,25 @@ async function Menus() {
       {data.menus.length === 0 ? (
         <p data-slot="empty">메뉴가 없습니다.</p>
       ) : (
-        <table data-slot="admin-table">
+        <table role="table" data-slot="admin-table">
           <caption>메뉴 목록</caption>
-          <thead>
-            <tr>
-              <th scope="col">이름</th>
-              <th scope="col">항목</th>
-              <th scope="col">고친 때</th>
-              <th scope="col">지우기</th>
+          <thead role="rowgroup">
+            <tr role="row">
+              <th scope="col" role="columnheader">이름</th>
+              <th scope="col" role="columnheader">항목</th>
+              <th scope="col" role="columnheader">고친 때</th>
+              <th scope="col" role="columnheader">지우기</th>
             </tr>
           </thead>
-          <tbody>
+          <tbody role="rowgroup">
             {data.menus.map((m) => (
-              <tr key={m.id}>
-                <th scope="row">
+              <tr role="row" key={m.id}>
+                <th scope="row" role="rowheader" data-label="이름">
                   <Link href={`/admin/menus/${m.id}`}>{m.name}</Link>
                 </th>
-                <td>{m.items}</td>
-                <td>{formatDateTime(m.updated_at)}</td>
-                <td>
+                <td role="cell" data-label="항목">{m.items}</td>
+                <td role="cell" data-label="고친 때">{formatDateTime(m.updated_at)}</td>
+                <td role="cell" data-label="지우기">
                   <AdminForm action={deleteMenuAction.bind(null, m.id)} submitLabel="지우기" label={`${m.name} 지우기`} danger />
                 </td>
               </tr>

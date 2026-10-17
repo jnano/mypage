@@ -11,6 +11,7 @@ import "@/skins/admin/forms.css";
 import "@/skins/admin/status.css";
 import "@/skins/admin/dialog.css";
 import "@/skins/admin/shell.css";
+import "@/skins/admin/lists.css";
 import "@/skins/admin/adapt.css";
 
 // 관리 화면 골격(설계도 §14) — 운영자는 전체, 게시판 담당자는 맡은 게시판으로 서버가 범위를 좁힌다

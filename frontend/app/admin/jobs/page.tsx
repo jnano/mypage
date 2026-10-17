@@ -37,30 +37,30 @@ async function JobList({ searchParams }: PageProps<"/admin/jobs">) {
       {data.items.length === 0 ? (
         <p data-slot="empty">{status === "dead" ? "실패한 작업이 없습니다." : "밀린 작업이 없습니다."}</p>
       ) : (
-        <table data-slot="admin-table">
+        <table role="table" data-slot="admin-table">
           <caption>{status === "dead" ? "실패한 작업" : "처리를 기다리는 작업"}</caption>
-          <thead>
-            <tr>
-              <th scope="col">번호</th>
-              <th scope="col">종류</th>
-              <th scope="col">시도</th>
-              <th scope="col">마지막 오류</th>
-              <th scope="col">{status === "dead" ? "멈춘 시각" : "처리 예정"}</th>
-              {status === "dead" && <th scope="col">조치</th>}
+          <thead role="rowgroup">
+            <tr role="row">
+              <th scope="col" role="columnheader">번호</th>
+              <th scope="col" role="columnheader">종류</th>
+              <th scope="col" role="columnheader">시도</th>
+              <th scope="col" role="columnheader">마지막 오류</th>
+              <th scope="col" role="columnheader">{status === "dead" ? "멈춘 시각" : "처리 예정"}</th>
+              {status === "dead" && <th scope="col" role="columnheader">조치</th>}
             </tr>
           </thead>
-          <tbody>
+          <tbody role="rowgroup">
             {data.items.map((j) => (
-              <tr key={j.id}>
-                <td>{j.id}</td>
-                <th scope="row">
+              <tr role="row" key={j.id}>
+                <td role="cell" data-label="번호">{j.id}</td>
+                <th scope="row" role="rowheader" data-label="종류">
                   {j.type} <code>{JSON.stringify(j.payload)}</code>
                 </th>
-                <td>{j.attempts}</td>
-                <td>{j.last_error}</td>
-                <td>{formatDateTime(j.dead_at ?? j.available_at)}</td>
+                <td role="cell" data-label="시도">{j.attempts}</td>
+                <td role="cell" data-label="마지막 오류">{j.last_error}</td>
+                <td role="cell" data-label={status === "dead" ? "멈춘 시각" : "처리 예정"}>{formatDateTime(j.dead_at ?? j.available_at)}</td>
                 {status === "dead" && (
-                  <td>
+                  <td role="cell" data-label="조치">
                     <AdminForm action={retryJobAction.bind(null, j.id)} submitLabel="다시 시도" label={`작업 ${j.id} 다시 시도`} />
                   </td>
                 )}

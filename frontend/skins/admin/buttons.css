@@ -304,27 +304,7 @@
   opacity: 0.45;
 }
 
-/* 안1 — 트랙 안 '켬/끔' 글자 */
-[data-slot="admin"] [data-variant="label"] [data-slot="switch-track"]::before {
-  content: "끔" / "";
-  position: absolute;
-  inset-block: 0;
-  right: 5px;
-  width: 17px;
-  display: grid;
-  place-items: center;
-  color: #fff;
-  font: var(--weight-bold) 12px / 1 var(--font-sans);
-  letter-spacing: 0;
-}
-[data-slot="admin"] button[role="switch"][aria-checked="true"][data-variant="label"] [data-slot="switch-track"]::before,
-[data-slot="admin"] [data-variant="label"] input[role="switch"]:checked ~ [data-slot="switch-track"]::before {
-  content: "켬" / "";
-  right: auto;
-  left: 5px;
-}
-
-/* 안2 — 손잡이 안 체크(켬) · 가로줄(끔) */
+/* 스위치 확정: 안2 — 손잡이 안 체크(켬) · 가로줄(끔). 안1 규칙은 preview.css 로 옮김(1단계 비교용) */
 [data-slot="admin"] [data-variant="icon"] [data-slot="switch-thumb"]::before {
   content: "";
   position: absolute;

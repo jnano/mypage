@@ -50,32 +50,32 @@ async function Layouts() {
       {data.layouts.length === 0 ? (
         <p data-slot="empty">틀이 없습니다.</p>
       ) : (
-        <table data-slot="admin-table">
+        <table role="table" data-slot="admin-table">
           <caption>틀 목록</caption>
-          <thead>
-            <tr>
-              <th scope="col">이름</th>
-              <th scope="col">블록</th>
-              <th scope="col">쓰는 곳</th>
-              <th scope="col">고친 때</th>
-              <th scope="col">기본</th>
-              <th scope="col">지우기</th>
+          <thead role="rowgroup">
+            <tr role="row">
+              <th scope="col" role="columnheader">이름</th>
+              <th scope="col" role="columnheader">블록</th>
+              <th scope="col" role="columnheader">쓰는 곳</th>
+              <th scope="col" role="columnheader">고친 때</th>
+              <th scope="col" role="columnheader">기본</th>
+              <th scope="col" role="columnheader">지우기</th>
             </tr>
           </thead>
-          <tbody>
+          <tbody role="rowgroup">
             {data.layouts.map((l) => (
-              <tr key={l.id}>
-                <th scope="row">
+              <tr role="row" key={l.id}>
+                <th scope="row" role="rowheader" data-label="이름">
                   <Link href={`/admin/layouts/${l.id}`}>{l.name}</Link>
                 </th>
-                <td>{l.blocks}</td>
-                <td>
+                <td role="cell" data-label="블록">{l.blocks}</td>
+                <td role="cell" data-label="쓰는 곳">
                   게시판 {l.boards} · 페이지 {l.pages}
                   {classes.filter((c) => data.bindings[c] === l.id).map((c) => ` · ${ROUTE_LABELS[c] ?? c}`)}
                 </td>
-                <td>{formatDateTime(l.updated_at)}</td>
-                <td>{l.is_default ? "기본 틀" : "—"}</td>
-                <td>
+                <td role="cell" data-label="고친 때">{formatDateTime(l.updated_at)}</td>
+                <td role="cell" data-label="기본">{l.is_default ? "기본 틀" : "—"}</td>
+                <td role="cell" data-label="지우기">
                   {l.is_default ? (
                     "—"
                   ) : (

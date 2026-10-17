@@ -1,9 +1,8 @@
 /* mypage 관리 화면 — 2단계 골격
+   body > a[data-slot="skip-link"]  본문 바로가기 (하나만, body 바로 아래)
    div[data-slot="admin"]
-     header[data-slot="admin-header"]  본문 바로가기 · 메뉴 단추 · "관리" · 사이트로 · [account-placeholder] 로그인
-     div[data-slot="admin-drawer"][popover] > div[data-slot="drawer-head"] + nav[data-slot="admin-nav"]   (새 슬롯: admin-drawer·drawer-head)
-   저장소 반영 때 고침: 서랍을 dialog 대신 popover 로(사용자 결정 2026-10-17) — 넓은 화면의 옆 메뉴가 '대화상자'로 읽히지 않고,
-   모바일에서 JS 없이 popovertarget 단추로 열린다. 머리의 본문 바로가기는 루트의 skip-link 를 쓴다(adapt.css).
+     header[data-slot="admin-header"]  메뉴 단추 button[popovertarget] · "관리" · 사이트로 · [account-placeholder] 로그인
+     div#admin-drawer[popover="auto"][data-slot="admin-drawer"] > [data-slot="drawer-head"] + nav[data-slot="admin-nav"]
      main[data-slot="admin-main"]
    모바일: 머리 56px(--ink-900) + 왼쪽 서랍(--ink-850). lg 이상: 같은 서랍이 244px 옆 메뉴로 고정. */
 
@@ -61,19 +60,27 @@
 }
 [data-slot="admin"] [data-slot="admin-header"] a:active { background: var(--ink-700); }
 
-/* 본문 바로가기: 초점을 받을 때만 보임, 보일 때 44px */
-[data-slot="admin"] [data-slot="admin-header"] > a[href^="#"]:first-child {
-  position: absolute;
+/* 본문 바로가기: body 바로 아래 하나. 초점을 받을 때만 보임, 보일 때 44px
+   저장소 반영 때 고침: 관리 화면일 때만(body:has) — 관리 CSS 는 클라이언트 이동 뒤에도 남아 일반 화면의 건너뛰기 링크까지 바꾸게 된다 */
+body:has(> [data-slot="admin"]) > a[data-slot="skip-link"] {
+  box-sizing: border-box;
+  position: fixed;
   top: 6px;
-  inset-inline-start: var(--space-2);
-  z-index: 30;
+  left: 8px;
+  z-index: 100;
+  display: inline-flex;
+  align-items: center;
+  min-height: var(--ui-target);
+  padding: 0 var(--space-4);
+  border-radius: var(--radius-pill);
   background: var(--surface-card);
   color: var(--text-strong);
-  font-weight: var(--weight-semibold);
+  font: var(--weight-semibold) var(--ui-fs-label) / 1 var(--font-sans);
+  text-decoration: none;
   box-shadow: var(--shadow-lg);
   transform: translateY(-200%);
 }
-[data-slot="admin"] [data-slot="admin-header"] > a[href^="#"]:first-child:focus {
+body:has(> [data-slot="admin"]) > a[data-slot="skip-link"]:focus {
   transform: none;
   outline: 2px solid var(--coral-700);
   outline-offset: 2px;
@@ -86,7 +93,7 @@
   --_bg-a: var(--ink-700);
 }
 
-/* ── 서랍 (모바일) ─────────────────────────────────────── */
+/* ── 서랍 (모바일, popover — JS 없이 열고 닫음) ─────────── */
 [data-slot="admin"] [data-slot="admin-drawer"] {
   box-sizing: border-box;
   position: fixed;
@@ -200,7 +207,7 @@
     grid-column: 1 / -1;
     padding-inline: var(--space-2) var(--space-4);
   }
-  [data-slot="admin"] [data-slot="admin-header"] > button[aria-controls] { display: none; }
+  [data-slot="admin"] [data-slot="admin-header"] > button[popovertarget] { display: none; }
   [data-slot="admin"] [data-slot="admin-header"] > strong { margin-inline-start: var(--space-3); }
   [data-slot="admin"] [data-slot="admin-header"] a { min-height: 36px; }
 

@@ -51,29 +51,29 @@ async function Pages() {
       {data.pages.length === 0 ? (
         <p data-slot="empty">페이지가 없습니다.</p>
       ) : (
-        <table data-slot="admin-table">
+        <table role="table" data-slot="admin-table">
           <caption>페이지 목록(주소 순)</caption>
-          <thead>
-            <tr>
-              <th scope="col">주소</th>
-              <th scope="col">제목</th>
-              <th scope="col">상태</th>
-              <th scope="col">열람 등급</th>
-              <th scope="col">고친 때</th>
-              <th scope="col">지우기</th>
+          <thead role="rowgroup">
+            <tr role="row">
+              <th scope="col" role="columnheader">주소</th>
+              <th scope="col" role="columnheader">제목</th>
+              <th scope="col" role="columnheader">상태</th>
+              <th scope="col" role="columnheader">열람 등급</th>
+              <th scope="col" role="columnheader">고친 때</th>
+              <th scope="col" role="columnheader">지우기</th>
             </tr>
           </thead>
-          <tbody>
+          <tbody role="rowgroup">
             {data.pages.map((p) => (
-              <tr key={p.id} data-draft={p.status === "draft" || undefined}>
-                <th scope="row">
+              <tr role="row" key={p.id} data-draft={p.status === "draft" || undefined}>
+                <th scope="row" role="rowheader" data-label="주소">
                   <Link href={`/admin/pages/${p.id}`}>{p.path}</Link>
                 </th>
-                <td>{p.title}</td>
-                <td>{p.status === "published" ? "게시됨" : "초안"}</td>
-                <td>{p.view_level === 0 ? "누구나" : `${p.view_level} 이상`}</td>
-                <td>{formatDateTime(p.updated_at)}</td>
-                <td>{p.is_home ? "첫 화면" : <AdminForm action={deletePageAction.bind(null, p.id)} submitLabel="지우기" label={`${p.path} 지우기`} danger />}</td>
+                <td role="cell" data-label="제목">{p.title}</td>
+                <td role="cell" data-label="상태">{p.status === "published" ? "게시됨" : "초안"}</td>
+                <td role="cell" data-label="열람 등급">{p.view_level === 0 ? "누구나" : `${p.view_level} 이상`}</td>
+                <td role="cell" data-label="고친 때">{formatDateTime(p.updated_at)}</td>
+                <td role="cell" data-label="지우기">{p.is_home ? "첫 화면" : <AdminForm action={deletePageAction.bind(null, p.id)} submitLabel="지우기" label={`${p.path} 지우기`} danger />}</td>
               </tr>
             ))}
           </tbody>

@@ -4,13 +4,15 @@
    [data-slot="field"]·[data-slot="field-help"] 를 붙여도 같은 모양. 선택자 규칙 §1-2, min-width 만. */
 
 /* ── 폼 틀 ─────────────────────────────────────────────── */
+/* 설정 묶음은 form[data-slot=admin-form] > fieldset > legend — fieldset 을 카드로, legend 를 카드 제목으로.
+   legend 를 float 하면 테두리 위 특수 배치에서 빠져 일반 격자 칸이 된다. */
 [data-slot="admin"] form[data-slot="admin-form"] {
   display: grid;
   gap: var(--space-4);
   max-width: var(--admin-measure);
 }
 /* 설정 묶음 = ProjectM 카드 */
-[data-slot="admin"] form[data-slot="admin-form"] > section {
+[data-slot="admin"] form[data-slot="admin-form"] > :is(section, fieldset:not([data-slot])) {
   display: grid;
   grid-template-columns: minmax(0, 1fr);
   gap: var(--space-4) var(--space-4);
@@ -20,20 +22,27 @@
   background: var(--surface-card);
   box-shadow: var(--shadow-sm);
 }
-[data-slot="admin"] form[data-slot="admin-form"] > section > :is(h2, h3) {
+[data-slot="admin"] form[data-slot="admin-form"] > fieldset:not([data-slot]) {
+  min-width: 0;
   margin: 0;
+}
+[data-slot="admin"] form[data-slot="admin-form"] > :is(section, fieldset:not([data-slot])) > :is(h2, h3, legend) {
+  float: left;
+  width: 100%;
+  margin: 0;
+  padding: 0;
   color: var(--text-strong);
   font: var(--weight-semibold) var(--text-lg) / var(--leading-snug) var(--font-sans);
   letter-spacing: var(--tracking-snug);
 }
 @media (min-width: 640px) {
-  [data-slot="admin"] form[data-slot="admin-form"] > section {
+  [data-slot="admin"] form[data-slot="admin-form"] > :is(section, fieldset:not([data-slot])) {
     grid-template-columns: repeat(2, minmax(0, 1fr));
     padding: var(--space-6);
   }
-  [data-slot="admin"] form[data-slot="admin-form"] > section > * { grid-column: 1 / -1; }
+  [data-slot="admin"] form[data-slot="admin-form"] > :is(section, fieldset:not([data-slot])) > * { grid-column: 1 / -1; }
   /* 짧은 칸(숫자·날짜·선택)만 두 칸 */
-  [data-slot="admin"] form[data-slot="admin-form"] > section > :is([data-slot="field"], p):has(> :is(input[type="number"], input[type="date"], input[type="time"], select)) {
+  [data-slot="admin"] form[data-slot="admin-form"] > :is(section, fieldset:not([data-slot])) > :is([data-slot="field"], p):has(> :is(input[type="number"], input[type="date"], input[type="time"], select)) {
     grid-column: auto;
   }
 }
@@ -84,7 +93,8 @@
   line-height: var(--leading-normal);
   resize: vertical;
 }
-[data-slot="admin"] select {
+/* :is() 공통 규칙(0,2,1)보다 높게 — 펼침 화살표·오른쪽 여백 유지 */
+[data-slot="admin"] select:not([multiple]) {
   padding-inline-end: 40px;
   background: var(--surface-card) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%233f3f46' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E") right 12px center / 20px no-repeat;
   appearance: none;
@@ -209,7 +219,7 @@
   cursor: pointer;
   -webkit-tap-highlight-color: transparent;
 }
-[data-slot="admin"] p:has(> label > input[type="checkbox"]) > :is(small, [data-slot="field-help"]) {
+[data-slot="admin"] p:has(> label > input[type="checkbox"]:not([role="switch"])) > :is(small, [data-slot="field-help"]) {
   padding-inline-start: calc(22px + var(--space-3));
 }
 [data-slot="admin"] label:has(> :is(input[type="checkbox"], input[type="radio"]):disabled) {
@@ -227,7 +237,7 @@
 }
 
 /* 라디오 묶음 */
-[data-slot="admin"] fieldset:not([data-slot="segmented"]) {
+[data-slot="admin"] :not(form[data-slot="admin-form"]) > fieldset:not([data-slot]) {
   display: grid;
   gap: 0;
   min-width: 0;
@@ -235,7 +245,7 @@
   padding: 0;
   border: 0;
 }
-[data-slot="admin"] fieldset:not([data-slot="segmented"]) > legend {
+[data-slot="admin"] :not(form[data-slot="admin-form"]) > fieldset:not([data-slot]) > legend {
   margin-bottom: 2px;
   padding: 0;
   color: var(--text-strong);

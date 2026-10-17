@@ -35,39 +35,39 @@ async function Boards() {
   const groupOrder = data.groups.map((g) => g.id);
   return (
     <>
-      <table data-slot="admin-table">
+      <table role="table" data-slot="admin-table">
         <caption>게시판 목록(메뉴 순서)</caption>
-        <thead>
-          <tr>
-            <th scope="col">분류</th>
-            <th scope="col">이름</th>
-            <th scope="col">형식</th>
-            <th scope="col">글</th>
-            <th scope="col">최근 글</th>
-            <th scope="col">승인 대기</th>
-            <th scope="col">신고 대기</th>
-            <th scope="col">상태</th>
-            <th scope="col">순서</th>
+        <thead role="rowgroup">
+          <tr role="row">
+            <th scope="col" role="columnheader">분류</th>
+            <th scope="col" role="columnheader">이름</th>
+            <th scope="col" role="columnheader">형식</th>
+            <th scope="col" role="columnheader">글</th>
+            <th scope="col" role="columnheader">최근 글</th>
+            <th scope="col" role="columnheader">승인 대기</th>
+            <th scope="col" role="columnheader">신고 대기</th>
+            <th scope="col" role="columnheader">상태</th>
+            <th scope="col" role="columnheader">순서</th>
           </tr>
         </thead>
-        <tbody>
+        <tbody role="rowgroup">
           {data.boards.map((b, i) => (
-            <tr key={b.id} data-inactive={!b.is_active || undefined}>
-              <td>{b.group?.name ?? "—"}</td>
-              <th scope="row">
+            <tr role="row" key={b.id} data-inactive={!b.is_active || undefined}>
+              <td role="cell" data-label="분류">{b.group?.name ?? "—"}</td>
+              <th scope="row" role="rowheader" data-label="이름">
                 <Link href={`/admin/boards/${b.slug}`}>{b.name}</Link> <code>{b.slug}</code>
               </th>
-              <td>
+              <td role="cell" data-label="형식">
                 {b.kind} · {b.editor === "rich" ? "리치" : "마크다운"}
               </td>
-              <td>{b.posts}</td>
-              <td>{formatDateTime(b.last_post_at)}</td>
-              <td>{b.pending}</td>
-              <td>{b.reports}</td>
-              <td>
+              <td role="cell" data-label="글">{b.posts}</td>
+              <td role="cell" data-label="최근 글">{formatDateTime(b.last_post_at)}</td>
+              <td role="cell" data-label="승인 대기">{b.pending}</td>
+              <td role="cell" data-label="신고 대기">{b.reports}</td>
+              <td role="cell" data-label="상태">
                 {[b.is_active ? "사용" : "중지", b.show_in_menu ? "메뉴" : "메뉴 숨김", b.is_system ? "시스템" : ""].filter(Boolean).join(" · ")}
               </td>
-              <td>
+              <td role="cell" data-label="순서">
                 <AdminForm action={moveBoardAction.bind(null, order, b.id, -1)} submitLabel="위로" label={`${b.name} 위로`} />
                 {i < data.boards.length - 1 && <AdminForm action={moveBoardAction.bind(null, order, b.id, 1)} submitLabel="아래로" label={`${b.name} 아래로`} />}
               </td>

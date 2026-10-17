@@ -224,8 +224,9 @@ class BlockLike(Protocol):
 
 
 def block_view(viewer: Viewer, block: BlockLike) -> bool:
-    """block.view(홈블록 설계도 §6.1) — 블록 칸의 보이기. 주인(틀)은 누구나 보고, 페이지 주인의 page.read 는 걸음 6.
-    공개 묶음(비회원 판정)과 회원 블록이 이 한 함수를 쓴다"""
+    """block.view(홈블록 설계도 §6.1) — 블록 칸(is_active·min_level·audience)의 보이기만. 주인(틀)은 누구나 본다.
+    주인이 페이지면 page_read 는 부르는 쪽이 따로 본다(회원 블록·그림 내려주기는 page_read, 틀 묶음은 _page_owner 의 SQL 조건 —
+    test_page_sql_conditions_match_page_read 가 대조). 부모 묶음 블록도 이 함수로 본다. 공개 묶음(비회원 판정)과 회원 블록이 함께 쓴다"""
     if not block.is_active or block.min_level > viewer.level:
         return False
     if block.audience == "member":

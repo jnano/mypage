@@ -12,5 +12,6 @@
     "layout": true,
     "page": true,
     "menu": true
-  }
+  },
+  "searchLandmark": "사이트 검색"
 }

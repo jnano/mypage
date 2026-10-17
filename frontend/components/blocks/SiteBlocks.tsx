@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { useId } from "react";
+import { searchLandmark } from "@/lib/admin/enums.gen.json";
 import type { BlockData } from "@/lib/blocks/types";
 import { BlockImage } from "./BlockImage";
 
@@ -17,9 +18,10 @@ export function SiteBrandBlock({ data }: { data: BlockData["site_brand"] }) {
 export function SearchBoxBlock({ data }: { data: BlockData["search_box"] }) {
   const id = useId();
   return (
-    // 이름 있는 검색 랜드마크 — 검색 화면의 검색 폼과 함께 있어도 구분된다(axe landmark-unique, §10)
-    <form role="search" aria-label="사이트 검색" action={data.action} method="get" data-slot="search-box">
-      <label htmlFor={id}>사이트 검색</label>
+    // 이름 있는 검색 랜드마크 — 검색 화면의 검색 폼과 함께 있어도 구분된다(axe landmark-unique, §10). 이름은 저장 검증과 같은 값
+    // (생성 파일 — 원본 backend tree.SEARCH_LANDMARK, 한 화면에 검색 블록 하나 규칙 D-122)
+    <form role="search" aria-label={searchLandmark} action={data.action} method="get" data-slot="search-box">
+      <label htmlFor={id}>{searchLandmark}</label>
       <input id={id} type="search" name="q" placeholder={data.placeholder} maxLength={100} />
       <button type="submit">검색</button>
     </form>

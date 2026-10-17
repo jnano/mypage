@@ -327,10 +327,7 @@ def test_discriminated_union_error_loc() -> None:
 
 
 def test_search_box_is_a_named_landmark() -> None:
-    """검색 블록 둘이 한 화면이면 같은 이름의 search 랜드마크(axe landmark-unique) — 저장에서 막는다(걸음 7-5).
-    이름은 프런트 SearchBoxBlock 의 aria-label 과 같아야 한다(두 곳 대조)"""
-    from pathlib import Path
-
+    """검색 블록 둘이 한 화면이면 같은 이름의 search 랜드마크(axe landmark-unique) — 저장에서 막는다(걸음 7-5)"""
     from app.blocks.tree import SEARCH_LANDMARK, BlockIn, TreeErrors, validate_tree
 
     two = [("header", [BlockIn(type="search_box")]), ("aside", [BlockIn(type="search_box")])]
@@ -340,5 +337,4 @@ def test_search_box_is_a_named_landmark() -> None:
     with pytest.raises(TreeErrors):  # 페이지 본문 + 그 페이지가 쓸 틀(taken)
         validate_tree("page", [(None, [BlockIn(type="search_box")])], "blocks", {SEARCH_LANDMARK: "틀 1"})
     validate_tree("layout", [("header", [BlockIn(type="search_box")])], "regions")  # 대조: 하나면 통과
-    front = Path(__file__).resolve().parents[2] / "frontend" / "components" / "blocks" / "SiteBlocks.tsx"
-    assert f'role="search" aria-label="{SEARCH_LANDMARK}"' in front.read_text(encoding="utf-8")
+    # 화면의 이름은 생성 파일(enums.gen.json 의 searchLandmark)에서 — 원본과 같은지는 test_generated_file_is_current(코드 검토 v19 N-1)

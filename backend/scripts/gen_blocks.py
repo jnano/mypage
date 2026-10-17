@@ -20,7 +20,7 @@ from app.blocks.modules import MODULES
 from app.blocks.resolve import NOT_YET, Lookup, resolve
 from app.blocks.routes import PAGE_PATH_PATTERN, PAGE_PATH_SAMPLES
 from app.blocks.schema import block_types
-from app.blocks.tree import collect_refs
+from app.blocks.tree import SEARCH_LANDMARK, collect_refs
 from app.blocks.menus import ITEM_COLUMNS
 from app.editor.render import ImageSource
 from app.models.enums import MODERATION_TARGET_TYPES
@@ -47,7 +47,8 @@ EXAMPLE_MENU = [
 
 TARGET = Path(__file__).resolve().parents[2] / "frontend" / "lib" / "blocks" / "blocks.gen.json"
 FORMS_TARGET = Path(__file__).resolve().parents[2] / "frontend" / "lib" / "admin" / "blocks" / "blockTypes.fixture.json"
-# 관리 화면이 손으로 따로 적던 목록 — 운영 기록 대상 종류(화면의 이름표 표가 빠짐없이 덮는지 프런트 타입 검사가 본다, 통합 설계도 D-712)
+# 작은 값 모음 — 운영 기록 대상 종류(화면의 이름표 표가 빠짐없이 덮는지 프런트 타입 검사가 본다, 통합 설계도 D-712)와
+# 검색 블록의 고정 랜드마크 이름(저장 검증과 화면이 같은 말, D-122). blocks.gen.json 은 견본까지 커서 블록 부품이 가져다 쓰지 않는다
 ENUMS_TARGET = Path(__file__).resolve().parents[2] / "frontend" / "lib" / "admin" / "enums.gen.json"
 
 # 견본 해결용 조회 결과 — 그림은 '썸네일 전'(자리 표시)이라 없는 파일 주소를 만들지 않는다
@@ -108,6 +109,7 @@ def render_enums() -> str:
     data = {
         "$generated": "backend/scripts/gen_blocks.py — 직접 고치지 않는다",
         "moderationTargetTypes": dict.fromkeys(MODERATION_TARGET_TYPES, True),  # 객체 키로 — 프런트 타입이 글자 그대로 읽는다
+        "searchLandmark": SEARCH_LANDMARK,
     }
     return json.dumps(data, ensure_ascii=False, indent=2) + "\n"
 

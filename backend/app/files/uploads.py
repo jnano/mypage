@@ -1,4 +1,4 @@
-"""업로드 — 글 작성 전 임시 업로드(post_id NULL, 24시간 뒤 정리). 설계도 §3.1-3, §11, §12.
+"""업로드 — 글·블록에 붙기 전 임시 업로드(post_id·block_id NULL, 24시간 뒤 정리). 설계도 §3.1-3, §11, §12, 홈블록 §4.7.
 
 순서: 권한(attachment.upload) → 요청 수 제한 → 이미지 작업 한도(차면 429 + Retry-After) →
 본문을 임시 파일로 흘려 받으며 크기 상한(413) → 앞부분으로 형식 판별·확장자 대조 →
@@ -17,6 +17,7 @@ import anyio
 from fastapi import Request
 from sqlalchemy import insert
 
+from app.admin import settings as site_settings
 from app.auth.viewer import Viewer
 from app.boards.settings import UploadPolicy
 from app.core import idempotency, outbox, rate_limit
@@ -89,17 +90,30 @@ def _prepare_image(path: Path, mime: str, max_px: int) -> tuple[bytes, int, int]
         raise _invalid(f"이미지 구조가 올바르지 않습니다: {e}") from None
 
 
-async def upload(request: Request, viewer: Viewer, board_slug: str, filename: str | None, idempotency_key: str | None) -> tuple[int, dict[str, Any]]:
-    if viewer.member_id is None:
-        raise Problem(401, "login_required", "로그인이 필요합니다")
+async def _policy(viewer: Viewer, board_slug: str | None) -> tuple[UploadPolicy, str]:
+    """업로드 대상 둘(홈블록 §4.7) — 게시판(attachment.upload·게시판 upload_policy) / 사이트(블록 그림 — 운영자,
+    site_settings.site_upload). 돌려주는 두 번째 값은 멱등 요청 해시에 넣는 대상 이름"""
     async with SessionLocal() as db:
+        if board_slug is None:
+            if not viewer.is_admin:  # site.design(U-3)
+                raise Problem(403, "upload_forbidden", "사이트 그림은 운영자만 올릴 수 있습니다")
+            policy = await site_settings.load(db, "site_upload")
+            assert isinstance(policy, UploadPolicy)
+            return policy, "target=site"
         board = await post_queries.find_board(db, board_slug)
         if board is None:
             raise Problem(404, "board_not_found", "게시판을 찾을 수 없습니다")
         role = await load_board_role(db, viewer, board.id)
     if not can(viewer, role, "attachment.upload", board):
         raise Problem(403, "upload_forbidden", "이 게시판에 파일을 올릴 수 없습니다")
-    policy = UploadPolicy.model_validate(board.upload_policy)
+    return UploadPolicy.model_validate(board.upload_policy), f"board={board_slug}"
+
+
+async def upload(request: Request, viewer: Viewer, board_slug: str | None, filename: str | None, idempotency_key: str | None) -> tuple[int, dict[str, Any]]:
+    """board_slug 가 None 이면 사이트(블록 그림) 업로드"""
+    if viewer.member_id is None:
+        raise Problem(401, "login_required", "로그인이 필요합니다")
+    policy, scope = await _policy(viewer, board_slug)
     name = clean_filename(filename)
     ext = name.rsplit(".", 1)[-1].lower() if "." in name else ""
     if ext not in policy.exts:
@@ -127,7 +141,7 @@ async def upload(request: Request, viewer: Viewer, board_slug: str, filename: st
         claim = None
         if idempotency_key is not None:
             claimed = await idempotency.claim(
-                f"m:{viewer.member_id}", idempotency_key, idempotency.request_hash(f"POST /uploads?board={board_slug}", {"name": name, "sha256": sha256})
+                f"m:{viewer.member_id}", idempotency_key, idempotency.request_hash(f"POST /uploads?{scope}", {"name": name, "sha256": sha256})
             )
             if isinstance(claimed, idempotency.Replay):
                 return claimed.status_code, claimed.body

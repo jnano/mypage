@@ -13,7 +13,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.admin.logs import LogEntry, changed, record
 from app.auth.viewer import Viewer
-from app.boards.settings import SpamPolicy
+from app.boards.settings import SpamPolicy, UploadPolicy
 from app.core.problems import Problem
 from app.models import SiteSetting
 
@@ -106,12 +106,29 @@ class SignupSettings(BaseModel):
     contact_text: Annotated[str, Field(max_length=500)] = ""  # 메일이 없는 동안 신청자가 물어볼 곳
 
 
+IMAGE_EXTS = frozenset({"jpg", "jpeg", "png", "gif", "webp"})
+
+
+def _images_only(exts: list[str]) -> list[str]:
+    if not exts or not set(exts) <= IMAGE_EXTS:
+        raise ValueError("사이트 업로드는 그림 형식(jpg·jpeg·png·gif·webp)만 됩니다")
+    return exts
+
+
+class SiteUploadPolicy(UploadPolicy):
+    """블록 그림 업로드 한도(홈블록 §4.7, ?target=site) — 형식은 게시판 업로드와 같은 UploadPolicy, 그림만.
+    max_files 는 블록 하나에 붙는 그림 수"""
+
+    exts: Annotated[list[str], AfterValidator(_images_only)] = ["jpg", "jpeg", "png", "gif", "webp"]
+
+
 GROUPS: dict[str, type[BaseModel]] = {
     "levels": LevelNames,
     "spam": SpamPolicy,
     "seo": SeoSettings,
     "search": SearchSettings,
     "signup": SignupSettings,
+    "site_upload": SiteUploadPolicy,
 }
 
 

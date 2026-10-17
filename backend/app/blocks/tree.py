@@ -14,9 +14,11 @@ from pydantic import BaseModel, ConfigDict, Field, ValidationError
 from sqlalchemy import and_, delete, insert, or_, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.admin import settings as site_settings
 from app.blocks import types as t
 from app.blocks.limits import MAX_BLOCKS_PER_OWNER, MAX_DYNAMIC_BLOCKS, MAX_MODULES_PER_PAGE
 from app.core.problems import Problem
+from app.files import block_images
 from app.models import Attachment, Block, Board, Menu, Page
 
 Owner = Literal["layout", "page"]
@@ -239,6 +241,11 @@ async def _check_refs(db: AsyncSession, flat: Sequence[FlatBlock]) -> None:
 async def save_tree(db: AsyncSession, member_id: int | None, owner: Owner, owner_id: int, flat: Sequence[FlatBlock]) -> dict[str, list[int]]:
     """주인 행을 잠근 뒤에 부른다(§4.6). 바뀐 블록 id 를 돌려준다(운영 기록용)"""
     existing = {r.id: r for r in await owner_blocks(db, owner, owner_id)}
+    policy = await site_settings.load(db, "site_upload")
+    assert isinstance(policy, site_settings.SiteUploadPolicy)
+    over = [b.field for b in flat if len(b.refs.attachments) > policy.max_files]
+    if over:  # 블록 하나의 그림 수(사이트 업로드 한도, §4.7)
+        raise problem([{"field": f"{f}.config", "message": f"블록 하나에 그림은 {policy.max_files}개까지입니다"} for f in over])
     # 이 저장 전에 이 주인의 블록에 붙어 있던 그림 — 블록 사이로 옮길 수 있다(지운 블록의 그림도 다른 블록이 받으면 옮겨진다)
     owned = set((await db.execute(select(Attachment.id).where(Attachment.block_id.in_(list(existing) or [0])))).scalars())  # post-clause: exempt — 첨부 칸(글 아님)
     foreign = [b.field for b in flat if b.item.id is not None and b.item.id not in existing]
@@ -268,6 +275,9 @@ async def save_tree(db: AsyncSession, member_id: int | None, owner: Owner, owner
         await db.execute(delete(Block).where(Block.id.in_(removed)))
         changed["removed"] = removed
     await _attach_images(db, member_id, flat, owned)
+    kept = {a for b in flat for a in b.refs.attachments}
+    await block_images.release(db, owned - kept)  # 떨어진 그림은 공개 저장소에 남지 않게
+    await block_images.reconcile(db, [b.id for b in flat if b.refs.attachments and b.id is not None])
     return changed
 
 

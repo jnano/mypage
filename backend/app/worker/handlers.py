@@ -10,7 +10,7 @@ from app.core.invalidation import tags_for
 from app.core.outbox import enqueue_revalidate
 from app.core import outbox
 from app.core.threads import run_in_thread
-from app.files import attach, images, storage
+from app.files import attach, block_images, images, storage
 from app.models import Attachment, Board, Comment, LevelRequest, Member, OutboxEvent, Post, PostSearch
 from app.notifications import send
 from app.posts.purge import purge_posts
@@ -144,7 +144,7 @@ async def attachment_uploaded(db: AsyncSession, event: OutboxEvent) -> None:
     """썸네일(회전 반영). 글에 이미 붙어 있으면 공개 여부 맞추기와 본문 다시 렌더로 이어진다."""
     attachment_id = int(event.payload["attachment_id"])
     row = (
-        await db.execute(select(Attachment.id, Attachment.storage_key, Attachment.post_id, Attachment.is_image).where(Attachment.id == attachment_id))
+        await db.execute(select(Attachment.id, Attachment.storage_key, Attachment.post_id, Attachment.block_id, Attachment.is_image).where(Attachment.id == attachment_id))
     ).one_or_none()
     if row is None or not row.is_image:
         return
@@ -156,6 +156,8 @@ async def attachment_uploaded(db: AsyncSession, event: OutboxEvent) -> None:
     await db.execute(update(Attachment).where(Attachment.id == attachment_id).values(thumbs_ready=True, width=width, height=height))
     if row.post_id is not None:
         await attach.reconcile(db, row.post_id)
+    elif row.block_id is not None:  # 블록 그림 — 자리 표시를 썸네일로 바꾸려면 주인 태그도 만료(§5.3)
+        await outbox.enqueue(db, [outbox.Event("attach.reconcile_block", {"block_ids": [row.block_id], "force": True})])
 
 
 @handles("attachments.sync")
@@ -197,6 +199,44 @@ async def attachments_sync(db: AsyncSession, event: OutboxEvent) -> None:
     if changed:
         await attach.rerender(db, post_id, post.content_html, await attach.load_for_post(db, post_id))
         await enqueue_revalidate(db, [tags_for("post.updated", post_id=post_id, board_slug=board.slug)])
+
+
+@handles("attach.reconcile_block")
+async def attach_reconcile_block(db: AsyncSession, event: OutboxEvent) -> None:
+    """블록 그림을 있어야 할 저장소로 옮긴다(홈블록 §4.7) — 글 첨부의 attachments.sync 와 같은 방식. 옮긴 그림이 있거나
+    force(썸네일이 막 준비됨)면 주인 태그를 즉시 만료한다(§5.3). 페이지 주인의 태그는 걸음 6"""
+    rows = await block_images.load(db, event.payload["block_ids"])
+    old_labels: list[str] = []
+    owners: set[int] = set()
+    released = event.payload.get("released_ids") or []
+    for r in await db.execute(select(Attachment.id, Attachment.storage_key).where(Attachment.id.in_(released))):  # post-clause: exempt — 첨부 칸(글 아님)
+        found = storage.locate(r.storage_key)  # 블록에서 떨어진 그림 — 비공개 저장소로(표시는 이미 private)
+        if found is not None and found[0] == "public":
+            key = storage.new_key(r.storage_key.rsplit(".", 1)[-1])
+            old_labels += await run_in_thread("image", storage.copy_with_thumbs, r.storage_key, "private", key)
+            await db.execute(update(Attachment).where(Attachment.id == r.id).values(storage_key=key))
+    for r in rows:
+        want = block_images.desired(r)
+        if want == "public" and not r.thumbs_ready:
+            continue  # 썸네일 처리기가 끝나면 다시 부른다
+        found = storage.locate(r.storage_key)
+        if found is None:
+            continue
+        if found[0] == want and r.visibility == want:
+            if event.payload.get("force") and r.layout_id is not None:
+                owners.add(r.layout_id)
+            continue
+        key = r.storage_key
+        if found[0] != want:
+            key = r.storage_key if want == "public" else storage.new_key(r.storage_key.rsplit(".", 1)[-1])
+            old_labels += await run_in_thread("image", storage.copy_with_thumbs, r.storage_key, want, key)
+        await db.execute(update(Attachment).where(Attachment.id == r.id).values(storage_key=key, visibility=want))
+        if r.layout_id is not None:
+            owners.add(r.layout_id)
+    if old_labels:
+        await outbox.enqueue(db, [outbox.Event("files.delete", {"labels": old_labels})])
+    if owners:
+        await enqueue_revalidate(db, [tags_for("layout.updated", layout_id=i) for i in sorted(owners)])
 
 
 BOARD_BATCH = 200

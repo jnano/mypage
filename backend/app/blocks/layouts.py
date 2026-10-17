@@ -17,7 +17,8 @@ from app.blocks import tree
 from app.blocks import types as t
 from app.blocks.routes import ROUTE_CLASSES
 from app.core.problems import Problem
-from app.models import Block, Board, Layout, LayoutBinding, Page
+from app.files import block_images
+from app.models import Attachment, Block, Board, Layout, LayoutBinding, Page
 
 LayoutName = t.trimmed(1, 50)
 
@@ -134,6 +135,8 @@ async def delete_layout(db: AsyncSession, viewer: Viewer, layout_id: int) -> Non
     if layout.is_default:
         raise Problem(409, "default_layout", "기본 틀은 지울 수 없습니다. 다른 틀을 기본으로 정한 뒤 지우세요")
     await record(db, viewer, [LogEntry("layout.delete", "layout", layout_id, before={"name": layout.name})])
+    images = select(Attachment.id).join(Block, Block.id == Attachment.block_id).where(Block.layout_id == layout_id)  # post-clause: exempt — 첨부 칸(글 아님)
+    await block_images.release(db, (await db.execute(images)).scalars())  # 블록과 함께 떨어질 그림 — 지우기 전에 비공개로
     await db.execute(delete(Layout).where(Layout.id == layout_id))
 
 

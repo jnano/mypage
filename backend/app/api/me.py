@@ -4,11 +4,13 @@
 """
 
 from fastapi import APIRouter, Depends, Query
+from fastapi.encoders import jsonable_encoder
 from fastapi.responses import JSONResponse
 from sqlalchemy import exists, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.auth.viewer import GUEST, Viewer, get_viewer
+from app.blocks import frame
 from app.core import cursor as cursors
 from app.core.problems import Problem
 from app.db.session import get_db
@@ -57,11 +59,22 @@ async def _counts(db: AsyncSession, member_id: int, board_id: int, ids: list[int
 
 @router.get("/me/page-state")
 async def page_state(
-    board: str,
+    board: str | None = None,
     ids: str = Query("", description="화면에 보이는 글 id(쉼표로 나눔)"),
+    blocks: str = Query("", description="틀 묶음의 personal_block_ids(쉼표로 나눔, 최대 30) — 홈블록 §5.4"),
     viewer: Viewer = Depends(get_viewer),
     db: AsyncSession = Depends(get_db),
 ):
+    """게시판 화면의 개인 조각(board) 또는 틀의 회원 블록(blocks) — 틀과 화면은 Next 에서 따로 그려지므로 보통 따로
+    부른다(홈블록 §5.2 '회원 블록 호출', 사용자 결정 A). blocks 만이면 게시판 몫은 비운다"""
+    if board is None:
+        block_ids = _parse_ids(blocks)
+        if len(block_ids) > frame.MAX_PERSONAL_BLOCKS:
+            raise Problem(422, "validation_error", f"blocks 는 {frame.MAX_PERSONAL_BLOCKS}개까지입니다")
+        found = {} if viewer.member_id is None else await frame.personal_blocks(db, viewer, block_ids)
+        # viewer=false(만료·폐기된 쿠키) 면 화면은 비회원처럼 그린다 — '못 보는 블록'과 구분한다
+        body = {"viewer": viewer.member_id is not None, "blocks": {str(k): v for k, v in found.items()}}
+        return JSONResponse(jsonable_encoder(body), headers={"Cache-Control": "no-store"})
     post_ids = _parse_ids(ids)
     body: dict = {
         "viewer": None,

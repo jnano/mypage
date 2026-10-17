@@ -215,3 +215,21 @@ def post_mask(viewer: Viewer, role: BoardRole, row: MaskRow) -> bool:
     if row.is_blinded:
         return True
     return viewer.level < (row.min_view_level or 0)
+
+
+class BlockLike(Protocol):
+    is_active: bool
+    audience: str
+    min_level: int
+
+
+def block_view(viewer: Viewer, block: BlockLike) -> bool:
+    """block.view(홈블록 설계도 §6.1) — 블록 칸의 보이기. 주인(틀)은 누구나 보고, 페이지 주인의 page.read 는 걸음 6.
+    공개 묶음(비회원 판정)과 회원 블록이 이 한 함수를 쓴다"""
+    if not block.is_active or block.min_level > viewer.level:
+        return False
+    if block.audience == "member":
+        return viewer.member_id is not None
+    if block.audience == "guest":
+        return viewer.member_id is None
+    return True

@@ -3,8 +3,8 @@ import { connection } from "next/server";
 import { Suspense, type ReactNode } from "react";
 import { AccountNav } from "@/components/auth/AccountNav";
 import { visibleNodes } from "@/lib/blocks/frame";
-import { getFrame, type FrameQuery } from "@/lib/server/frame";
-import { hasSessionCookie } from "@/lib/server/backend";
+import { getFrame, getPersonalBlocks, type FrameQuery } from "@/lib/server/frame";
+import { hasViewer } from "@/lib/server/backend";
 import { getSite } from "@/lib/server/seo";
 import { RenderBlocks } from "./RenderBlock";
 
@@ -55,7 +55,10 @@ async function FrameRegion({ name, routeClass, board }: { name: Region } & Omit<
   await connection();
   const bundle = await getFrame(await frameQuery(routeClass, board));
   if (bundle.layout === null) return name === "header" ? <FallbackHeader /> : null;
-  const nodes = visibleNodes(bundle.layout.regions[name], await hasSessionCookie());
+  const signedIn = await hasViewer(); // 게시판 화면과 같은 판정 — 쿠키 유무만(유효성은 FastAPI)
+  const ids = bundle.personal_block_ids;
+  const personal = signedIn && ids.length > 0 ? await getPersonalBlocks([...ids].sort((a, b) => a - b).join(",")) : undefined;
+  const nodes = visibleNodes(bundle.layout.regions[name], signedIn && (ids.length === 0 || personal !== undefined), personal);
   if (nodes.length === 0) return null;
   const blocks = <RenderBlocks nodes={nodes} />;
   switch (name) {

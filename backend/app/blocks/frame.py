@@ -20,17 +20,25 @@ from sqlalchemy import BigInteger, Integer, column, func, literal, literal_colum
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.admin import settings as site_settings
-from app.auth.viewer import GUEST
+from app.auth.viewer import GUEST, Viewer
 from app.blocks import resolve as r
 from app.blocks import types as t
 from app.blocks.menus import ITEM_COLUMNS
 from app.blocks.limits import RECENT_COMMENT_POSTS
-from app.blocks.tree import Refs, collect_refs, owner_blocks
+from app.blocks.tree import BLOCK_COLUMNS, Refs, collect_refs, owner_blocks
 from app.core.threads import run_in_thread
 from app.editor.render import ImageSource
 from app.files.attach import ROW_COLUMNS, image_sources, thumb_template
-from app.models import Attachment, Board, Comment, Layout, LayoutBinding, MenuItem, Page, Post
-from app.permissions import guest_listable_boards_clause, guest_readable_boards_clause, listable_posts_clause, readable_posts_clause
+from app.models import Attachment, Block, Board, Comment, Layout, LayoutBinding, MenuItem, Page, Post
+from app.permissions import (
+    block_view,
+    can,
+    guest_listable_boards_clause,
+    guest_readable_boards_clause,
+    listable_posts_clause,
+    load_board_roles,
+    readable_posts_clause,
+)
 
 log = logging.getLogger(__name__)
 
@@ -109,13 +117,15 @@ class Targets:
     pages: dict[int, str] = field(default_factory=dict)  # 비회원에게 보이는 페이지 id → 주소
 
 
-async def _targets(db: AsyncSession, board_ids: set[int], page_ids: set[int]) -> Targets:
-    """④ 참조 게시판·페이지 — 한 문장(UNION ALL). 게시판은 비회원 목록·열람 가능 여부와 최근 글 시각(게시판 바로가기)"""
+async def _targets(db: AsyncSession, board_ids: set[int], page_ids: set[int], viewer: Viewer = GUEST) -> Targets:
+    """④ 참조 게시판·페이지 — 한 문장(UNION ALL). 게시판은 목록·열람 가능 여부와 최근 글 시각(게시판 바로가기).
+    비회원은 판정 절(SQL)로, 회원은 can(board.list) 로 — 명부·담당 역할은 쿼리 한 번(load_board_roles)"""
+    guest = viewer.member_id is None
     parts = []
     if board_ids:
         last = (
             select(Post.published_at)
-            .where(Post.board_id == Board.id, listable_posts_clause(GUEST), Post.is_pinned.is_(False))
+            .where(Post.board_id == Board.id, listable_posts_clause(viewer), Post.is_pinned == FALSE)
             .order_by(Post.published_at.desc(), Post.id.desc())
             .limit(1)
             .correlate(Board)
@@ -125,23 +135,28 @@ async def _targets(db: AsyncSession, board_ids: set[int], page_ids: set[int]) ->
             select(
                 literal("board").label("kind"), Board.id, Board.slug.label("key"), Board.name,
                 guest_listable_boards_clause().label("listable"), guest_readable_boards_clause().label("readable"),
-                last.label("last_posted_at"),
+                last.label("last_posted_at"), Board.is_active, Board.list_level,
             ).where(Board.id.in_(board_ids))
         )  # fmt: skip
     if page_ids:
-        public = (Page.status == PUBLISHED) & (Page.view_level == 0)
+        public = (Page.status == PUBLISHED) & (Page.view_level <= viewer.level)
         parts.append(
             select(
                 literal("page").label("kind"), Page.id, Page.path.label("key"), Page.title.label("name"),
                 public.label("listable"), public.label("readable"), literal(None).label("last_posted_at"),
+                literal(True).label("is_active"), literal(0).label("list_level"),
             ).where(Page.id.in_(page_ids))
         )  # fmt: skip
     out = Targets()
     if not parts:
         return out
-    for row in await db.execute(union_all(*parts) if len(parts) > 1 else parts[0]):
+    rows = list(await db.execute(union_all(*parts) if len(parts) > 1 else parts[0]))
+    boards = [row for row in rows if row.kind == "board"]
+    roles = {} if guest else await load_board_roles(db, viewer, [b.id for b in boards])
+    for row in rows:
         if row.kind == "board":
-            out.boards[row.id] = row
+            listable = row.listable if guest else can(viewer, roles[row.id], "board.list", row)
+            out.boards[row.id] = SimpleNamespace(key=row.key, name=row.name, listable=listable, readable=row.readable, last_posted_at=row.last_posted_at)
         elif row.listable:
             out.pages[row.id] = row.key
     return out
@@ -153,7 +168,7 @@ def _decide(nodes: Sequence[Node], menus: dict[int, list[Any]], targets: Targets
     readable = {i for i, b in targets.boards.items() if b.readable}
     for n in nodes:
         row = n.row
-        if row.audience == "member" or row.min_level > 0:
+        if not block_view(GUEST, row):  # 회원 대상·등급 조건 — 회원 블록과 같은 판정 한 곳(permissions.block_view)
             n.personal = True
         elif row.type in ("recent_posts", "recent_comments"):
             n.personal = not n.refs.boards <= readable  # 회원 전용 게시판의 글이 공개 캐시에 섞이지 않게(P1)
@@ -192,11 +207,11 @@ def _not_expired():
     return or_(Post.expires_at.is_(None), Post.expires_at > func.now())
 
 
-async def _recent_posts(db: AsyncSession, targets: dict[int, int], pinned: bool) -> list[Any]:
-    return list(await db.execute(recent_posts_statement(targets, pinned))) if targets else []
+async def _recent_posts(db: AsyncSession, targets: dict[int, int], pinned: bool, viewer: Viewer = GUEST) -> list[Any]:
+    return list(await db.execute(recent_posts_statement(targets, pinned, viewer))) if targets else []
 
 
-def recent_posts_statement(targets: dict[int, int], pinned: bool):
+def recent_posts_statement(targets: dict[int, int], pinned: bool, viewer: Viewer = GUEST):
     """⑤ 최근 글 + 고정 글 — 게시판마다 LATERAL(공개 판정·만료 거르기는 LIMIT 앞, 검토 N-2). 한 문장.
     실행과 측정(scripts/explain_hotpaths.py)이 같은 문장을 쓴다"""
     t_ = _values(targets)
@@ -205,7 +220,7 @@ def recent_posts_statement(targets: dict[int, int], pinned: bool):
         order = (Post.pin_order.asc().nulls_last(), Post.published_at.desc(), Post.id.desc()) if is_pinned else (Post.published_at.desc(), Post.id.desc())
         sub = (
             select(Post.id, Post.board_id, Post.title, Post.published_at, Post.is_pinned, Post.pin_order)
-            .where(Post.board_id == t_.c.bid, readable_posts_clause(GUEST), _not_expired(), Post.is_pinned == (TRUE if is_pinned else FALSE))
+            .where(Post.board_id == t_.c.bid, readable_posts_clause(viewer), _not_expired(), Post.is_pinned == (TRUE if is_pinned else FALSE))
             .order_by(*order)
             .limit(t_.c.n)
             .lateral("p")
@@ -223,11 +238,11 @@ def recent_posts_statement(targets: dict[int, int], pinned: bool):
     return select(posts, cover).select_from(posts).outerjoin(cover, true())
 
 
-async def _recent_comments(db: AsyncSession, targets: dict[int, int]) -> list[Any]:
-    return list(await db.execute(recent_comments_statement(targets))) if targets else []
+async def _recent_comments(db: AsyncSession, targets: dict[int, int], viewer: Viewer = GUEST) -> list[Any]:
+    return list(await db.execute(recent_comments_statement(targets, viewer=viewer))) if targets else []
 
 
-def recent_comments_statement(targets: dict[int, int], posts_per_board: int = RECENT_COMMENT_POSTS):
+def recent_comments_statement(targets: dict[int, int], posts_per_board: int = RECENT_COMMENT_POSTS, viewer: Viewer = GUEST):
     """⑥ 최근 댓글 — 게시판마다 그 게시판의 최근 글(고정 글 포함) posts_per_board 개를 목록 인덱스로 고르고, 그 글들의
     최신 댓글을 글별 댓글 인덱스(ix_comments_post)로 모은다. 댓글이 드문 게시판도 훑는 양에 상한이 있다(M-1 측정 —
     전역 '최신 댓글' 인덱스를 거꾸로 훑으면 댓글 없는 게시판에서 수백 ms). 그래서 아주 오래된 글에 새로 달린 댓글은
@@ -238,7 +253,7 @@ def recent_comments_statement(targets: dict[int, int], posts_per_board: int = RE
         order = (Post.pin_order.asc().nulls_last(),) if is_pinned else (Post.published_at.desc(), Post.id.desc())
         return (
             select(Post.id, Post.title)
-            .where(Post.board_id == t_.c.bid, readable_posts_clause(GUEST), _not_expired(), Post.is_pinned == (TRUE if is_pinned else FALSE))
+            .where(Post.board_id == t_.c.bid, readable_posts_clause(viewer), _not_expired(), Post.is_pinned == (TRUE if is_pinned else FALSE))
             .order_by(*order)
             .limit(posts_per_board)
             .correlate(t_)  # 바깥 LATERAL 의 게시판(t.bid)에 묶는다 — 없으면 값 목록을 따로 또 읽어 모든 게시판의 글을 본다
@@ -280,6 +295,7 @@ def _dynamic_view(n: Node, targets: Targets, posts: Sequence[Any], comments: Seq
     boards = [b for b in m.board_ids if b in targets.boards]
     slug = {b: targets.boards[b].key for b in boards}
     if isinstance(m, t.BoardLinks):
+        boards = [b for b in boards if targets.boards[b].listable]  # 보는 사람이 목록을 볼 수 있는 게시판만
         items = [{"name": targets.boards[b].name, "href": f"/boards/{slug[b]}", "last_posted_at": targets.boards[b].last_posted_at} for b in boards]
         return {"title": m.title, "items": items} if items else None
     if isinstance(m, t.RecentPosts):
@@ -404,3 +420,73 @@ async def frame_bundle(db: AsyncSession, *, board_slug: str | None = None, route
         "cache": {"tags": sorted(set(tags))},
     }
 
+
+
+# ── 회원 블록(걸음 5-3) — GET /api/me/page-state?blocks= ─────────────────────
+# 공개 묶음의 personal_block_ids(내용 없는 자리·회원이면 다시)를 보는 사람 기준으로 채운다(§5.4). 블록 id 는 비밀이 아니므로
+# 주인이 지금 화면 것인지 따지지 않고, 블록마다 보이기(block.view)와 데이터를 이 사람 기준으로 다시 판정한다 — 못 보는
+# 블록은 응답에 없다(빈 값이 아니라 없음). 쿼리는 공개 묶음과 같은 방식으로 모아서 ≤ 8(블록·메뉴·대상·역할·글·댓글·그림·이름)
+
+MAX_PERSONAL_BLOCKS = 30
+
+
+async def personal_blocks(db: AsyncSession, viewer: Viewer, block_ids: Sequence[int]) -> dict[int, r.View]:
+    ids = sorted(set(block_ids))[:MAX_PERSONAL_BLOCKS]
+    if not ids:
+        return {}
+    rows = list(  # ① 요청한 블록 + 그 자식(묶음·칸 나누기)
+        await db.execute(
+            select(*BLOCK_COLUMNS, Block.layout_id).where(or_(Block.id.in_(ids), Block.parent_id.in_(ids)), Block.layout_id.is_not(None))  # post-clause: exempt — 블록 칸(글 아님)
+        )
+    )
+    nodes: dict[int, Node] = {}
+    for row in rows:
+        if not block_view(viewer, row):
+            continue
+        try:
+            model = t.validate_config(row.type, row.config)
+        except (ValidationError, t.UnknownBlockType):
+            continue
+        nodes[row.id] = Node(row, model, collect_refs(model))
+    for row in sorted(rows, key=lambda x: (x.sort_order, x.id)):
+        if row.id in nodes and row.parent_id in nodes:
+            nodes[row.parent_id].children.append(nodes[row.id])
+    tops = [nodes[i] for i in ids if i in nodes]
+    every = [n for top in tops for n in _walk(top.children)] + tops
+    refs = Refs()
+    for n in every:
+        refs.boards |= n.refs.boards
+        refs.pages |= n.refs.pages
+        refs.menus |= n.refs.menus
+    menus = await _menus(db, refs.menus)  # ②
+    for items in menus.values():
+        refs.boards |= {i.board_id for i in items if i.link_kind == "board"}
+        refs.pages |= {i.page_id for i in items if i.link_kind == "page"}
+    targets = await _targets(db, refs.boards, refs.pages, viewer)  # ③ (+ 역할 한 번)
+    post_targets = _recent_targets(every, "recent_posts")
+    pinned = any(n.row.type == "recent_posts" and n.model.include_pinned for n in every)
+    posts = await _recent_posts(db, post_targets, pinned, viewer)  # ④
+    comments = await _recent_comments(db, _recent_targets(every, "recent_comments"), viewer)  # ⑤
+    image_rows = await _images(db, {n.row.id for n in every})  # ⑥
+    seo = await site_settings.load(db, "seo")  # ⑦
+    assert isinstance(seo, site_settings.SeoSettings)
+    images: dict[int, list[int]] = {}
+    for row in image_rows:
+        images.setdefault(row.block_id, []).append(row.id)
+    lookup = r.Lookup(
+        site_name=seo.site_name,
+        page_paths=targets.pages,
+        board_slugs={i: b.key for i, b in targets.boards.items() if b.listable},
+        images=image_sources(image_rows),
+        menus=menus,
+        viewer_level=viewer.level,
+    )
+
+    def assemble() -> dict[int, r.View]:
+        out: dict[int, r.View] = {}
+        for n in tops:
+            if (view := _out(n, lookup, targets, posts, comments, [], images)) is not None:
+                out[n.row.id] = view
+        return out
+
+    return await run_in_thread("sanitize", assemble)

@@ -8,7 +8,7 @@ from app.permissions.clauses import (
     readable_posts_clause,
     unmasked_posts_clause,
 )
-from app.permissions.policy import ACTIONS, Action, can, post_mask
+from app.permissions.policy import ACTIONS, Action, block_view, can, post_mask
 from app.permissions.roles import NO_ROLE, BoardRole, load_board_role, load_board_roles
 
 __all__ = [
@@ -16,6 +16,7 @@ __all__ = [
     "NO_ROLE",
     "Action",
     "BoardRole",
+    "block_view",
     "can",
     "guest_listable_boards_clause",
     "guest_readable_boards_clause",

@@ -161,6 +161,9 @@ async def _check_refs(db: AsyncSession, flat: Sequence[tuple[MenuItemIn, int, st
 SNAPSHOT_KEYS = ("parent_id", "sort_order", "label", "link_kind", "page_id", "board_id", "url", "new_window", "min_level", "is_active")
 
 
+REF_FKS = ("fk_menu_items_page_id_pages", "fk_menu_items_board_id_boards")
+
+
 def _snapshot(get: Any) -> dict[str, Any]:
     return {k: get(k) for k in SNAPSHOT_KEYS}
 
@@ -203,10 +206,18 @@ async def save_menu(db: AsyncSession, viewer: Viewer, menu_id: int, body: MenuSa
             after[item_id] = _snapshot(values.get)
             await apply(item.children, item_id)
 
-    await apply(body.items, None)
-    removed = sorted(set(existing) - set(after))
-    if removed:
-        await db.execute(delete(MenuItem).where(MenuItem.id.in_(removed)))
+    removed: list[int] = []
+    try:
+        await apply(body.items, None)
+        removed = sorted(set(existing) - set(after))  # 넣고 고친 뒤에야 무엇이 빠졌는지 안다
+        if removed:
+            await db.execute(delete(MenuItem).where(MenuItem.id.in_(removed)))
+    except IntegrityError as e:
+        # _check_refs 와 넣기 사이에 대상이 지워졌다(ms 틈) — FK RESTRICT 가 막은 것을 500 이 아니라 422 로(코드 검토 v6 N-3)
+        if not any(fk in str(e.orig) for fk in REF_FKS):
+            raise
+        await db.rollback()
+        raise Problem(422, "dangling_ref", "가리키는 대상이 없습니다") from None
 
     old_name = menu.name
     menu.name = body.name

@@ -187,3 +187,18 @@ async def test_delete_menu_and_board_in_menu(dev_header, committed_db, client) -
     assert (await client.delete(f"/api/admin/menus/{menu['id']}", headers=as_member(admin))).status_code == 404
     actions = set((await committed_db.execute(select(ModerationLog.action).where(ModerationLog.target_type == "menu"))).scalars())
     assert actions == {"menu.create", "menu.update", "menu.delete"}
+
+
+async def test_target_deleted_between_check_and_insert(dev_header, committed_db, client, monkeypatch) -> None:
+    """확인과 넣기 사이에 대상이 사라진 틈 — FK 가 막은 것을 500 이 아니라 422 로(코드 검토 v6 N-3)"""
+    from app.blocks import menus
+
+    async def skip(*_: object) -> None:  # 확인을 건너뛰어 틈을 흉내 낸다
+        return None
+
+    admin, *_ = await _setup(committed_db)
+    menu = await _create(client, admin)
+    monkeypatch.setattr(menus, "_check_refs", skip)
+    res = await _put(client, admin, menu["id"], 1, {"name": "주 메뉴", "items": [{"label": "사라진 페이지", "link": {"kind": "page", "page_id": 999999}}]})
+    assert (res.status_code, res.json()["code"]) == (422, "dangling_ref")
+    assert (await client.get(f"/api/admin/menus/{menu['id']}", headers=as_member(admin))).json()["version"] == 1

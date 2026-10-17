@@ -22,7 +22,8 @@ function ItemLink({ item, current }: { item: MenuItemView; current: boolean }) {
 
 /** 하위 항목을 펼치는 한 칸 — 주소가 있으면 링크 + 펼침 단추, 없으면(묶음 제목) 이름이 곧 펼침 단추 */
 function Disclosure({ item, currentId, inChain }: { item: MenuItemView; currentId: number | null; inChain: boolean }) {
-  const [open, setOpen] = useState(false);
+  // 지금 항목이 이 아래에 있으면 펼친 채로 — 접힌 목록 안에 aria-current 가 숨지 않게(코드 검토 v6 N-1). 서버 렌더와 같은 값
+  const [open, setOpen] = useState(inChain);
   const id = useId();
   const toggle = { "aria-expanded": open, "aria-controls": id, onClick: () => setOpen(!open) };
   return (

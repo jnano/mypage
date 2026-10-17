@@ -7,7 +7,7 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI, Request
 from fastapi.staticfiles import StaticFiles
 
-from app.api import account, admin, admin_boards, admin_layouts, admin_members, admin_menus, admin_moderation, admin_posts, admin_site, attachments, auth, boards, comments, editor, health, me, notifications, posts, reports, search, seo
+from app.api import account, admin, admin_boards, admin_layouts, admin_members, admin_menus, admin_moderation, admin_posts, admin_site, attachments, auth, boards, comments, editor, frame, health, me, notifications, posts, reports, search, seo
 from app.core import csrf, problems, timing
 from app.core.config import settings
 from app.db.session import engine
@@ -69,6 +69,7 @@ app.include_router(admin_menus.router, prefix="/api")
 app.include_router(admin_layouts.router, prefix="/api")
 app.include_router(reports.router, prefix="/api")
 app.include_router(seo.router, prefix="/api")
+app.include_router(frame.router, prefix="/api")
 
 # 공개 저장소 /media — 배포에서는 nginx 가 직접 내준다(§12.2). 개발(FILE_SENDER=stream)에서만 FastAPI 가 내준다
 if settings.file_sender == "stream":

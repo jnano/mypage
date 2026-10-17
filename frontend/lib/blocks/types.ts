@@ -35,6 +35,16 @@ export type BlockData = {
   video: { title: string; embed_url: string };
   details: { items: { question: string; html: string }[] };
   divider: Record<string, never>;
+  recent_posts: {
+    title: string | null;
+    view: "list" | "photo";
+    items: { id: number; title: string; href: string; published_at: string; pinned: boolean; image?: ImageView | null }[];
+  };
+  recent_comments: {
+    title: string | null;
+    items: { id: number; excerpt: string; author: string; post_title: string; href: string; created_at: string }[];
+  };
+  board_links: { title: string | null; items: { name: string; href: string; last_posted_at: string | null }[] };
   group: { title: string | null; landmark: boolean };
   columns: { count: number };
 };
@@ -51,3 +61,21 @@ export type BlockNode = {
     columns?: BlockNode[][];
   };
 }[RenderableType];
+
+/** 틀 묶음(GET /api/frame)의 블록 — 개인 블록은 data 없이 자리만, 회원이면 다시 계산할 블록은 refresh(걸음 5-3) */
+export type FrameNode = {
+  id: number;
+  type: RenderableType;
+  data?: BlockData[RenderableType];
+  personal?: true;
+  refresh?: true;
+  audience?: "guest";
+  children?: FrameNode[];
+  columns?: FrameNode[][];
+};
+
+export type FrameBundle = {
+  layout: { id: number; version: number; regions: Partial<Record<string, FrameNode[]>> } | null;
+  personal_block_ids: number[];
+  cache: { tags: string[] };
+};

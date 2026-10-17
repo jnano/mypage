@@ -9,7 +9,7 @@ from app.auth.viewer import GUEST
 from app.editor.sanitize import plain_text
 from app.files.attach import thumb_template
 from app.models import Attachment, Board, BoardGroup, Post
-from app.permissions import readable_posts_clause
+from app.permissions import guest_listable_boards_clause, guest_readable_boards_clause, readable_posts_clause
 
 SITEMAP_SIZE = 50_000  # 검색엔진 한도(파일 하나 5만 주소)
 FEED_SIZE = 30
@@ -56,7 +56,7 @@ async def menu_boards(db: AsyncSession) -> list[dict[str, str]]:
         await db.execute(
             select(Board.slug, Board.name)
             .outerjoin(BoardGroup, BoardGroup.id == Board.group_id)
-            .where(Board.is_active.is_(true()), Board.show_in_menu.is_(true()), Board.list_level == 0)
+            .where(guest_listable_boards_clause(), Board.show_in_menu.is_(true()))
             .order_by(BoardGroup.sort_order.asc().nulls_first(), Board.sort_order, Board.id)
         )
     ).all()
@@ -64,7 +64,7 @@ async def menu_boards(db: AsyncSession) -> list[dict[str, str]]:
 
 
 def _indexable_boards():
-    return (Board.is_active.is_(true()), Board.indexable.is_(true()), Board.list_level == 0, Board.read_level == 0)
+    return (guest_readable_boards_clause(), Board.indexable.is_(true()))
 
 
 async def sitemap_index(db: AsyncSession) -> dict[str, Any]:

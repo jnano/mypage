@@ -8,3 +8,4 @@ MAX_PAGES = 1_000  # 주소 집합(GET /api/pages/paths)을 통째로 캐시한�
 PATH_HISTORY_PER_PAGE = 10  # 옛 주소 기록
 MAX_MENU_DEPTH = 3  # 메뉴 항목 트리(§4.5)
 MAX_MENU_ITEMS = 200  # 메뉴 하나의 항목 수(§11 '상한 60·200', §12 최대 구성)
+RECENT_COMMENT_POSTS = 100  # 최근 댓글 블록이 게시판마다 보는 최근 글 수 — 훑는 양의 상한(§5.2 M-1 측정)

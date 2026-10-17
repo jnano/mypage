@@ -578,6 +578,49 @@
     },
     "columns": {
       "count": 2
+    },
+    "recent_posts": {
+      "title": "최근 글",
+      "view": "list",
+      "items": [
+        {
+          "id": 10,
+          "title": "이번 주 회의 안내",
+          "href": "/boards/notice/10",
+          "published_at": "2026-10-01T09:00:00+00:00",
+          "pinned": true
+        },
+        {
+          "id": 11,
+          "title": "모집 공고",
+          "href": "/boards/notice/11",
+          "published_at": "2026-10-01T09:00:00+00:00",
+          "pinned": false
+        }
+      ]
+    },
+    "recent_comments": {
+      "title": "최근 댓글",
+      "items": [
+        {
+          "id": 20,
+          "excerpt": "참여하겠습니다.",
+          "author": "회원",
+          "post_title": "모집 공고",
+          "href": "/boards/notice/11#c-20",
+          "created_at": "2026-10-01T09:00:00+00:00"
+        }
+      ]
+    },
+    "board_links": {
+      "title": null,
+      "items": [
+        {
+          "name": "공지",
+          "href": "/boards/notice",
+          "last_posted_at": "2026-10-01T09:00:00+00:00"
+        }
+      ]
     }
   }
 }

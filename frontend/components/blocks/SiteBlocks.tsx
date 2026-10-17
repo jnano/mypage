@@ -18,7 +18,8 @@ export function SiteBrandBlock({ data }: { data: BlockData["site_brand"] }) {
 export function SearchBoxBlock({ data }: { data: BlockData["search_box"] }) {
   const id = useId();
   return (
-    <form role="search" action={data.action} method="get" data-slot="search-box">
+    // 이름 있는 검색 랜드마크 — 검색 화면의 검색 폼과 함께 있어도 구분된다(axe landmark-unique, §10)
+    <form role="search" aria-label="사이트 검색" action={data.action} method="get" data-slot="search-box">
       <label htmlFor={id}>사이트 검색</label>
       <input id={id} type="search" name="q" placeholder={data.placeholder} maxLength={100} />
       <button type="submit">검색</button>

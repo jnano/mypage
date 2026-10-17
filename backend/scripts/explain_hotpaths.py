@@ -22,6 +22,7 @@ from sqlalchemy.ext.asyncio import AsyncConnection, AsyncSession, create_async_e
 from sqlalchemy.pool import NullPool
 
 from app.auth.viewer import GUEST, Viewer, load_viewer
+from app.blocks import frame
 from app.core.config import settings
 from app.models import Board, BoardModerator, Member, Post
 from app.permissions import load_board_role
@@ -153,6 +154,11 @@ async def build_cases(db: AsyncSession) -> tuple[list[tuple[str, Callable[[], An
         ("검색 띄어쓰기 '회의 자료' · 비회원", lambda: search(GUEST, "회의 자료")[0]),
         ("검색 흔한 단어 '안내' · 회원", lambda: search(member, "안내")[0]),
         ("검색 제목만 '모집' · 비회원", lambda: search(GUEST, "모집", "title")[0]),
+        # 홈블록 틀 묶음(§5.2) — 최근 글·댓글 블록. 댓글이 한 게시판에 몰린 측정 DB 라 '댓글 없는 게시판'이 최악(M-1)
+        ("홈블록 최근 글 · 전 게시판 20 + 고정", lambda: frame.recent_posts_statement({b.id: 20 for b in boards.values()}, True)),
+        ("홈블록 최근 댓글 · free 20", lambda: frame.recent_comments_statement({free.id: 20})),
+        ("홈블록 최근 댓글 · 댓글 없는 consult 20", lambda: frame.recent_comments_statement({consult.id: 20})),
+        ("홈블록 최근 댓글 · 전 게시판 20", lambda: frame.recent_comments_statement({b.id: 20 for b in boards.values()})),
     ], mid.id
 
 

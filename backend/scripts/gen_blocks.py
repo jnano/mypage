@@ -8,13 +8,16 @@
 
 import json
 import sys
+from datetime import UTC, datetime
 from pathlib import Path
 from types import SimpleNamespace
 
+from app.blocks import frame
 from app.blocks import types as t
 from app.blocks.modules import MODULES
 from app.blocks.resolve import NOT_YET, Lookup, resolve
 from app.blocks.routes import PAGE_PATH_PATTERN
+from app.blocks.tree import collect_refs
 from app.blocks.menus import ITEM_COLUMNS
 from app.editor.render import ImageSource
 
@@ -50,6 +53,28 @@ EXAMPLE_LOOKUP = Lookup(
 )
 
 
+AT = datetime(2026, 10, 1, 9, 0, tzinfo=UTC)  # 견본 시각 — 생성 파일이 실행 때마다 바뀌지 않게 고정
+
+
+def _dynamic_examples() -> dict[str, object]:
+    """동적 블록 견본 — 틀 묶음이 쓰는 함수(frame._dynamic_view)에 고정 행을 넣어 만든다(손으로 쓰지 않는다)"""
+    board = SimpleNamespace(key="notice", name="공지", listable=True, readable=True, last_posted_at=AT)
+    post = dict(board_id=1, published_at=AT, pin_order=None, cover_id=None, storage_key=None, visibility=None,
+                width=None, height=None, thumbs_ready=False)  # fmt: skip
+    posts = [
+        SimpleNamespace(**post | {"id": 10, "title": "이번 주 회의 안내", "is_pinned": True, "pin_order": 1}),
+        SimpleNamespace(**post | {"id": 11, "title": "모집 공고", "is_pinned": False}),
+    ]
+    comments = [SimpleNamespace(id=20, post_id=11, board_id=1, content="참여하겠습니다.", created_at=AT,
+                                author_name_snapshot="회원", post_title="모집 공고")]  # fmt: skip
+    out = {}
+    for k in frame.DYNAMIC:
+        model = t.validate_config(k, t.SPECS[k].example)
+        node = frame.Node(row=SimpleNamespace(type=k), model=model, refs=collect_refs(model))
+        out[k] = frame._dynamic_view(node, frame.Targets(boards={1: board}), posts, comments)
+    return out
+
+
 def render() -> str:
     data = {
         "$generated": "backend/scripts/gen_blocks.py — 직접 고치지 않는다",
@@ -65,9 +90,10 @@ def render() -> str:
             k: resolve(k, s.example, EXAMPLE_LOOKUP, attachment_ids=(1,))
             for k, s in t.SPECS.items()
             if s.available and k not in NOT_YET
-        },
+        }
+        | _dynamic_examples(),
     }
-    return json.dumps(data, ensure_ascii=False, indent=2) + "\n"
+    return json.dumps(data, ensure_ascii=False, indent=2, default=lambda v: v.isoformat()) + "\n"
 
 
 def main() -> int:

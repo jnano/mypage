@@ -12,11 +12,12 @@
 from sqlalchemy import ColumnElement, and_, exists, false, func, literal_column, not_, or_, true
 from sqlalchemy.orm import aliased
 
-from app.auth.viewer import Viewer
+from app.auth.viewer import GUEST, Viewer
 from app.models import Board, BoardAccess, BoardModerator, Post
 from app.permissions.roles import BoardRole, access_subject_clause
 
 PUBLISHED = literal_column("'published'")
+GUEST_LEVEL = GUEST.level
 
 
 def _published():
@@ -64,6 +65,17 @@ def _board(viewer: Viewer, *, read: bool) -> ColumnElement[bool]:
     if read:
         conds.append(or_(b.read_level <= viewer.level, listed))
     return exists().where(*conds).correlate_except(b)
+
+
+def guest_listable_boards_clause(board=Board) -> ColumnElement[bool]:
+    """비회원이 목록을 볼 수 있는 게시판 — can(GUEST, 'board.list') 의 SQL 판(명부·담당은 비회원에게 없다).
+    대체 틀 메뉴·sitemap·틀 묶음의 공개 판정이 이 절 하나를 쓴다(홈블록 코드 검토 v1 N-2)"""
+    return and_(board.is_active.is_(true()), board.list_level <= GUEST_LEVEL)
+
+
+def guest_readable_boards_clause(board=Board) -> ColumnElement[bool]:
+    """비회원이 글을 열 수 있는 게시판 — 위 + read_level. 글 단위 조건(비밀·가림·등급)은 readable_posts_clause"""
+    return and_(guest_listable_boards_clause(board), board.read_level <= GUEST_LEVEL)
 
 
 def listable_posts_clause(viewer: Viewer, *, expired: bool = False) -> ColumnElement[bool]:

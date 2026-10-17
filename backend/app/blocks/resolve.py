@@ -51,8 +51,10 @@ def link(target: BaseModel | None, lookup: Lookup) -> View | None:
 
 def image(attachment_id: int, alt: str, lookup: Lookup) -> View | None:
     img = lookup.images.get(attachment_id)
-    if img is None:
-        return None
+    return None if img is None else image_view(img, alt)
+
+
+def image_view(img: ImageSource, alt: str) -> View:
     out: View = {"alt": alt, "width": img.width, "height": img.height}
     if not img.thumbs_ready:
         return out | {"pending": True}  # 원본을 내보내지 않는다(본 §12.1)

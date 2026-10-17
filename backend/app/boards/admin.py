@@ -14,6 +14,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.admin.logs import LogEntry, changed, record
 from app.admin.scope import StaffScope
+from app.blocks.menus import menus_using
 from app.boards.schemas import AccessList, BoardCreate, BoardUpdate, CategoryMerge, ModeratorList
 from app.boards.templates import template_values
 from app.core import outbox
@@ -210,6 +211,12 @@ async def delete_board(db: AsyncSession, scope: StaffScope, slug: str) -> dict[s
     has_posts = (await db.execute(select(Post.id).where(Post.board_id == board.id).limit(1))).scalar_one_or_none()  # post-clause: exempt — 남은 글이 있는지만
     if has_posts is not None:
         raise Problem(409, "board_not_empty", "글이 남아 있어 지울 수 없습니다. 먼저 '게시판 비우기'를 하세요")
+    # 메뉴 항목이 가리키면 먼저 메뉴에서 빼야 한다 — FK RESTRICT 가 마지막에 막지만 500 이 아니라 409 로(홈블록 §4.5·§11)
+    if in_menu := await menus_using(db, board_id=board.id):
+        raise Problem(
+            409, "in_menu", "메뉴에 있는 게시판입니다. 먼저 메뉴에서 빼세요",
+            errors=[{"field": f"menu_items.{i}", "message": "이 메뉴 항목이 가리킵니다"} for i in in_menu],
+        )  # fmt: skip
     await record(db, scope.viewer, [LogEntry("board.delete", "board", board.id, before={"slug": board.slug, "name": board.name})])
     await db.execute(delete(Board).where(Board.id == board.id))
     return {"deleted": True, "invalidate": _invalidate(slug)}

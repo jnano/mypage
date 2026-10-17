@@ -25,7 +25,7 @@ from app.editor.markdown import MarkdownInputError, markdown_to_html
 # ── 공용 칸 ──────────────────────────────────────────────
 
 
-def _text(min_length: int, max_length: int):
+def trimmed(min_length: int, max_length: int):
     # 앞뒤 공백을 지운 뒤 길이 검사 — 공백만이면 빈 값(D-119)
     return Annotated[str, StringConstraints(strip_whitespace=True, min_length=min_length, max_length=max_length)]
 
@@ -72,7 +72,7 @@ class BoardLink(_Config):
 
 class UrlLink(_Config):
     kind: Literal["url"]
-    url: Annotated[_text(1, 500), AfterValidator(_url)]
+    url: Annotated[trimmed(1, 500), AfterValidator(_url)]
     new_window: bool = False
 
 
@@ -80,7 +80,7 @@ LinkTarget = Annotated[PageLink | BoardLink | UrlLink, Field(discriminator="kind
 
 
 class Button(_Config):
-    label: _text(1, 30)
+    label: trimmed(1, 30)
     link: LinkTarget
 
 
@@ -89,7 +89,7 @@ class Button(_Config):
 
 class SiteBrand(_Config):
     logo_attachment_id: Id | None = None
-    logo_alt: _text(0, 100) = ""
+    logo_alt: trimmed(0, 100) = ""
     show_name: bool = True
 
     @model_validator(mode="after")
@@ -103,23 +103,23 @@ class SiteBrand(_Config):
 
 class Menu(_Config):
     menu_id: Id
-    label: _text(1, 50)
+    label: trimmed(1, 50)
     depth: Literal[1, 2] = 2
 
 
 class SubMenu(_Config):
     menu_id: Id
-    label: _text(1, 50)
+    label: trimmed(1, 50)
     show_root_title: bool = True
 
 
 class Breadcrumb(_Config):
     menu_id: Id
-    label: _text(1, 50) = "현재 위치"
+    label: trimmed(1, 50) = "현재 위치"
 
 
 class SearchBox(_Config):
-    placeholder: _text(0, 50) = "검색어"
+    placeholder: trimmed(0, 50) = "검색어"
 
 
 class Empty(_Config):
@@ -127,13 +127,13 @@ class Empty(_Config):
 
 
 class FooterLine(_Config):
-    label: _text(1, 30)
-    value: _text(1, 200)
+    label: trimmed(1, 30)
+    value: trimmed(1, 200)
 
 
 class FooterInfo(_Config):
     lines: Annotated[list[FooterLine], Field(max_length=10)] = []
-    copyright: _text(1, 200) | None = None
+    copyright: trimmed(1, 200) | None = None
 
     @model_validator(mode="after")
     def _check(self) -> Self:
@@ -143,17 +143,17 @@ class FooterInfo(_Config):
 
 
 class Heading(_Config):
-    text: _text(1, 100)
+    text: trimmed(1, 100)
     level: Literal[2, 3, 4] = 2
 
 
 class Text(_Config):
-    source: _text(1, 10_000)
+    source: trimmed(1, 10_000)
 
 
 class Image(_Config):
     attachment_id: Id
-    alt: _text(0, 300) = ""
+    alt: trimmed(0, 300) = ""
     decorative: bool = False
     link: LinkTarget | None = None
 
@@ -170,8 +170,8 @@ class Image(_Config):
 
 class Banner(_Config):
     attachment_id: Id
-    title: _text(1, 100)
-    description: _text(1, 300) | None = None
+    title: trimmed(1, 100)
+    description: trimmed(1, 300) | None = None
     buttons: Annotated[list[Button], Field(max_length=2)] = []
 
 
@@ -180,12 +180,12 @@ class Buttons(_Config):
 
 
 class LinkItem(_Config):
-    label: _text(1, 100)
+    label: trimmed(1, 100)
     link: LinkTarget
 
 
 class LinkList(_Config):
-    title: _text(1, 100) | None = None
+    title: trimmed(1, 100) | None = None
     items: Annotated[list[LinkItem], Field(min_length=1, max_length=30)]
 
 
@@ -211,8 +211,8 @@ def _video_url(value: str) -> str:
 
 
 class Video(_Config):
-    url: Annotated[_text(1, 500), AfterValidator(_video_url)]
-    title: _text(1, 100)
+    url: Annotated[trimmed(1, 500), AfterValidator(_video_url)]
+    title: trimmed(1, 100)
 
 
 def _no_images(value: str) -> str:
@@ -224,8 +224,8 @@ def _no_images(value: str) -> str:
 
 
 class DetailsItem(_Config):
-    question: _text(1, 200)
-    answer: Annotated[_text(1, 5_000), AfterValidator(_no_images)]
+    question: trimmed(1, 200)
+    answer: Annotated[trimmed(1, 5_000), AfterValidator(_no_images)]
 
 
 class Details(_Config):
@@ -233,7 +233,7 @@ class Details(_Config):
 
 
 class RecentPosts(_Config):
-    title: _text(1, 100) | None = None
+    title: trimmed(1, 100) | None = None
     board_ids: _ids(1, 10)
     count: Annotated[int, Field(ge=1, le=20)] = 5
     view: Literal["list", "photo"] = "list"
@@ -241,18 +241,18 @@ class RecentPosts(_Config):
 
 
 class RecentComments(_Config):
-    title: _text(1, 100) | None = None
+    title: trimmed(1, 100) | None = None
     board_ids: _ids(1, 10)
     count: Annotated[int, Field(ge=1, le=20)] = 5
 
 
 class BoardLinks(_Config):
-    title: _text(1, 100) | None = None
+    title: trimmed(1, 100) | None = None
     board_ids: _ids(1, 30)
 
 
 class Group(_Config):
-    title: _text(1, 100) | None = None
+    title: trimmed(1, 100) | None = None
     landmark: bool = False
 
     @model_validator(mode="after")

@@ -289,6 +289,175 @@
       "name": "예시 사이트",
       "logo": null
     },
+    "menu": {
+      "label": "주 메뉴",
+      "items": [
+        {
+          "id": 1,
+          "label": "소개",
+          "href": null,
+          "new_window": false,
+          "children": [
+            {
+              "id": 2,
+              "label": "인사말",
+              "href": "/about",
+              "new_window": false,
+              "children": []
+            },
+            {
+              "id": 3,
+              "label": "찾아오는 길",
+              "href": "/about/map",
+              "new_window": false,
+              "children": []
+            }
+          ]
+        },
+        {
+          "id": 4,
+          "label": "공지",
+          "href": "/boards/notice",
+          "new_window": false,
+          "children": []
+        },
+        {
+          "id": 5,
+          "label": "자유게시판",
+          "href": "/boards/free",
+          "new_window": false,
+          "children": [
+            {
+              "id": 6,
+              "label": "글쓰기",
+              "href": "/boards/free/write",
+              "new_window": false,
+              "children": []
+            }
+          ]
+        },
+        {
+          "id": 7,
+          "label": "예시 사이트",
+          "href": "https://example.org",
+          "new_window": false,
+          "children": []
+        }
+      ]
+    },
+    "sub_menu": {
+      "label": "옆 메뉴",
+      "show_root_title": true,
+      "items": [
+        {
+          "id": 1,
+          "label": "소개",
+          "href": null,
+          "new_window": false,
+          "children": [
+            {
+              "id": 2,
+              "label": "인사말",
+              "href": "/about",
+              "new_window": false,
+              "children": []
+            },
+            {
+              "id": 3,
+              "label": "찾아오는 길",
+              "href": "/about/map",
+              "new_window": false,
+              "children": []
+            }
+          ]
+        },
+        {
+          "id": 4,
+          "label": "공지",
+          "href": "/boards/notice",
+          "new_window": false,
+          "children": []
+        },
+        {
+          "id": 5,
+          "label": "자유게시판",
+          "href": "/boards/free",
+          "new_window": false,
+          "children": [
+            {
+              "id": 6,
+              "label": "글쓰기",
+              "href": "/boards/free/write",
+              "new_window": false,
+              "children": []
+            }
+          ]
+        },
+        {
+          "id": 7,
+          "label": "예시 사이트",
+          "href": "https://example.org",
+          "new_window": false,
+          "children": []
+        }
+      ]
+    },
+    "breadcrumb": {
+      "label": "현재 위치",
+      "items": [
+        {
+          "id": 1,
+          "label": "소개",
+          "href": null,
+          "new_window": false,
+          "children": [
+            {
+              "id": 2,
+              "label": "인사말",
+              "href": "/about",
+              "new_window": false,
+              "children": []
+            },
+            {
+              "id": 3,
+              "label": "찾아오는 길",
+              "href": "/about/map",
+              "new_window": false,
+              "children": []
+            }
+          ]
+        },
+        {
+          "id": 4,
+          "label": "공지",
+          "href": "/boards/notice",
+          "new_window": false,
+          "children": []
+        },
+        {
+          "id": 5,
+          "label": "자유게시판",
+          "href": "/boards/free",
+          "new_window": false,
+          "children": [
+            {
+              "id": 6,
+              "label": "글쓰기",
+              "href": "/boards/free/write",
+              "new_window": false,
+              "children": []
+            }
+          ]
+        },
+        {
+          "id": 7,
+          "label": "예시 사이트",
+          "href": "https://example.org",
+          "new_window": false,
+          "children": []
+        }
+      ]
+    },
     "search_box": {
       "action": "/search",
       "placeholder": "검색어"

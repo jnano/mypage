@@ -6,7 +6,7 @@ Lookup 에는 보는 사람(공개 묶음이면 비회원)이 볼 수 있는 대
 """
 
 import logging
-from collections.abc import Collection, Mapping
+from collections.abc import Collection, Mapping, Sequence
 from dataclasses import dataclass, field
 from typing import Any
 
@@ -28,10 +28,12 @@ class Lookup:
     page_paths: Mapping[int, str] = field(default_factory=dict)  # 게시된·볼 수 있는 페이지 id → 주소
     board_slugs: Mapping[int, str] = field(default_factory=dict)  # 사용 중·볼 수 있는 게시판 id → slug
     images: Mapping[int, ImageSource] = field(default_factory=dict)  # 블록 그림 첨부 id → 주소
+    menus: Mapping[int, Sequence[Any]] = field(default_factory=dict)  # 메뉴 id → 항목 행(menus.ITEM_COLUMNS 모양)
+    viewer_level: int = 0  # 메뉴 항목 min_level 비교(표시용 — 권한이 아니다, §6). 공개 묶음은 0
 
 
-# 걸음 4(메뉴)·5(동적)·6(모듈)에서 해결한다. outlet 은 행이 없다
-NOT_YET = frozenset({"menu", "sub_menu", "breadcrumb", "recent_posts", "recent_comments", "board_links", "module", "outlet"})
+# 걸음 5(동적)·6(모듈)에서 해결한다. outlet 은 행이 없다
+NOT_YET = frozenset({"recent_posts", "recent_comments", "board_links", "module", "outlet"})
 
 
 def link(target: BaseModel | None, lookup: Lookup) -> View | None:
@@ -60,6 +62,53 @@ def image(attachment_id: int, alt: str, lookup: Lookup) -> View | None:
     }
 
 
+def _item_href(row: Any, lookup: Lookup) -> tuple[bool, str | None]:
+    """(보이는가, 주소). 링크 없는 묶음 제목은 주소 없이 보인다. 대상이 lookup 에 없으면 숨긴다(지워짐·비게시·비활성)"""
+    match row.link_kind:
+        case "page":
+            href = lookup.page_paths.get(row.page_id)
+            return href is not None, href
+        case "board":
+            slug = lookup.board_slugs.get(row.board_id)
+            return slug is not None, f"/boards/{slug}" if slug else None
+        case "url":
+            return True, row.url
+    return True, None
+
+
+def menu_tree(rows: Sequence[Any], lookup: Lookup) -> list[View]:
+    """메뉴 항목 행 → 보이는 항목의 트리(§4.5·§6). 숨긴 항목은 그 아래 가지째 빠진다. 링크 없는 묶음 제목은
+    남은 자식이 없으면 빠진다(눌러도 아무것도 없는 단추가 되지 않게)"""
+    by_parent: dict[int | None, list[Any]] = {}
+    for r in sorted(rows, key=lambda r: (r.sort_order, r.id)):
+        by_parent.setdefault(r.parent_id, []).append(r)
+
+    def walk(parent: int | None) -> list[View]:
+        out = []
+        for r in by_parent.get(parent, []):
+            visible, href = _item_href(r, lookup)
+            if not (r.is_active and r.min_level <= lookup.viewer_level and visible):
+                continue
+            children = walk(r.id)
+            if href is None and not children:
+                continue
+            out.append({"id": r.id, "label": r.label, "href": href, "new_window": r.new_window, "children": children})
+        return out
+
+    return walk(None)
+
+
+def _trim(items: list[View], depth: int) -> list[View]:
+    """depth 단까지만. 잘라서 자식이 없어진 묶음 제목(주소 없음)은 뺀다"""
+    out = []
+    for i in items:
+        children = _trim(i["children"], depth - 1) if depth > 1 else []
+        if i["href"] is None and not children:
+            continue
+        out.append({**i, "children": children})
+    return out
+
+
 def _links(items: list[Any], lookup: Lookup) -> list[View]:
     out = []
     for item in items:
@@ -82,6 +131,18 @@ def resolve(block_type: str, config: Any, lookup: Lookup, *, attachment_ids: Col
             logo = image(c.logo_attachment_id, c.logo_alt, lookup) if c.logo_attachment_id else None
             name = lookup.site_name if c.show_name else None
             return None if logo is None and name is None else {"href": "/", "name": name, "logo": logo}
+        case t.Menu() | t.SubMenu() | t.Breadcrumb():
+            rows = lookup.menus.get(c.menu_id)
+            items = menu_tree(rows, lookup) if rows is not None else []
+            if not items:  # 메뉴가 지워졌거나 보이는 항목이 없다 — 빈 nav 랜드마크를 만들지 않는다
+                return None
+            match c:
+                case t.Menu():  # 주 메뉴는 펼칠 단계까지만 싣는다
+                    items = _trim(items, c.depth)
+                    return {"label": c.label, "items": items} if items else None
+                case t.SubMenu():
+                    return {"label": c.label, "show_root_title": c.show_root_title, "items": items}
+            return {"label": c.label, "items": items}
         case t.SearchBox():
             return {"action": "/search", "placeholder": c.placeholder}
         case t.FooterInfo():

@@ -1,5 +1,6 @@
 // 블록 종류·그리기용 모양 — 원본은 backend/app/blocks(types·resolve), 이 폴더의 blocks.gen.json 은 생성 파일
 // (홈블록 설계도 §4.4.2). 모양을 바꾸면 백엔드 resolve 와 이 타입을 같이 고친다
+import type { MenuItemView } from "./currentItem";
 import generated from "./blocks.gen.json";
 
 export const BLOCKS = generated;
@@ -19,6 +20,9 @@ export type ImageView = {
 
 export type BlockData = {
   site_brand: { href: string; name: string | null; logo: ImageView | null };
+  menu: { label: string; items: MenuItemView[] };
+  sub_menu: { label: string; show_root_title: boolean; items: MenuItemView[] };
+  breadcrumb: { label: string; items: MenuItemView[] };
   search_box: { action: string; placeholder: string };
   account: Record<string, never>;
   footer_info: { lines: { label: string; value: string }[]; copyright: string | null };

@@ -4,7 +4,7 @@ import { AccountNav } from "@/components/auth/AccountNav";
 import type { BlockData } from "@/lib/blocks/types";
 import { BlockImage } from "./BlockImage";
 
-// 사이트 블록(홈블록 설계도 §2.2). 메뉴 셋(menu·sub_menu·breadcrumb)은 걸음 4
+// 사이트 블록(홈블록 설계도 §2.2). 메뉴 셋(menu·sub_menu·breadcrumb)은 MenuBlocks
 
 export function SiteBrandBlock({ data }: { data: BlockData["site_brand"] }) {
   return (

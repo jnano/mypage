@@ -249,3 +249,56 @@ def test_not_yet_types_raise(block_type: str) -> None:
 def test_generated_file_is_current() -> None:
     # 원본과 다르면: cd backend && uv run python -m scripts.gen_blocks 실행 뒤 커밋
     assert TARGET.read_text(encoding="utf-8") == render()
+
+
+# ── 메뉴 블록(§4.5·§6·§10) ──────────────────────────────
+
+
+def _item(id: int, parent: int | None, label: str, kind: str = "url", *, url: str | None = "/x", page: int | None = None,
+          board: int | None = None, level: int = 0, active: bool = True, order: int = 0):  # fmt: skip
+    from types import SimpleNamespace
+
+    return SimpleNamespace(id=id, parent_id=parent, sort_order=order, label=label, link_kind=kind, url=url if kind == "url" else None,
+                           page_id=page, board_id=board, new_window=False, min_level=level, is_active=active)  # fmt: skip
+
+
+MENU_ROWS = [
+    _item(1, None, "소개", "none", order=0),
+    _item(2, 1, "인사말", "page", page=7),
+    _item(3, 1, "옛 페이지", "page", page=99, order=1),  # 지워졌거나 비게시 — 숨김
+    _item(4, 2, "3단", url="/about/team"),
+    _item(5, None, "게시판", "board", board=3, order=1),
+    _item(6, 5, "회원 전용 안내", level=2),  # 등급 항목 — 공개 묶음에는 없다
+    _item(7, None, "숨긴 항목", active=False, order=2),
+    _item(8, 7, "숨긴 항목의 자식", order=0),  # 부모가 숨으면 가지째
+    _item(9, None, "빈 묶음", "none", order=3),  # 링크도 보이는 자식도 없음
+    _item(10, 9, "숨긴 자식", active=False),
+]
+
+
+def _labels(items) -> list:
+    return [(i["label"], _labels(i["children"])) if i["children"] else i["label"] for i in items]
+
+
+def test_menu_tree_hides_what_viewer_cannot_see() -> None:
+    lookup = Lookup(site_name="예시", page_paths={7: "/about"}, board_slugs={3: "notice"}, menus={1: MENU_ROWS})
+    out = resolve("menu", {"menu_id": 1, "label": "주 메뉴", "depth": 2}, lookup)
+    assert _labels(out["items"]) == [("소개", ["인사말"]), "게시판"]  # 2단까지
+    full = resolve("sub_menu", {"menu_id": 1, "label": "옆 메뉴"}, lookup)
+    assert _labels(full["items"]) == [("소개", [("인사말", ["3단"])]), "게시판"]
+    assert full["items"][1]["href"] == "/boards/notice" and full["items"][0]["href"] is None
+    # 회원(등급 2)에게는 등급 항목도 — 표시일 뿐 권한은 게시판 판정(§6)
+    member = Lookup(site_name="예시", page_paths={7: "/about"}, board_slugs={3: "notice"}, menus={1: MENU_ROWS}, viewer_level=2)
+    assert _labels(resolve("breadcrumb", {"menu_id": 1}, member)["items"])[1] == ("게시판", ["회원 전용 안내"])
+
+
+def test_menu_depth_one_drops_title_only_items() -> None:
+    lookup = Lookup(site_name="예시", page_paths={7: "/about"}, board_slugs={3: "notice"}, menus={1: MENU_ROWS})
+    out = resolve("menu", {"menu_id": 1, "label": "주 메뉴", "depth": 1}, lookup)
+    assert _labels(out["items"]) == ["게시판"]  # '소개'는 자식을 잘라 내면 누를 것이 없다
+
+
+def test_missing_or_empty_menu_draws_nothing() -> None:
+    assert resolve("menu", {"menu_id": 2, "label": "주 메뉴"}, LOOKUP) is None  # 지워진 메뉴(끊긴 참조)
+    hidden = Lookup(site_name="예시", menus={1: [_item(1, None, "숨김", active=False)]})
+    assert resolve("sub_menu", {"menu_id": 1, "label": "옆 메뉴"}, hidden) is None  # 빈 nav 랜드마크를 만들지 않는다

@@ -6,3 +6,5 @@ MAX_DEPTH = 2  # group·columns 아래 한 단
 MAX_MODULES_PER_PAGE = 1  # 화면당 호출 예산(§5.2)
 MAX_PAGES = 1_000  # 주소 집합(GET /api/pages/paths)을 통째로 캐시한다(§5.5)
 PATH_HISTORY_PER_PAGE = 10  # 옛 주소 기록
+MAX_MENU_DEPTH = 3  # 메뉴 항목 트리(§4.5)
+MAX_MENU_ITEMS = 200  # 메뉴 하나의 항목 수(§11 '상한 60·200', §12 최대 구성)

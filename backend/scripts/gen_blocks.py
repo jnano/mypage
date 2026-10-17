@@ -9,12 +9,33 @@
 import json
 import sys
 from pathlib import Path
+from types import SimpleNamespace
 
 from app.blocks import types as t
 from app.blocks.modules import MODULES
 from app.blocks.resolve import NOT_YET, Lookup, resolve
 from app.blocks.routes import PAGE_PATH_PATTERN
+from app.blocks.menus import ITEM_COLUMNS
 from app.editor.render import ImageSource
+
+
+def _item(id: int, parent: int | None, order: int, label: str, kind: str = "url", url: str | None = None, page: int | None = None):
+    row = dict.fromkeys(c.key for c in ITEM_COLUMNS)
+    row.update(id=id, parent_id=parent, sort_order=order, label=label, link_kind=kind, url=url, page_id=page,
+               new_window=False, min_level=0, is_active=True)  # fmt: skip
+    return SimpleNamespace(**row)
+
+
+# 견본 메뉴 — 2단 묶음(링크 없는 제목)·페이지·게시판 주소·바깥 주소
+EXAMPLE_MENU = [
+    _item(1, None, 0, "소개", "none"),
+    _item(2, 1, 0, "인사말", "page", page=1),
+    _item(3, 1, 1, "찾아오는 길", url="/about/map"),
+    _item(4, None, 1, "공지", url="/boards/notice"),
+    _item(5, None, 2, "자유게시판", url="/boards/free"),
+    _item(6, 5, 0, "글쓰기", url="/boards/free/write"),
+    _item(7, None, 3, "예시 사이트", url="https://example.org"),
+]
 
 TARGET = Path(__file__).resolve().parents[2] / "frontend" / "lib" / "blocks" / "blocks.gen.json"
 
@@ -24,6 +45,7 @@ EXAMPLE_LOOKUP = Lookup(
     page_paths={1: "/about"},
     board_slugs={1: "notice"},
     images={1: ImageSource("", 1200, 600, thumbs_ready=False)},
+    menus={1: EXAMPLE_MENU},
 )
 
 

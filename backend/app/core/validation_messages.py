@@ -19,7 +19,7 @@ def ko_message(err: Any) -> str:
         case "string_too_long":
             return f"{ctx.get('max_length')}자까지입니다"
         case "too_short":
-            return f"{ctx.get('min_length')}개 이상 골라야 합니다" if ctx.get("min_length") else "비어 있습니다"
+            return f"{ctx.get('min_length')}개 이상이어야 합니다" if ctx.get("min_length") else "비어 있습니다"  # 고르기·입력 목록 모두(코드 검토 v20 N-1)
         case "too_long":
             return f"{ctx.get('max_length')}개까지입니다"
         case "greater_than_equal":

@@ -39,7 +39,8 @@ export default function AdminLayout({ children }: LayoutProps<"/admin">) {
       </header>
       <div id={DRAWER_ID} popover="auto" data-slot="admin-drawer">
         <div data-slot="drawer-head">
-          <strong>관리</strong>
+          {/* 머리의 "관리"를 눈으로만 되풀이 — 랜드마크 밖 글자라 읽기에서 뺀다(axe region) */}
+          <strong aria-hidden="true">관리</strong>
           <button type="button" popoverTarget={DRAWER_ID} popoverTargetAction="hide" aria-label="관리 메뉴 닫기" data-shape="icon">
             <Icon name="x" />
           </button>

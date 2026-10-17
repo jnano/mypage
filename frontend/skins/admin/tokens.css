@@ -1,7 +1,8 @@
 /* mypage 관리 화면 — 토큰 (ProjectM 토큰 위에 얹는다)
+   저장소 반영 때 고침: 범위를 :root 대신 [data-slot="admin"] 로(코드 검토 v1 B-2·N-5) — base-tokens.css 머리말
    ProjectM 이름은 그대로, mypage 추가분만 --ui-* / --admin-*.
    대비 보정(지시서 §3.1) 은 의미 별칭을 바꿔서 한다. 원래 값 변수는 건드리지 않는다. */
-:root {
+[data-slot="admin"] {
   --coral-800: #8f321b;            /* 새 값: 주 단추 누름·올림 (흰 글자 7.95) */
   --ui-danger-press: #7a1e13;      /* 새 값: 위험 확정 누름·올림 (흰 글자 10.38) */
 
@@ -37,7 +38,7 @@
   --border-focus: var(--coral-700);
 }
 @media (min-width: 1024px) {
-  :root {
+  [data-slot="admin"] {
     --ui-gutter: 24px;
     --ui-fs-body: var(--text-base);   /* 14 */
     --ui-fs-label: var(--text-base);  /* 14 */

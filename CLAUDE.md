@@ -17,7 +17,7 @@ frontend/            Next.js 앱. /api/* 는 next.config.ts rewrites 로 백엔�
   app/dev/login/     개발 로그인(APP_ENV=dev + DEV_VIEWER_LOGIN 전용)
   components/boards/ 헤드리스 구조 컴포넌트 — 시맨틱 HTML + data-slot, class·스타일 없음(설계도 §13.1)
   components/admin/ 관리 폼(AdminForm — 위험 폼 확인 대화·일괄 조치 막대)·메뉴(AdminNav, 판정은 lib/admin/nav.ts)·아이콘(Icon.tsx + icons.gen.ts — Lucide 도형 데이터, 고지 ICONS_LICENSE.md)
-  skins/admin/       관리 화면 스킨(설계도 §13.1·doc/설계/관리디자인_지시서.md): base-tokens → tokens → buttons·forms·status·dialog·shell·lists(Claude Design 판 — 고친 곳은 각 파일 머리말) → adapt.css(골격 맞춤 조정은 여기만), fonts.ts(next/font — 맨 바깥 요소 class 하나만 예외)
+  skins/admin/       관리 화면 스킨(설계도 §13.1·doc/설계/관리디자인_지시서.md): base-tokens → tokens → buttons·forms·status·dialog·shell·lists·screens·editor(Claude Design 판 — 고친 곳은 각 파일 머리말, 범위는 모두 [data-slot="admin"] 안 — :root·body:has 금지, 설계도 §13.1) → adapt.css(골격 맞춤 조정은 여기만), fonts.ts(next/font — 맨 바깥 요소 class 하나만 예외)
   components/editor/ 리치 에디터(Lexical): config(노드·토큰 HTML 변환) · Toolbar · plugins · nodes/ — 글쓰기 화면에서만 동적 import(설계도 §8.1)
   lib/server/        서버 전용: backend.ts(publicGet=쿠키 금지 / personalGet·personalSend) · boards.ts(쪽 단위 캐시 판정) · invalidate.ts
   lib/boards/        순수 로직(plan.ts 캐시 판정)·응답 타입 — Vitest 대상

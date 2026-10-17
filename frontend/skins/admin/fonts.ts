@@ -9,6 +9,9 @@ const pretendard = localFont({
   variable: "--font-pretendard",
   weight: "100 900",
   display: "swap",
+  // 2,057,688 바이트 — 미리 싣기(preload)를 끈다: 관리 화면 첫 진입마다 다른 자원보다 먼저 2MB 를 받지 않게(코드 검토 v1 N-2).
+  // display:swap 이라 그동안은 대체 글꼴로 그린다. 한글 부분 글꼴(unicode-range 나눔) 여부는 측정으로 정한다(관리디자인 지시서 §8)
+  preload: false,
 });
 
 const jetbrainsMono = JetBrains_Mono({

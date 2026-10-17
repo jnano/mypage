@@ -25,8 +25,9 @@ const TAGS = ["wcag2a", "wcag2aa", "wcag21a", "wcag21aa", "wcag22aa", "best-prac
 // 크기는 스킨의 몫(§13 '터치 대상 44px 목표, 하한 24px', §13.1). 에디터 도구 단추는 이미 24/44px(§8.5 A7)
 const SKELETON_EXCLUDED = values.skin ? [] : ["target-size"];
 // 스킨이 붙은 화면과 그 스킨이 모양을 정한 요소 — 그 요소에는 골격에서 빼던 규칙(target-size)도 돈다.
-// 관리 화면은 단계마다 넓혔다(관리디자인 지시서 §4): 1단계 단추 → 2단계 골격·폼·안내까지 관리 화면 전체와 그 화면의 건너뛰기 링크
-const SKINNED: { prefix: string; targets: string[] }[] = [{ prefix: "/admin", targets: ['[data-slot="admin"]', '[data-slot="skip-link"]'] }];
+// 관리 화면은 단계마다 넓혔다(관리디자인 지시서 §4): 1단계 단추 → 2단계부터 관리 화면 전체. 건너뛰기 링크는 사이트 공통이라
+// 일반 화면 디자인에서 스킨이 붙을 때 넣는다(코드 검토 v1 B-2 — 관리 스킨이 그 링크를 건드리면 일반 화면에 새어 나간다)
+const SKINNED: { prefix: string; targets: string[] }[] = [{ prefix: "/admin", targets: ['[data-slot="admin"]'] }];
 const skinnedTargets = (path: string) => SKINNED.find(({ prefix }) => path === prefix || path.startsWith(`${prefix}/`))?.targets ?? [];
 
 /** 스킨이 모양을 정한 요소에만 골격에서 빼던 규칙을 돈다(그 요소가 화면에 없으면 돌지 않는다) */
@@ -48,8 +49,11 @@ interface Finding {
   targets: string[];
 }
 
-async function open(browser: Browser, member: string | null): Promise<Page> {
-  const context = await browser.newContext({ locale: "ko-KR" });
+// 모바일 폭 — 관리 화면 디자인의 기준(지시서 §1). 카드 목록·서랍은 이 폭에서만 그려진다(코드 검토 v1 N-1)
+const MOBILE = { viewport: { width: 390, height: 844 }, hasTouch: true, isMobile: true };
+
+async function open(browser: Browser, member: string | null, device: Record<string, unknown> = {}): Promise<Page> {
+  const context = await browser.newContext({ locale: "ko-KR", ...device });
   if (member) await context.addCookies([{ name: "dev_member", value: member, url: base }]);
   const page = await context.newPage();
   page.setDefaultTimeout(20_000);
@@ -79,6 +83,15 @@ async function check(page: Page, path: string, label: string, ready?: string): P
     help: v.help,
     targets: v.nodes.slice(0, 3).map((n) => n.target.join(" ")),
   }));
+  console.log(`${findings.length ? "✗" : "✓"} ${label} ${path}${findings.length ? ` — ${findings.length}개 규칙` : ""}`);
+  return findings;
+}
+
+/** 지금 화면 그대로(이동 없이) 검사 — 서랍을 연 상태처럼 화면 안 상태를 본다 */
+async function checkCurrent(page: Page, path: string, label: string): Promise<Finding[]> {
+  const result = await new AxeBuilder({ page }).withTags(TAGS).disableRules(SKELETON_EXCLUDED).analyze();
+  if (!values.skin) result.violations.push(...(await skinnedViolations(page, skinnedTargets("/admin"))));
+  const findings = result.violations.map((v) => ({ page: `${label} ${path}`, rule: v.id, impact: v.impact, help: v.help, targets: v.nodes.slice(0, 3).map((n) => n.target.join(" ")) }));
   console.log(`${findings.length ? "✗" : "✓"} ${label} ${path}${findings.length ? ` — ${findings.length}개 규칙` : ""}`);
   return findings;
 }
@@ -130,7 +143,7 @@ try {
   for (const path of ["/me/posts", "/me/comments", "/me/scraps"]) findings.push(...(await check(member, path, "회원")));
   // 운영자 — 관리 화면
   const admin = await open(browser, values.admin!);
-  for (const path of [
+  const ADMIN_PATHS = [
     "/admin",
     "/admin/boards",
     "/admin/boards/free",
@@ -146,20 +159,33 @@ try {
     "/admin/member-groups",
     "/admin/level-requests",
     "/admin/privacy-notices",
-  ]) {
-    findings.push(...(await check(admin, path, "운영자")));
-  }
+  ];
+  for (const path of ADMIN_PATHS) findings.push(...(await check(admin, path, "운영자")));
 
   // ── 홈블록 화면(홈블록 설계도 §10) — 게시판 기반 화면 수(통합 설계도 §0.4 의 35)와 따로 센다: 출력에 [홈블록] 표식 ──
   // 시드(scripts/seed_homeblock.py)의 견본 페이지·틀·페이지·메뉴. 편집 화면 id 는 목록의 첫 링크에서(시드 순서를 하드코딩하지 않는다)
   // /dev/blocks 는 그림·배너처럼 시드가 실제 파일 없이 만들 수 없는 블록의 견본이라 남긴다
   for (const path of HOMEBLOCK_GUEST_PATHS) findings.push(...(await check(guest, path, "[홈블록] 비회원")));
+  const editors: string[] = [];
   for (const path of HOMEBLOCK_ADMIN_LISTS) {
     findings.push(...(await check(admin, path, "[홈블록] 운영자")));
     const editor = await admin.locator(`main a[href^="${path}/"]`).first().getAttribute("href");
-    if (editor) findings.push(...(await check(admin, editor, "[홈블록] 운영자")));
+    if (editor) {
+      editors.push(editor);
+      findings.push(...(await check(admin, editor, "[홈블록] 운영자")));
+    }
   }
   findings.push(...(await check(admin, "/admin/blocks", "[홈블록] 운영자")));
+
+  // ── 관리 화면을 모바일 폭으로 한 번 더(관리디자인 — 출력에 [모바일 390] 표식, 게시판 범위 셈 35 에서 뺀다) ──
+  const adminMobile = await open(browser, values.admin!, MOBILE);
+  const mobilePaths = [...ADMIN_PATHS, ...HOMEBLOCK_ADMIN_LISTS, ...editors, "/admin/blocks"];
+  for (const path of mobilePaths) findings.push(...(await check(adminMobile, path, "[모바일 390] 운영자")));
+  // 서랍을 연 상태(popover)도 — 모바일에서만 서랍이다
+  await adminMobile.goto(base + "/admin");
+  await settle(adminMobile);
+  await adminMobile.click('button[popovertarget="admin-drawer"]');
+  findings.push(...(await checkCurrent(adminMobile, "/admin (서랍 열림)", "[모바일 390] 운영자")));
 } finally {
   await browser.close();
 }

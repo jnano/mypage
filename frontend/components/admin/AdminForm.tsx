@@ -1,13 +1,14 @@
 "use client";
 
-import { useActionState, useId, useRef, type FormEvent, type ReactNode } from "react";
+import { useActionState, useEffect, useId, useRef, useState, type FormEvent, type ReactNode } from "react";
 import type { AdminFormState } from "@/app/admin/actions";
 
 // 관리 폼 — Server Action 결과(성공 문구·RFC 9457 오류)를 aria-live 로 알린다(§13). 모양은 스킨.
 // 이름(label)은 입력칸이 있는 폼에만 폼 이름(= form 랜드마크)으로 준다. 단추 하나짜리 폼(위로·지우기 등)은
 // 단추 이름으로 준다 — 작은 폼마다 랜드마크가 생기면 화면낭독기의 랜드마크 이동이 시끄러워진다(axe landmark-unique)
 // danger(되돌릴 수 없는 동작)는 보내기 전에 확인 대화를 거친다(홈블록 설계도 M-10, 관리디자인 지시서 §6.4 — 사용자 결정 2026-10-17).
-// 대화가 없는 브라우저·JS 가 꺼진 경우는 지금처럼 바로 보낸다(입력 확인 — 주소 적기·비밀번호 — 은 서버가 그대로 본다).
+// 서버가 그린 폼은 이미 진짜 폼(Server Action)이라 React 가 붙기 전에 누르면 대화 없이 제출된다 — 그래서 붙기 전에는
+// 확인이 필요한 제출 단추를 막는다(ready, 코드 검토 v1 B-1). 관리 화면은 JS 없이는 본문이 스트리밍 경계에 숨어 원래 쓸 수 없다.
 // bulk(일괄 조치): 조치 칸과 제출 단추를 fieldset[data-slot="bulk-bar"] 하나에 담는다(관리디자인 3단계 lists.css).
 // 조치 option 에 data-danger 가 있으면(영구 삭제 등) 그 조치를 골랐을 때만 확인 대화를 거친다
 export function AdminForm({
@@ -34,6 +35,11 @@ export function AdminForm({
   const confirmRef = useRef<HTMLDialogElement>(null);
   const confirmed = useRef(false);
   const titleId = useId();
+  // 확인 대화 제목 — 일괄 조치는 고른 수와 조치를 숫자로(지시서 §6.4, 코드 검토 v1 N-3)
+  const [title, setTitle] = useState(label ?? submitLabel);
+  // React 가 붙었는지 — 붙기 전에는 확인 대화를 띄울 수 없다(B-1)
+  const [ready, setReady] = useState(false);
+  useEffect(() => setReady(true), []);
 
   function onSubmit(e: FormEvent<HTMLFormElement>) {
     const dialog = confirmRef.current;
@@ -43,6 +49,13 @@ export function AdminForm({
       return;
     }
     e.preventDefault();
+    const action = e.currentTarget.querySelector<HTMLSelectElement>('select[name="action"]');
+    if (bulk && action) {
+      const picked = e.currentTarget.querySelectorAll('tbody input[type="checkbox"]:checked').length;
+      setTitle(`고른 ${picked}건 — ${action.selectedOptions[0]?.textContent ?? submitLabel}`);
+    } else {
+      setTitle(label ?? submitLabel);
+    }
     dialog.showModal();
   }
   function proceed() {
@@ -54,7 +67,7 @@ export function AdminForm({
   const submit = (
     <button
       type="submit"
-      disabled={pending}
+      disabled={pending || ((danger || !!bulk) && !ready)}
       aria-busy={pending || undefined}
       aria-label={buttonOnly && label ? label : undefined}
       data-variant={danger ? "danger" : buttonOnly ? undefined : "primary"}
@@ -99,7 +112,7 @@ export function AdminForm({
       )}
       {(danger || bulk) && (
         <dialog ref={confirmRef} data-slot="confirm" aria-labelledby={titleId}>
-          <h2 id={titleId}>{label ?? submitLabel}</h2>
+          <h2 id={titleId}>{title}</h2>
           <p>되돌릴 수 없습니다. 계속할까요?</p>
           <div data-slot="actions">
             <button type="button" autoFocus onClick={() => confirmRef.current?.close()}>

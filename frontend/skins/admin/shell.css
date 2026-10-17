@@ -60,30 +60,9 @@
 }
 [data-slot="admin"] [data-slot="admin-header"] a:active { background: var(--ink-700); }
 
-/* 본문 바로가기: body 바로 아래 하나. 관리 화면이 있을 때만 — 일반 화면의 건너뛰기 링크는 건드리지 않는다. 초점 때만 보임, 44px */
-body:has(> [data-slot="admin"]) > a[data-slot="skip-link"] {
-  box-sizing: border-box;
-  position: fixed;
-  top: 6px;
-  left: 8px;
-  z-index: 100;
-  display: inline-flex;
-  align-items: center;
-  min-height: var(--ui-target);
-  padding: 0 var(--space-4);
-  border-radius: var(--radius-pill);
-  background: var(--surface-card);
-  color: var(--text-strong);
-  font: var(--weight-semibold) var(--ui-fs-label) / 1 var(--font-sans);
-  text-decoration: none;
-  box-shadow: var(--shadow-lg);
-  transform: translateY(-200%);
-}
-body:has(> [data-slot="admin"]) > a[data-slot="skip-link"]:focus {
-  transform: none;
-  outline: 2px solid var(--coral-700);
-  outline-offset: 2px;
-}
+/* 본문 바로가기: 저장소 반영 때 뺐다(코드 검토 v1 B-2) — body:has(> [data-slot="admin"]) 는 관리 화면을 떠난 뒤에도 맞는다
+   (Next 16 cacheComponents 가 이전 경로를 display:none 인 채 body 아래에 둔다). 건너뛰기 링크 모양은 일반 화면 디자인에서
+   사이트 공통 스킨 하나로 정한다 — 그때까지 관리 화면의 링크는 브라우저 기본 모양이다 */
 
 /* 머리·서랍 안 아이콘 단추: 짙은 면 색 */
 [data-slot="admin"] :is([data-slot="admin-header"], [data-slot="admin-drawer"]) button[aria-label][data-shape="icon"]:not([data-variant]) {

@@ -1,8 +1,10 @@
 /* 관리 화면 기초 토큰 — 기초 디자인(ProjectM Design System)의 토큰을 값 그대로 옮겼다(관리디자인 지시서 §3).
+   범위는 :root 가 아니라 [data-slot="admin"] — 관리 화면을 떠나도 이 CSS 는 남으므로 :root 에 두면 일반 화면의 같은 이름이
+   '관리를 거쳐 왔는지'에 따라 달라진다(코드 검토 v1 B-2). 대화(dialog)·서랍(popover)은 맨 위 층에 그려져도 DOM 은 이 안이라 값을 물려받는다.
    이름과 값을 고치지 않는다. 대비 보정·mypage 추가분은 tokens.css 가 이 위에 얹는다.
    글꼴 이름(--font-*)은 next/font 가 만든 변수를 써야 해서 아래 [data-slot="admin"] 에서 다시 정한다. */
 
-:root {
+[data-slot="admin"] {
   /* ── Neutrals (warm zinc) ─────────────────────────────── */
   --zinc-0:   #ffffff;
   --zinc-50:  #fafafa;
@@ -74,7 +76,7 @@
   --ring:          color-mix(in oklch, var(--coral-500) 40%, transparent);
 }
 
-:root {
+[data-slot="admin"] {
   /* Families */
   --font-display: "OkDanDan", "Pretendard", system-ui, sans-serif;
   --font-sans: "Pretendard", system-ui, -apple-system, "Segoe UI", sans-serif;
@@ -112,7 +114,7 @@
   --tracking-wide: 0.04em;  /* uppercase eyebrow labels */
 }
 
-:root {
+[data-slot="admin"] {
   /* Spacing — 4px grid */
   --space-0: 0;
   --space-1: 0.25rem;  /* 4 */

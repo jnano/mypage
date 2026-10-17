@@ -19,6 +19,7 @@ export default function DevBlocksPage() {
 
 async function DevBlocks() {
   await connection(); // 환경 변수를 빌드 때가 아니라 요청 때 읽는다
+  // APP_ENV=dev 하나로 연다 — /dev/login 은 보는 사람을 바꾸는 기능이라 DEV_VIEWER_LOGIN 까지 켜야 하지만, 이 화면은 견본만 그린다
   if (serverConfig().appEnv !== "dev") notFound();
   return (
     <section data-slot="dev-blocks">

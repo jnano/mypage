@@ -47,12 +47,13 @@ class _Config(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
 
-# 사이트 안 경로(/ 로 시작, // 아님) 또는 허용 스킴. javascript:·data: 등은 형식에서 걸러진다(§4.4·§9)
-_URL = re.compile(r"^(?:https?://[^\s/]+[^\s]*|mailto:[^\s]+|tel:[0-9+\-() ]+|/(?!/)[^\s]*)$", re.IGNORECASE)
+# 사이트 안 경로(/ 로 시작) 또는 허용 스킴. javascript:·data: 등은 형식에서 걸러진다(§4.4·§9).
+# `//`·`/\` 로 시작하면 다른 사이트로 가는 상대 주소다 — 브라우저(WHATWG URL)는 역슬래시를 빗금으로 읽는다(코드 검토 v5 N-1)
+_URL = re.compile(r"(?:https?://[^\s/]+[^\s]*|mailto:[^\s]+|tel:[0-9+\-() ]+|/(?![/\\])[^\s]*)", re.IGNORECASE)
 
 
 def _url(value: str) -> str:
-    if not _URL.match(value):
+    if not _URL.fullmatch(value):  # fullmatch — `$` 는 끝 줄바꿈 앞에서도 맞는다
         raise ValueError("링크는 https://·http://·mailto:·tel: 또는 / 로 시작하는 사이트 안 주소만 됩니다")
     return value
 

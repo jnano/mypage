@@ -142,6 +142,9 @@ def test_strings_are_stripped() -> None:
         ("JavaScript:alert(1)", False),
         ("data:text/html,x", False),
         ("//evil.example", False),  # 다른 사이트로 가는 상대 주소
+        ("/\\evil.example", False),  # 브라우저는 역슬래시를 빗금으로 읽는다 → //evil.example(코드 검토 v5 N-1)
+        ("/a\nb", False),
+        ("https://example.org\njavascript:x", False),
         ("boards/free", False),
         ("https://", False),
         ("/a b", False),

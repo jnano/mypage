@@ -151,7 +151,7 @@ Index(
         "status = 'published' AND (is_secret OR is_blinded OR min_view_level > 0)"
     ),
 )
-Index("ix_posts_member", Post.member_id, Post.created_at.desc())
+Index("ix_posts_member", Post.member_id, Post.created_at.desc(), Post.id.desc())  # 커서 (시각, id) — §6.2
 Index("ix_posts_status_updated", Post.status, Post.updated_at.desc())
 Index("ix_posts_sitemap", Post.published_at, postgresql_where=text("status = 'published'"))
 
@@ -270,7 +270,7 @@ class PostScrap(Base):
     created_at: Mapped[datetime] = created_at()
 
 
-Index("ix_post_scraps_member", PostScrap.member_id, PostScrap.created_at.desc())
+Index("ix_post_scraps_member", PostScrap.member_id, PostScrap.created_at.desc(), PostScrap.post_id.desc())  # 커서 — §6.2
 
 
 class PostViewOnce(Base):

@@ -306,7 +306,7 @@ SPEC: dict[str, T] = {
             "ix_posts_trashed": "trashed_at | where status = 'trashed'",
             "ix_posts_board_restricted": "board_id | where status = 'published'"
             " AND (is_secret OR is_blinded OR min_view_level > 0)",
-            "ix_posts_member": "member_id, created_at DESC",
+            "ix_posts_member": "member_id, created_at DESC, id DESC",
             "ix_posts_status_updated": "status, updated_at DESC",
             "ix_posts_sitemap": "published_at | where status = 'published'",
         },
@@ -373,7 +373,7 @@ SPEC: dict[str, T] = {
         cols=["post_id bigint", "member_id bigint", CREATED],
         pk=("post_id", "member_id"),
         fks={"post_id": "posts CASCADE", "member_id": "members CASCADE"},
-        indexes={"ix_post_scraps_member": "member_id, created_at DESC"},
+        indexes={"ix_post_scraps_member": "member_id, created_at DESC, post_id DESC"},
     ),
     "post_view_once": T(
         cols=["post_id bigint", "viewer_key varchar(64)", CREATED],
@@ -411,7 +411,7 @@ SPEC: dict[str, T] = {
         checks={"blind_source": "blind_source IS NULL OR is_blinded"},
         indexes={
             "ix_comments_post": "post_id, created_at",
-            "ix_comments_member": "member_id, created_at DESC",
+            "ix_comments_member": "member_id, created_at DESC, id DESC",
             "ix_comments_parent": "parent_id | where parent_id IS NOT NULL",
             "ix_comments_reply_to": "reply_to_comment_id | where reply_to_comment_id IS NOT NULL",
         },
@@ -541,7 +541,7 @@ SPEC: dict[str, T] = {
         },
         uniques=[("dedupe_key",)],
         indexes={
-            "ix_notifications_recipient": "recipient_id, created_at DESC",
+            "ix_notifications_recipient": "recipient_id, created_at DESC, id DESC",
             "ix_notifications_post": "post_id | where post_id IS NOT NULL",
             "ix_notifications_comment": "comment_id | where comment_id IS NOT NULL",
             "ix_notifications_unread": "recipient_id | where read_at IS NULL",

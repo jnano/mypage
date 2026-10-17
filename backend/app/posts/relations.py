@@ -92,7 +92,8 @@ async def add(viewer: Viewer, post_id: int, target_id: int) -> dict:
         exists_ = (
             await db.execute(select(PostRelation.target_post_id).where(PostRelation.source_post_id == post_id, PostRelation.target_post_id == target_id))
         ).scalar_one_or_none()
-        if exists_ is None:
+        changed = exists_ is None
+        if changed:
             count = (await db.execute(select(func.count()).where(PostRelation.source_post_id == post_id))).scalar_one()
             if count >= RELATED_LIMIT:
                 raise Problem(409, "relations_full", f"관련 글은 {RELATED_LIMIT}개까지입니다")
@@ -102,7 +103,13 @@ async def add(viewer: Viewer, post_id: int, target_id: int) -> dict:
             if by_staff:
                 await record(db, viewer, [LogEntry("post.relate", "post", post_id, board_id=board.id, after={"added": target_id})])
         items = await list_for(db, viewer, post_id)
-    return {"items": items, "invalidate": tags_for("post.relations_changed", post_id=post_id).as_dict()}
+    return _result(items, changed, post_id)
+
+
+def _result(items: list[dict], changed: bool, post_id: int) -> dict:
+    """바뀐 것이 없는 멱등 응답(같은 대상 두 번·없는 관계 지우기)은 캐시를 깨우지 않는다(검토 묶음B N-2)"""
+    empty = {"now": [], "max": []}
+    return {"items": items, "invalidate": tags_for("post.relations_changed", post_id=post_id).as_dict() if changed else empty}
 
 
 async def remove(viewer: Viewer, post_id: int, target_id: int) -> dict:
@@ -118,5 +125,5 @@ async def remove(viewer: Viewer, post_id: int, target_id: int) -> dict:
         if gone is not None and by_staff:
             await record(db, viewer, [LogEntry("post.relate", "post", post_id, board_id=board.id, before={"removed": target_id})])
         items = await list_for(db, viewer, post_id)
-    return {"items": items, "invalidate": tags_for("post.relations_changed", post_id=post_id).as_dict()}
+    return _result(items, gone is not None, post_id)
 

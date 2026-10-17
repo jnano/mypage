@@ -64,7 +64,7 @@ class Comment(Base):
 
 
 Index("ix_comments_post", Comment.post_id, Comment.created_at)
-Index("ix_comments_member", Comment.member_id, Comment.created_at.desc())
+Index("ix_comments_member", Comment.member_id, Comment.created_at.desc(), Comment.id.desc())  # 커서 (시각, id) — §6.2
 # 글 영구 삭제의 연쇄(CASCADE·SET NULL)가 지워지는 댓글마다 찾는 칸 — 없으면 댓글마다 표 전체를 훑는다(3단계 측정 §4.7)
 Index("ix_comments_parent", Comment.parent_id, postgresql_where=text("parent_id IS NOT NULL"))
 Index("ix_comments_reply_to", Comment.reply_to_comment_id, postgresql_where=text("reply_to_comment_id IS NOT NULL"))

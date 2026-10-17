@@ -24,7 +24,10 @@ class Cursor:
     @staticmethod
     def decode(raw: str) -> "Cursor":
         at, _, nid = raw.partition("|")
-        return Cursor(datetime.fromisoformat(at), int(nid))
+        when = datetime.fromisoformat(at)
+        if when.tzinfo is None:  # 시간대 없는 시각은 DB 가 서버 시간대로 읽는다 — 받지 않는다(검토 묶음B N-3)
+            raise ValueError("cursor 에 시간대가 없습니다")
+        return Cursor(when, int(nid))
 
 
 def parse(raw: str | None) -> Cursor | None:

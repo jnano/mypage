@@ -10,16 +10,17 @@ export interface RelationItem {
 
 const ID = /^[1-9][0-9]{0,17}$/;
 
-/** '123', '/boards/free/123', 'https://도메인/boards/free/123?x#y' → 123. 알아볼 수 없으면 null */
-export function parseTargetId(input: string): number | null {
+/** '123', '/boards/free/123', '{이 사이트}/boards/free/123?x#y' → 123. 다른 사이트의 주소·알아볼 수 없는 꼴은 null(검토 묶음B N-4) */
+export function parseTargetId(input: string, siteOrigin: string): number | null {
   const text = input.trim();
   if (ID.test(text)) return Number(text);
-  let path = text;
+  let url: URL;
   try {
-    path = new URL(text, "http://local").pathname;
+    url = new URL(text, siteOrigin);
   } catch {
     return null;
   }
-  const m = /^\/boards\/[^/]+\/([1-9][0-9]{0,17})\/?$/.exec(path);
+  if (url.origin !== new URL(siteOrigin).origin) return null;
+  const m = /^\/boards\/[^/]+\/([1-9][0-9]{0,17})\/?$/.exec(url.pathname);
   return m ? Number(m[1]) : null;
 }

@@ -42,12 +42,14 @@ async def test_author_adds_and_removes(dev_header, committed_db, client) -> None
     body = res.json()
     assert body["items"] == [{"id": targets[0].id, "title": "대상 0", "board_slug": "free", "readable": True}]
     assert body["invalidate"] == {"now": [f"post:{source.id}"], "max": []}
-    assert (await _add(client, source.id, targets[0].id, author.id)).json()["items"] == body["items"]  # 멱등
+    again = (await _add(client, source.id, targets[0].id, author.id)).json()
+    assert again["items"] == body["items"] and again["invalidate"] == {"now": [], "max": []}  # 멱등 — 바뀐 것이 없으면 캐시를 깨우지 않는다
     page = (await client.get(f"/api/posts/{source.id}/page")).json()
     assert [r["id"] for r in page["related"]] == [targets[0].id]  # 글 묶음 응답에 실린다
     res = await client.delete(f"/api/posts/{source.id}/relations/{targets[0].id}", headers=as_member(author.id))
     assert res.json()["items"] == []
-    assert (await client.delete(f"/api/posts/{source.id}/relations/{targets[0].id}", headers=as_member(author.id))).status_code == 200
+    again = await client.delete(f"/api/posts/{source.id}/relations/{targets[0].id}", headers=as_member(author.id))
+    assert again.status_code == 200 and again.json()["invalidate"] == {"now": [], "max": []}
     # 작성자 본인의 편집은 운영 기록에 남기지 않는다
     assert (await committed_db.execute(select(func.count()).select_from(ModerationLog))).scalar_one() == 0
 

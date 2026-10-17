@@ -66,6 +66,8 @@ async def test_cursor_walks_every_row_once_including_ties(dev_header, committed_
     walked = [i["id"] for i in await _all(client, "/api/me/posts", me.id)]
     assert sorted(walked) == sorted(ids) and len(walked) == len(set(walked))
     assert (await client.get("/api/me/posts?cursor=nope", headers=as_member(me.id))).status_code == 422
+    # 시간대 없는 시각은 받지 않는다(검토 묶음B N-3)
+    assert (await client.get("/api/me/posts?cursor=2026-10-01T00:00:00|1", headers=as_member(me.id))).status_code == 422
 
 
 async def test_my_comments_hide_unreadable_post_titles(dev_header, committed_db, client) -> None:

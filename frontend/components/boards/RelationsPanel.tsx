@@ -29,9 +29,9 @@ export function RelationsPanel({ postId, initial }: { postId: number; initial: R
   async function add(e: React.FormEvent) {
     e.preventDefault();
     if (busy) return;
-    const target = parseTargetId(input);
+    const target = parseTargetId(input, window.location.origin);
     if (target === null) {
-      setMessage("글 주소나 번호를 넣어 주세요");
+      setMessage("이 사이트의 글 주소나 번호를 넣어 주세요");
       return;
     }
     await run(() => addRelationAction(postId, target), "관련 글을 붙였습니다");

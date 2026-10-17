@@ -2,8 +2,8 @@
 """글 조회 판정 절 검사 — 설계도 §5.2.
 
 규칙
-1. backend/app 안에서 select(Post…) 를 만드는 함수는 listable_posts_clause 또는
-   readable_posts_clause 를 같은 함수 안에서 불러야 한다(권한 우회 방지).
+1. backend/app 안에서 select(Post…) 를 만드는 함수는 판정 절(CLAUSES — listable·readable_posts_clause,
+   작성자 본인 글의 own_posts_openable_clause)을 같은 함수 안에서 불러야 한다(권한 우회 방지).
 2. 검색 모듈(경로에 'search')은 listable_posts_clause 를 쓰면 안 된다 — 목록 절은
    가려진 글을 거르지 않아, 가려진 글 본문이 검색 매칭에 쓰이면 누설된다.
 예외: 관리·작업자·권한 모듈처럼 판정 절 밖에서 글을 읽어야 하는 곳은 select 줄 끝에
@@ -22,7 +22,8 @@ from pathlib import Path
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 APP_DIR = REPO_ROOT / "backend" / "app"
-CLAUSES = {"listable_posts_clause", "readable_posts_clause"}
+# own_posts_openable_clause: 작성자 본인 글을 지금 열 수 있는가(내 글 목록, 설계도 §6.2) — can(post.read) 의 작성자 경로
+CLAUSES = {"listable_posts_clause", "readable_posts_clause", "own_posts_openable_clause"}
 EXEMPT_RE = re.compile(r"#\s*post-clause:\s*exempt\s*[—-]\s*\S")
 
 

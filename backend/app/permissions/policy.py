@@ -28,6 +28,7 @@ Action = Literal[
     "post.report",
     "post.react",
     "post.count",
+    "post.relate",
     "board.manage",
 ]
 ACTIONS: frozenset[str] = frozenset(get_args(Action))
@@ -37,6 +38,7 @@ SANCTION_BLOCKS: dict[str, str] = {
     "post.create": "write",
     "post.update": "write",
     "post.trash": "write",
+    "post.relate": "write",
     "comment.create": "comment",
     "comment.update": "comment",
     "attachment.upload": "upload",
@@ -182,6 +184,10 @@ def can(
         case "post.count":
             # 조회·공유 — 공유는 호출부가 allow_share 를 더 본다(게시판 칸, 조회와 같은 판정을 쓰려고)
             return post.status == "published" and _post_read(viewer, role, board, post, guest_token)
+        case "post.relate":
+            # 관련 글 편집(§6.2) — 담당자 또는 회원 작성자. 비회원 글의 토큰 작성자는 하지 않는다
+            mine = not post.is_guest and post.member_id is not None and post.member_id == viewer.member_id
+            return (role.is_moderator or mine) and _post_read(viewer, role, board, post, guest_token)
         case "board.manage":
             return False  # 사이트 운영자만(위에서 통과)
     raise AssertionError(action)  # pragma: no cover

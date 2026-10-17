@@ -1,32 +1,16 @@
 """알림함 읽기 — 최신순 키셋 커서(인덱스 notifications(recipient_id, created_at DESC)).
 대상 글은 지금 다시 판정한다(readable_posts_clause) — 열 수 없게 된 글·지워진 글은 제목을 가린다(§7)."""
 
-from dataclasses import dataclass
-from datetime import datetime
-
-from sqlalchemy import Row, select, tuple_
+from sqlalchemy import Row, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import aliased
 
 from app.auth.viewer import Viewer
+from app.core.cursor import Cursor, before, cut
 from app.models import Board, Member, Notification, Post
 from app.permissions import readable_posts_clause
 
 PAGE_SIZE = 30
-
-
-@dataclass(frozen=True)
-class Cursor:
-    created_at: datetime
-    id: int
-
-    def encode(self) -> str:
-        return f"{self.created_at.isoformat()}|{self.id}"
-
-    @staticmethod
-    def decode(raw: str) -> "Cursor":
-        at, _, nid = raw.partition("|")
-        return Cursor(datetime.fromisoformat(at), int(nid))
 
 
 async def list_notifications(db: AsyncSession, viewer: Viewer, after: Cursor | None) -> tuple[list[Row], set[int], Cursor | None]:
@@ -53,12 +37,8 @@ async def list_notifications(db: AsyncSession, viewer: Viewer, after: Cursor | N
         .limit(PAGE_SIZE + 1)
     )
     if after is not None:
-        stmt = stmt.where(tuple_(Notification.created_at, Notification.id) < tuple_(after.created_at, after.id))
-    rows = list(await db.execute(stmt))
-    next_cursor = None
-    if len(rows) > PAGE_SIZE:
-        rows = rows[:PAGE_SIZE]
-        next_cursor = Cursor(rows[-1].created_at, rows[-1].id)
+        stmt = stmt.where(before(Notification.created_at, Notification.id, after))
+    rows, next_cursor = cut(await db.execute(stmt), PAGE_SIZE)
     post_ids = {r.post_id for r in rows if r.post_id is not None}
     readable: set[int] = set()
     if post_ids:

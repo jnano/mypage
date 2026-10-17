@@ -16,6 +16,7 @@ EXPECTED = {
     "board.updated": (["board:free", "boards:structure"], []),
     "search_terms.aggregated": ([], ["search-terms"]),
     "thumbnail.ready": (["post:1"], []),
+    "post.relations_changed": (["post:1"], []),
     "settings.updated": (["settings:seo"], ["sitemap"]),  # v3.0.12 — 사이트 설정(SEO 메타 등)
     # 회원 탈퇴(인증 설계도 §4.9) — 작성자 이름이 바뀐 글·댓글
     "member.withdrawn.post": ([], ["post:1", "board:free", "recent:posts", "feed:free"]),

@@ -2,6 +2,7 @@
 
 from app.permissions.clauses import (
     listable_posts_clause,
+    own_posts_openable_clause,
     readable_posts_clause,
     unmasked_posts_clause,
 )
@@ -17,6 +18,7 @@ __all__ = [
     "listable_posts_clause",
     "load_board_role",
     "load_board_roles",
+    "own_posts_openable_clause",
     "post_mask",
     "readable_posts_clause",
     "unmasked_posts_clause",

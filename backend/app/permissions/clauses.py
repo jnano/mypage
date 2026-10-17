@@ -92,6 +92,19 @@ def readable_posts_clause(viewer: Viewer) -> ColumnElement[bool]:
     return and_(_published(), or_(_is_moderator(viewer), open_to_viewer))
 
 
+def own_posts_openable_clause(viewer: Viewer) -> ColumnElement[bool]:
+    """작성자 본인이 자기 글을 지금 열 수 있는가 — can(post.read) 의 작성자 경로를 SQL 로(내 글 목록, §6.2).
+
+    상태는 휴지통을 뺀 넷(대기·임시·예약은 작성자에게 열린다), 게시판 조건(사용 중지·목록·열람 등급·명부)·가림·글 단위 등급은
+    작성자에게도 그대로다(§5.3). 비밀은 본인 글이라 통과. 호출부가 member_id = 나 로 이미 거른다.
+    """
+    states = Post.status.in_([literal_column(f"'{s}'") for s in ("published", "pending", "draft", "scheduled")])
+    if viewer.is_admin:
+        return states
+    open_to_author = and_(_board(viewer, read=True), not_(Post.is_blinded), func.coalesce(Post.min_view_level, 0) <= viewer.level)
+    return and_(states, or_(_is_moderator(viewer), open_to_author))
+
+
 def unmasked_posts_clause(viewer: Viewer, role: BoardRole) -> ColumnElement[bool]:
     """post_mask 의 SQL 판 — hide 게시판에서 가려질 행을 목록에서 뺀다. 게시판 하나(역할을 아는 곳)에서만 쓴다."""
     if viewer.is_admin or role.is_moderator:

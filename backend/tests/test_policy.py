@@ -79,6 +79,7 @@ attachment.download T F F F F F T
 post.report         T T F F F T T
 post.react          T T F F F T T
 post.count          T T F F F T T
+post.relate         T T F F F F F
 board.manage        T F F F F F F
 """
 COLS = ["admin", "mod", "author", "member", "guest", "listed", "high"]
@@ -241,6 +242,14 @@ FLIPS = [
     ("report/guest", "post.report", GUEST, NO_ROLE, OPEN, P(), {}, False),
     # 만료 글은 열람 허용(목록 제외는 listable_posts_clause 몫 — test_clauses.py)
     ("read/expired-is-readable", "post.read", GUEST, NO_ROLE, OPEN, P(), {}, True),
+    # 관련 글 편집(§6.2) — 담당자 또는 회원 작성자, 정지 write 가 막는다
+    ("relate/author", "post.relate", AUTHOR, NO_ROLE, OPEN, P(), {}, True),
+    ("relate/other-member", "post.relate", MEMBER, NO_ROLE, OPEN, P(), {}, False),
+    ("relate/mod", "post.relate", MEMBER, MOD, OPEN, P(), {}, True),
+    ("relate/author-banned", "post.relate", replace(AUTHOR, sanctions=frozenset({"write"})), NO_ROLE, OPEN, P(), {}, False),
+    ("relate/author-comment-ban", "post.relate", replace(AUTHOR, sanctions=frozenset({"comment"})), NO_ROLE, OPEN, P(), {}, True),
+    ("relate/guest-token-author", "post.relate", GUEST, NO_ROLE, OPEN, GUEST_POST, {"guest_token": TOKEN_EDIT}, False),
+    ("relate/author-cannot-read", "post.relate", AUTHOR, NO_ROLE, RESTRICTED, P(), {}, False),
     # 글 반응(§6.1) — 켜기는 회원·공개 글, 조회·공유는 비회원도. 정지로 막지 않는다
     ("react/member", "post.react", MEMBER, NO_ROLE, OPEN, P(), {}, True),
     ("react/guest", "post.react", GUEST, NO_ROLE, OPEN, P(), {}, False),

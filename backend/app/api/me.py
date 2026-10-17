@@ -9,10 +9,12 @@ from sqlalchemy import exists, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.auth.viewer import GUEST, Viewer, get_viewer
+from app.core import cursor as cursors
 from app.core.problems import Problem
 from app.db.session import get_db
 from app.models import BoardSubscription, Notification, PostReaction, PostScrap
 from app.permissions import NO_ROLE, can, load_board_role, post_mask
+from app.me import lists
 from app.posts import queries
 
 router = APIRouter()
@@ -99,3 +101,81 @@ async def page_state(
         "subscribed": subscribed,
     }
     return JSONResponse(body, headers={"Cache-Control": "no-store"})
+
+
+# ── 내 목록(§6.2) — 본인 것만, 최신순 키셋 커서 ──
+
+
+def _member(viewer: Viewer) -> None:
+    if viewer.member_id is None:
+        raise Problem(401, "login_required", "로그인이 필요합니다")
+
+
+def _iso(at) -> str | None:
+    return at.isoformat() if at is not None else None
+
+
+def _page(items: list[dict], next_cursor) -> JSONResponse:
+    return JSONResponse({"items": items, "next_cursor": next_cursor.encode() if next_cursor else None}, headers={"Cache-Control": "no-store"})
+
+
+@router.get("/me/posts")
+async def my_posts(cursor: str | None = Query(None, max_length=80), viewer: Viewer = Depends(get_viewer), db: AsyncSession = Depends(get_db)):
+    _member(viewer)
+    rows, openable, next_cursor = await lists.my_posts(db, viewer, cursors.parse(cursor))
+    items = [
+        {
+            "id": r.id,
+            "title": r.title,
+            "board": {"slug": r.board_slug, "name": r.board_name},
+            "status": r.status,
+            "is_secret": r.is_secret,
+            "is_blinded": r.is_blinded,
+            "created_at": r.created_at.isoformat(),
+            "published_at": _iso(r.published_at),
+            "stats": {"comments": r.comment_count or 0, "likes": r.like_count or 0},
+            # 작성자도 게시판 조건을 통과해야 연다(§5.3) — 지금 열 수 없으면 제목·배지만, 링크 없음(검토 v4.0.9 N-1)
+            "path": f"/boards/{r.board_slug}/{r.id}" if r.id in openable else None,
+        }
+        for r in rows
+    ]
+    return _page(items, next_cursor)
+
+
+@router.get("/me/comments")
+async def my_comments(cursor: str | None = Query(None, max_length=80), viewer: Viewer = Depends(get_viewer), db: AsyncSession = Depends(get_db)):
+    _member(viewer)
+    rows, readable, next_cursor = await lists.my_comments(db, viewer, cursors.parse(cursor))
+    items = []
+    for r in rows:
+        open_ = r.post_id in readable
+        items.append(
+            {
+                "id": r.id,
+                "excerpt": r.excerpt,
+                "is_blinded": r.is_blinded,
+                "created_at": r.created_at.isoformat(),
+                # 지금 읽을 수 없는 글은 제목·링크를 내지 않는다(알림함 §7 과 같다)
+                "post": {"id": r.post_id, "title": r.post_title if open_ else None, "masked": None if open_ else "hidden"},
+                "path": f"/boards/{r.board_slug}/{r.post_id}#c-{r.id}" if open_ else None,
+            }
+        )
+    return _page(items, next_cursor)
+
+
+@router.get("/me/scraps")
+async def my_scraps(cursor: str | None = Query(None, max_length=80), viewer: Viewer = Depends(get_viewer), db: AsyncSession = Depends(get_db)):
+    _member(viewer)
+    rows, readable, next_cursor = await lists.my_scraps(db, viewer, cursors.parse(cursor))
+    items = [
+        {
+            "post_id": r.post_id,
+            "title": r.title if r.post_id in readable else None,
+            "masked": None if r.post_id in readable else "hidden",
+            "board": {"slug": r.board_slug, "name": r.board_name} if r.post_id in readable else None,
+            "scrapped_at": r.created_at.isoformat(),
+            "path": f"/boards/{r.board_slug}/{r.post_id}" if r.post_id in readable else None,
+        }
+        for r in rows
+    ]
+    return _page(items, next_cursor)

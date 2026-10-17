@@ -10,6 +10,7 @@ from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.auth.viewer import Viewer, get_viewer
+from app.core import cursor as cursors
 from app.core.problems import Problem
 from app.db.session import get_db
 from app.models import BoardSubscription, Notification, NotificationPref
@@ -35,11 +36,7 @@ async def list_notifications(
     db: AsyncSession = Depends(get_db),
 ):
     _member(viewer)
-    try:
-        after = queries.Cursor.decode(cursor) if cursor else None
-    except ValueError:
-        raise Problem(422, "validation_error", "cursor 가 올바르지 않습니다") from None
-    rows, readable, next_cursor = await queries.list_notifications(db, viewer, after)
+    rows, readable, next_cursor = await queries.list_notifications(db, viewer, cursors.parse(cursor))
     items = []
     for r in rows:
         fixed = TYPES[r.type].path if r.type in TYPES else None  # 글이 아닌 알림(가입 신청 등)은 정해진 화면으로

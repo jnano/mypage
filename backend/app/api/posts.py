@@ -3,6 +3,7 @@
 from datetime import UTC, datetime
 
 from fastapi import APIRouter, Depends, Header, Query, Request, Response
+from pydantic import BaseModel, ConfigDict
 from fastapi.responses import JSONResponse
 from sqlalchemy import Row
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -16,7 +17,7 @@ from app.core.problems import Problem
 from app.db.session import get_db
 from app.models import Board
 from app.permissions import BoardRole, can, load_board_role
-from app.posts import present, queries, reactions, service
+from app.posts import present, queries, reactions, relations, service
 from app.posts.schemas import PostUpdate
 from app.seo import queries as seo_queries
 
@@ -159,3 +160,26 @@ async def count_view(post_id: int, request: Request, viewer: Viewer = Depends(ge
 async def count_share(post_id: int, request: Request, viewer: Viewer = Depends(get_viewer)):
     await reactions.record_share(viewer, post_id, client_ip(request))
     return Response(status_code=204)
+
+
+# ── 관련 글 편집(§6.2) — 담당자·회원 작성자, Server Action 이 부른다 ──
+
+
+class RelationAdd(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    target_id: int
+
+
+@router.get("/posts/{post_id}/relations")
+async def relations_list(post_id: int, viewer: Viewer = Depends(get_viewer)):
+    return JSONResponse(await relations.get(viewer, post_id), headers=NO_STORE)
+
+
+@router.post("/posts/{post_id}/relations")
+async def relations_add(post_id: int, body: RelationAdd, viewer: Viewer = Depends(get_viewer)):
+    return JSONResponse(await relations.add(viewer, post_id, body.target_id), headers=NO_STORE)
+
+
+@router.delete("/posts/{post_id}/relations/{target_id}")
+async def relations_remove(post_id: int, target_id: int, viewer: Viewer = Depends(get_viewer)):
+    return JSONResponse(await relations.remove(viewer, post_id, target_id), headers=NO_STORE)

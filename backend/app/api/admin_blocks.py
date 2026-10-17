@@ -3,19 +3,20 @@
 블록 종류(설정 폼의 형식), 저장 전 미리보기, 끊긴 참조 목록. 아무것도 저장하지 않는다.
 """
 
-from typing import Literal
+from typing import Annotated, Literal
 
 from fastapi import APIRouter, Depends
 from fastapi.encoders import jsonable_encoder
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, ConfigDict, Field
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.admin.scope import StaffScope
 from app.api.admin_boards import admin_scope
-from app.blocks import frame, layouts, schema, tree
+from app.blocks import frame, layouts, pages, schema, tree
 from app.blocks.dangling import dangling
 from app.core import rate_limit
 from app.db.session import get_db
+from app.models import Layout
 
 router = APIRouter(prefix="/admin")
 
@@ -35,6 +36,9 @@ class PreviewIn(BaseModel):
     regions: dict[str, list[tree.BlockIn]] = {}
     blocks: list[tree.BlockIn] = []
     as_member: bool = False  # 참이면 이 운영자 기준(회원 블록까지), 거짓이면 비회원이 보는 모습
+    # 같은 화면에 함께 그려질 쪽 — 저장과 같은 이름표 검사(§10)를 미리보기에서도 하려고(코드 검토 v15 N-3 a).
+    # 페이지면 그 페이지가 고른 틀(없으면 기본 틀), 틀이면 고치는 틀의 id(그 틀을 쓰는 페이지들과 대조, 없으면 새 틀)
+    layout_id: Annotated[int, Field(ge=1)] | None = None
 
 
 @router.post("/blocks/preview")
@@ -45,10 +49,17 @@ async def preview(body: PreviewIn, scope: StaffScope = Depends(admin_scope), db:
         groups, path = layouts.region_groups(body.regions), "regions"
     else:
         groups, path = [(None, body.blocks)], "blocks"
+    taken = None
+    if body.owner == "page":
+        layout_id = await pages.layout_for(db, body.layout_id)
+        taken = await tree.nav_labels(db, layout_ids=[layout_id] if layout_id else [])
     try:
-        flat = tree.validate_tree(body.owner, groups, path)
+        flat = tree.validate_tree(body.owner, groups, path, taken)
     except tree.TreeErrors as e:
         raise tree.problem(e.errors) from None
+    if body.owner == "layout" and body.layout_id is not None and (layout := await db.get(Layout, body.layout_id)) is not None:
+        if errors := await tree.page_conflicts(db, layout.id, layout.is_default, tree.names_in(flat)):
+            raise tree.problem(errors)
     return jsonable_encoder(await frame.preview(db, scope.viewer, flat, as_member=body.as_member))
 
 

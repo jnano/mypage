@@ -107,7 +107,7 @@ async def create_page(db: AsyncSession, viewer: Viewer, body: PageCreate) -> dic
     return await page_detail(db, page.id)
 
 
-async def _layout_for(db: AsyncSession, layout_id: int | None) -> int | None:
+async def layout_for(db: AsyncSession, layout_id: int | None) -> int | None:
     """페이지가 쓸 틀 — 고른 틀, 없으면 기본 틀(§3.3). 고른 틀이 없으면 422"""
     if layout_id is None:
         return (await db.execute(select(Layout.id).where(Layout.is_default))).scalar_one_or_none()
@@ -143,7 +143,7 @@ async def save_page(db: AsyncSession, viewer: Viewer, page_id: int, body: PageSa
         raise Problem(409, "home_page", "첫 화면(/)의 주소는 바꿀 수 없습니다")
     if not page.is_home and body.path == "/":
         raise Problem(409, "home_page", "첫 화면(/)은 하나뿐입니다")
-    layout_id = await _layout_for(db, body.layout_id)
+    layout_id = await layout_for(db, body.layout_id)
     taken = await tree.nav_labels(db, layout_ids=[layout_id] if layout_id else [])
     try:
         flat = tree.validate_tree("page", [(None, body.blocks)], "blocks", taken)

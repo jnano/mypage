@@ -1,6 +1,8 @@
 """블록 생성 파일 — 홈블록 설계도 §3.4·§4.4.2.
 
 원본 app/blocks(types·modules·routes) → frontend/lib/blocks/blocks.gen.json(커밋한다). 프런트는 이 파일만 읽는다.
+관리 화면 폼 형식(app/blocks/schema.py — GET /api/admin/block-types 와 같은 값)은 프런트 시험용 사본으로
+frontend/lib/admin/blocks/blockTypes.fixture.json 에도 쓴다(폼 읽기 함수를 실제 형식으로 시험한다 — 화면은 API 를 쓴다).
 원본과 같은지는 tests/test_block_types.py 가 본다(생성에 Pydantic 이 필요해 백엔드 시험에서).
 
 실행: cd backend && uv run python -m scripts.gen_blocks
@@ -17,6 +19,7 @@ from app.blocks import types as t
 from app.blocks.modules import MODULES
 from app.blocks.resolve import NOT_YET, Lookup, resolve
 from app.blocks.routes import PAGE_PATH_PATTERN, PAGE_PATH_SAMPLES
+from app.blocks.schema import block_types
 from app.blocks.tree import collect_refs
 from app.blocks.menus import ITEM_COLUMNS
 from app.editor.render import ImageSource
@@ -42,6 +45,7 @@ EXAMPLE_MENU = [
 ]
 
 TARGET = Path(__file__).resolve().parents[2] / "frontend" / "lib" / "blocks" / "blocks.gen.json"
+FORMS_TARGET = Path(__file__).resolve().parents[2] / "frontend" / "lib" / "admin" / "blocks" / "blockTypes.fixture.json"
 
 # 견본 해결용 조회 결과 — 그림은 '썸네일 전'(자리 표시)이라 없는 파일 주소를 만들지 않는다
 EXAMPLE_LOOKUP = Lookup(
@@ -97,10 +101,15 @@ def render() -> str:
     return json.dumps(data, ensure_ascii=False, indent=2, default=lambda v: v.isoformat()) + "\n"
 
 
+def render_forms() -> str:
+    return json.dumps(block_types(), ensure_ascii=False, indent=2) + "\n"
+
+
 def main() -> int:
-    TARGET.parent.mkdir(parents=True, exist_ok=True)
-    TARGET.write_text(render(), encoding="utf-8")
-    print(f"생성: {TARGET}")
+    for target, text in ((TARGET, render()), (FORMS_TARGET, render_forms())):
+        target.parent.mkdir(parents=True, exist_ok=True)
+        target.write_text(text, encoding="utf-8")
+        print(f"생성: {target}")
     return 0
 
 

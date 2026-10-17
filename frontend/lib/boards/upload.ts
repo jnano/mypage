@@ -16,8 +16,17 @@ interface UploadResponse {
 export type UploadResult = { ok: true; attachment: UploadedAttachment } | { ok: false; message: string };
 
 export async function uploadAttachment(boardSlug: string, file: File): Promise<UploadResult> {
+  return upload(`board=${encodeURIComponent(boardSlug)}`, file);
+}
+
+/** 사이트 업로드 — 블록 그림(운영자, 홈블록 §4.7). 사이트 설정 '사이트 업로드' 한도 */
+export async function uploadSiteImage(file: File): Promise<UploadResult> {
+  return upload("target=site", file);
+}
+
+async function upload(query: string, file: File): Promise<UploadResult> {
   try {
-    const res = await fetch(`/api/uploads?board=${encodeURIComponent(boardSlug)}`, {
+    const res = await fetch(`/api/uploads?${query}`, {
       method: "POST",
       body: file,
       headers: {

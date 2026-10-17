@@ -10,13 +10,19 @@ export async function POST(request: Request) {
       { status: 403, headers: { "content-type": "application/problem+json" } },
     );
   }
-  const board = new URL(request.url).searchParams.get("board") ?? "";
+  // 게시판 첨부(?board=) 또는 사이트 업로드(?target=site — 블록 그림, 운영자만은 FastAPI 가 판정, 홈블록 §4.7) 둘 중 하나
+  const incoming = new URL(request.url).searchParams;
+  const forward = new URLSearchParams();
+  for (const key of ["board", "target"]) {
+    const v = incoming.get(key);
+    if (v !== null) forward.set(key, v);
+  }
   const pass: Record<string, string> = {};
   for (const name of ["x-upload-filename", "content-type", "idempotency-key", "content-length"]) {
     const v = request.headers.get(name);
     if (v) pass[name] = v;
   }
-  const res = await fetch(backendUrl(`/api/uploads?board=${encodeURIComponent(board)}`), {
+  const res = await fetch(backendUrl(`/api/uploads?${forward}`), {
     method: "POST",
     headers: await proxyHeaders(pass),
     body: request.body,

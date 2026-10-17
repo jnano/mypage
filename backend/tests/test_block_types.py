@@ -9,7 +9,7 @@ from app.blocks import types as t
 from app.blocks.modules import MODULES
 from app.blocks.resolve import NOT_YET, Lookup, link, resolve
 from app.editor.render import ImageSource
-from scripts.gen_blocks import TARGET, render
+from scripts.gen_blocks import FORMS_TARGET, TARGET, render, render_forms
 
 URL = {"kind": "url", "url": "/boards/free"}
 LONG = "가" * 101
@@ -256,6 +256,7 @@ def test_not_yet_types_raise(block_type: str) -> None:
 def test_generated_file_is_current() -> None:
     # 원본과 다르면: cd backend && uv run python -m scripts.gen_blocks 실행 뒤 커밋
     assert TARGET.read_text(encoding="utf-8") == render()
+    assert FORMS_TARGET.read_text(encoding="utf-8") == render_forms()
 
 
 # ── 메뉴 블록(§4.5·§6·§10) ──────────────────────────────

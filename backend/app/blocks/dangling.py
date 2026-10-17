@@ -4,7 +4,7 @@
 않는다), 운영자는 여기서 목록으로 보고 고친다. 지금 형식으로 검증되지 않는 설정(형식이 바뀐 뒤 남은 행)도 함께 낸다 —
 렌더가 경고 로그를 남기고 건너뛰는 것과 같은 행이다.
 
-블록은 주인당 60 × (틀 + 페이지 ≤ 1,000)라 한 번에 읽는다. 운영자 화면에서만 부른다(쿼리 ≤ 5: 블록·페이지·게시판·메뉴·그림).
+블록은 주인당 60 × (틀 + 페이지 ≤ 1,000)라 한 번에 읽는다. 운영자 화면에서만 부른다(쿼리 ≤ 5: 블록·페이지·게시판·메뉴·그림). 시간은 걸음 8 에서 상한 구성으로 잰다(M-8).
 """
 
 from typing import Any
@@ -14,7 +14,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.blocks import types as t
-from app.blocks.pages import reserved_conflicts
+from app.blocks.routes import reserved
 from app.blocks.tree import Refs, collect_refs
 from app.models import Attachment, Block, Board, Layout, Menu, Page
 
@@ -40,7 +40,9 @@ async def dangling(db: AsyncSession) -> dict[str, Any]:
         want.pages |= x.pages
         want.boards |= x.boards
         want.menus |= x.menus
-    have_pages = set((await db.execute(select(Page.id).where(Page.id.in_(want.pages)))).scalars()) if want.pages else set()
+    # 페이지는 한 번 — 참조 확인과 예약 주소 겹침이 같은 행을 쓴다(페이지 ≤ 1,000, 코드 검토 v15 N-2)
+    all_pages = list(await db.execute(select(Page.id, Page.path)))
+    have_pages = {r.id for r in all_pages}
     have_boards = set((await db.execute(select(Board.id).where(Board.id.in_(want.boards)))).scalars()) if want.boards else set()
     have_menus = set((await db.execute(select(Menu.id).where(Menu.id.in_(want.menus)))).scalars()) if want.menus else set()
     # 그림은 그 블록에 붙어 있어야 그려진다(§4.7 — block_id). 지워졌거나 떨어진 그림
@@ -64,4 +66,4 @@ async def dangling(db: AsyncSession) -> dict[str, Any]:
         missing = {k: v for k, v in missing.items() if v}
         if missing:
             out.append({"id": row.id, "type": row.type, "owner": owner, "invalid": False, "missing": missing})
-    return {"blocks": out, "reserved_conflicts": await reserved_conflicts(db)}
+    return {"blocks": out, "reserved_conflicts": [{"id": r.id, "path": r.path} for r in all_pages if reserved(r.path)]}

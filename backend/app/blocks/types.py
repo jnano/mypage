@@ -15,6 +15,8 @@ from pydantic import (
     Field,
     StringConstraints,
     TypeAdapter,
+    ValidationInfo,
+    field_validator,
     model_validator,
 )
 
@@ -270,13 +272,22 @@ class Module(_Config):
     module: str
     params: dict[str, Any]
 
-    @model_validator(mode="after")
-    def _check(self) -> Self:
-        spec = MODULES.get(self.module)
+    @field_validator("module")
+    @classmethod
+    def _registered(cls, value: str) -> str:
+        spec = MODULES.get(value)
         if spec is None or not spec.available:
             raise ValueError("등록되지 않은 모듈입니다")
-        self.params = spec.params_model.model_validate(self.params).model_dump()
-        return self
+        return value
+
+    # 칸 검증기라 모듈 설정의 오류 위치가 params 아래로 온다(`config.params.board_id` — 관리 화면이 칸 옆에 보인다, 걸음 7)
+    @field_validator("params")
+    @classmethod
+    def _params(cls, value: dict[str, Any], info: ValidationInfo) -> dict[str, Any]:
+        spec = MODULES.get(info.data.get("module", ""))
+        if spec is None:  # 모듈 키 오류는 위에서 낸다
+            return value
+        return spec.params_model.model_validate(value).model_dump()
 
 
 # ── 등록부 ───────────────────────────────────────────────

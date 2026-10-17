@@ -225,3 +225,23 @@ async def test_set_default_warns_about_unbound_pages(dev_header, committed_db, c
     assert "/p" in warning["message"] and "안내" in warning["message"]
     res = await client.post(f"/api/admin/layouts/{old.id}/default", headers=as_member(admin))
     assert res.json()["warnings"] == []  # 대조: 겹치지 않는 틀로 돌리면 경고 없음
+
+
+async def test_preview_checks_names_with_the_other_owner(dev_header, committed_db, client) -> None:
+    """미리보기도 저장처럼 같은 화면의 이름표 겹침을 본다(코드 검토 v15 N-3 a) — 페이지 ↔ 그 틀, 틀 ↔ 그 틀을 쓰는 페이지"""
+    admin = await _admin(committed_db)
+    layout = Layout(name="기본", is_default=True)
+    committed_db.add(layout)
+    await committed_db.flush()
+    committed_db.add(Block(layout_id=layout.id, region="aside", type="group", config={"title": "안내", "landmark": True}))
+    page = (await committed_db.execute(text("INSERT INTO pages (path, title) VALUES ('/p', 'p') RETURNING id"))).scalar_one()
+    committed_db.add(Block(page_id=page, type="group", config={"title": "소개", "landmark": True}))
+    await committed_db.commit()
+    group = lambda title: {"type": "group", "config": {"title": title, "landmark": True}}  # noqa: E731
+    res = await client.post("/api/admin/blocks/preview", json={"owner": "page", "blocks": [group("안내")]}, headers=as_member(admin))
+    assert res.status_code == 422 and "틀 " in res.text  # 페이지가 쓸 틀(기본 틀)의 이름과 겹침
+    regions = {"aside": [group("소개")]}
+    res = await client.post("/api/admin/blocks/preview", json={"owner": "layout", "regions": regions, "layout_id": layout.id}, headers=as_member(admin))
+    assert res.status_code == 422 and "/p" in res.text
+    res = await client.post("/api/admin/blocks/preview", json={"owner": "layout", "regions": regions}, headers=as_member(admin))
+    assert res.status_code == 200  # 대조: 새 틀(쓰는 페이지 없음)이면 통과

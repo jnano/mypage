@@ -1,6 +1,5 @@
 import Link from "next/link";
 import { useId } from "react";
-import { AccountNav } from "@/components/auth/AccountNav";
 import type { BlockData } from "@/lib/blocks/types";
 import { BlockImage } from "./BlockImage";
 
@@ -24,15 +23,6 @@ export function SearchBoxBlock({ data }: { data: BlockData["search_box"] }) {
       <input id={id} type="search" name="q" placeholder={data.placeholder} maxLength={100} />
       <button type="submit">검색</button>
     </form>
-  );
-}
-
-// 쿠키 유무만 보는 기존 부품 — FastAPI 를 부르지 않는다(화면당 호출 예산). 요청 시점이라 부르는 쪽이 <Suspense> 안에 둔다
-export function AccountBlock() {
-  return (
-    <div data-slot="account">
-      <AccountNav />
-    </div>
   );
 }
 

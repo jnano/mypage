@@ -39,8 +39,8 @@ TABLE: dict[str, tuple[tuple[str, Expire], ...]] = {
     "settings.updated": (("settings:{group}", NOW), ("sitemap", MAX)),  # 사이트 설정(SEO 메타 등) — 읽는 화면이 이 태그를 단다
     "menu.updated": (("menu:{menu_id}", NOW),),  # 메뉴 저장·삭제(홈블록 §5.3) — 그 메뉴를 읽는 틀 묶음이 이 태그를 단다
     "layout.updated": (("layout:{layout_id}", NOW),),  # 틀 저장·삭제(홈블록 §5.3)
-    "layouts.bindings": (("layouts:bindings", NOW),),
-    "page.updated": (("page:{page_id}", NOW), ("pages:paths", NOW), ("sitemap", MAX)),  # 페이지 저장·게시·주소·삭제(홈블록 §5.3)  # 기본 틀·화면 종류 대응 — 어느 틀을 쓸지가 바뀐다(모든 틀 묶음이 단다)
+    "layouts.bindings": (("layouts:bindings", NOW),),  # 기본 틀·화면 종류 대응 — 어느 틀을 쓸지가 바뀐다(모든 틀 묶음이 단다)
+    "page.updated": (("page:{page_id}", NOW), ("pages:paths", NOW), ("sitemap", MAX)),  # 페이지 저장·게시·주소·삭제(홈블록 §5.3)
     # 탈퇴 — 작성자 이름이 '탈퇴 회원'으로 바뀐 글·댓글(인증 설계도 §4.9). 급하지 않아 max
     "member.withdrawn.post": (("post:{post_id}", MAX), ("board:{board_slug}", MAX), ("recent:posts", MAX), ("feed:{board_slug}", MAX)),
     "member.withdrawn.comment": (("post:{post_id}", MAX), ("recent:comments", MAX)),

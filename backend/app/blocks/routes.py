@@ -13,6 +13,32 @@ ROUTE_CLASSES: tuple[str, ...] = ("board", "search", "member", "auth")
 PAGE_PATH_PATTERN = r"^/([a-z0-9-]{1,50}(/[a-z0-9-]{1,50}){0,2})?$"
 _PAGE_PATH = re.compile(PAGE_PATH_PATTERN)
 
+# 주소 정규식 세 곳(DB CHECK·백엔드 검증·Next 형식 검사)이 같은 판정을 하는지 대조하는 표본(§3.5, 검토 v2 N-11) — 백엔드
+# 시험(test_blocks_schema)이 DB·백엔드를, 프런트 시험이 생성 파일(blocks.gen.json)로 받은 같은 표본으로 Next 쪽을 본다
+PAGE_PATH_SAMPLES: list[tuple[str, bool]] = [
+    ("/", True),
+    ("/about", True),
+    ("/intro/history", True),
+    ("/a/b/c", True),
+    ("/x-1/y-2/z-3", True),
+    ("/" + "a" * 50, True),
+    ("/0", True),
+    ("/a-", True),
+    ("", False),
+    ("about", False),
+    ("/About", False),
+    ("/a_b", False),
+    ("/a/b/c/d", False),
+    ("/" + "a" * 51, False),
+    ("/a//b", False),
+    ("/a/", False),
+    ("//a", False),
+    ("/a b", False),
+    ("/a\n", False),
+    ("/한글", False),
+    ("/a.b", False),
+]
+
 PAGE_STATUSES: tuple[str, ...] = ("draft", "published")
 
 # 최상위 라우트 → 화면 종류(§3.3 표). None = 틀을 쓰지 않는 것(관리·개발·Route Handler·메타 파일).

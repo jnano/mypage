@@ -91,7 +91,10 @@ try {
   await guest.goto(base + "/boards/free");
   await settle(guest);
   const postPath = await guest.locator('[data-slot="post-title"] a, [data-slot="post-list"] a[href^="/boards/free/"]').first().getAttribute("href");
-  for (const path of ["/", "/boards/free", "/boards/notice", ...(postPath ? [postPath] : []), "/search?q=회의", "/dev/login", "/dev/blocks", "/login", "/signup", "/privacy", "/reset"]) {
+  // 홈블록 페이지 — 공개 주소 집합에 있으면 첫 공개 페이지(없는 시드면 건너뛴다)
+  const pages = await fetch(base + "/api/pages/paths").then((r) => (r.ok ? r.json() : { pages: {} })).catch(() => ({ pages: {} }));
+  const pagePath = Object.entries(pages.pages as Record<string, { personal: boolean }>).find(([, p]) => !p.personal)?.[0];
+  for (const path of ["/", "/boards/free", "/boards/notice", ...(postPath ? [postPath] : []), ...(pagePath ? [pagePath] : []), "/search?q=회의", "/dev/login", "/dev/blocks", "/login", "/signup", "/privacy", "/reset"]) {
     findings.push(...(await check(guest, path, "비회원")));
   }
   // 비회원 글쓰기(설계도 §6.3) — 손님 게시판(시드 open, 쓰기 등급 0)의 글쓰기 폼과 비회원 글의 비밀번호 폼

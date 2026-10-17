@@ -15,12 +15,13 @@ export async function getSite(): Promise<SiteInfo> {
 
 export interface SitemapIndex {
   boards: { slug: string; updated_at: string }[];
+  pages: { path: string; lastmod: string | null }[];
   post_parts: number;
 }
 
 export async function getSitemapIndex(): Promise<SitemapIndex> {
   "use cache";
-  cacheTag("sitemap", "boards:structure");
+  cacheTag("sitemap", "boards:structure", "pages:paths");
   cacheLife("hours");
   return publicGet<SitemapIndex>("/api/seo/sitemap");
 }

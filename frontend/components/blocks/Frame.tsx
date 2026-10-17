@@ -3,7 +3,9 @@ import { connection } from "next/server";
 import { Suspense, type ReactNode } from "react";
 import { AccountNav } from "@/components/auth/AccountNav";
 import { visibleNodes } from "@/lib/blocks/frame";
+import type { BlockNode, FrameBundle, FrameNode } from "@/lib/blocks/types";
 import { getFrame, getPersonalBlocks, type FrameQuery } from "@/lib/server/frame";
+import { resolvePage } from "@/lib/server/pages";
 import { hasViewer } from "@/lib/server/backend";
 import { getSite } from "@/lib/server/seo";
 import { RenderBlocks } from "./RenderBlock";
@@ -11,16 +13,16 @@ import { RenderBlocks } from "./RenderBlock";
 /** 화면 종류(홈블록 설계도 §3.3 — 원본은 백엔드 app/blocks/routes.ROUTE_CLASSES). page = 사용자 페이지, default = 대응 없음 */
 export type RouteClass = "board" | "search" | "member" | "auth" | "default" | "page";
 type Region = "header" | "nav" | "top" | "aside" | "bottom" | "footer";
-type FrameProps = { routeClass: RouteClass; board?: Promise<{ slug: string }>; children: ReactNode };
+type FrameProps = { routeClass: RouteClass; board?: Promise<{ slug: string }>; page?: Promise<string>; children: ReactNode };
 
 // 틀(홈블록 설계도 §3.1) — 영역 여섯은 각자 <Suspense> 안에서 요청 시점에 그린다(틀은 관리 화면에서 바뀌고, 빌드 때
 // FastAPI 를 부르지 않는다 — 본 설계도 §3.3). 데이터는 캐시된 틀 묶음 하나(getFrame)를 영역들이 함께 쓴다.
 // outlet(children)은 Suspense 밖이라 화면의 정적 셸은 그대로 미리 만들어진다. 본문 <main> 하나·처리방침 링크는
 // 틀 밖 고정 줄(§3.2). 틀이 하나도 없으면 대체 틀(§3.6) — 걸음 1 과 같은 화면
-export function Frame({ routeClass, board, children }: FrameProps) {
+export function Frame({ routeClass, board, page, children }: FrameProps) {
   const region = (name: Region) => (
     <Suspense fallback={null}>
-      <FrameRegion name={name} routeClass={routeClass} board={board} />
+      <FrameRegion name={name} routeClass={routeClass} board={board} page={page} />
     </Suspense>
   );
   return (
@@ -50,15 +52,30 @@ async function frameQuery(routeClass: RouteClass, board?: Promise<{ slug: string
   return routeClass === "search" || routeClass === "member" || routeClass === "auth" ? { route: routeClass } : {};
 }
 
-// 영역 → 랜드마크(§10 — 대응은 여기 한 곳). nav 영역은 블록마다 <nav aria-label> 라 감싸지 않는다. 빈 영역은 그리지 않는다
-async function FrameRegion({ name, routeClass, board }: { name: Region } & Omit<FrameProps, "children">) {
-  await connection();
-  const bundle = await getFrame(await frameQuery(routeClass, board));
-  if (bundle.layout === null) return name === "header" ? <FallbackHeader /> : null;
+/** 사용자 페이지면 그 페이지의 묶음(공개·개인·초안 — resolvePage, 요청마다 한 번), 아니면 화면 종류·게시판의 공개 틀 묶음 */
+async function bundleFor(routeClass: RouteClass, board?: Promise<{ slug: string }>, page?: Promise<string>): Promise<FrameBundle> {
+  if (page) {
+    const resolved = await resolvePage(await page);
+    if (resolved.kind === "page") return resolved.bundle;
+  }
+  return getFrame(await frameQuery(routeClass, board));
+}
+
+/** 묶음의 블록 → 지금 그릴 블록. 비회원 대상은 보는 사람이 있으면 숨기고, 회원 블록 자리는 회원 블록 호출로 채운다(§5.2 결정 A).
+ * 영역들과 페이지 본문이 함께 쓴다 — 회원 블록 호출은 요청마다 한 번(React cache) */
+export async function visibleIn(bundle: FrameBundle, nodes: FrameNode[] | undefined): Promise<BlockNode[]> {
   const signedIn = await hasViewer(); // 게시판 화면과 같은 판정 — 쿠키 유무만(유효성은 FastAPI)
   const ids = bundle.personal_block_ids;
   const personal = signedIn && ids.length > 0 ? await getPersonalBlocks([...ids].sort((a, b) => a - b).join(",")) : undefined;
-  const nodes = visibleNodes(bundle.layout.regions[name], signedIn && (ids.length === 0 || personal !== undefined), personal);
+  return visibleNodes(nodes, signedIn && (ids.length === 0 || personal !== undefined), personal);
+}
+
+// 영역 → 랜드마크(§10 — 대응은 여기 한 곳). nav 영역은 블록마다 <nav aria-label> 라 감싸지 않는다. 빈 영역은 그리지 않는다
+async function FrameRegion({ name, routeClass, board, page }: { name: Region } & Omit<FrameProps, "children">) {
+  await connection();
+  const bundle = await bundleFor(routeClass, board, page);
+  if (bundle.layout === null) return name === "header" ? <FallbackHeader /> : null;
+  const nodes = await visibleIn(bundle, bundle.layout.regions[name]);
   if (nodes.length === 0) return null;
   const blocks = <RenderBlocks nodes={nodes} />;
   switch (name) {

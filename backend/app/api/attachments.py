@@ -21,7 +21,7 @@ from app.db.session import get_db
 from app.files import storage, uploads
 from app.files.sender import sender
 from app.models import TEMP_UPLOAD, Attachment, Block, Page
-from app.permissions import block_view, can, load_board_role
+from app.permissions import block_view, can, load_board_role, page_read
 from app.posts import queries as post_queries
 
 router = APIRouter()
@@ -65,7 +65,7 @@ async def _block_visible(db: AsyncSession, viewer: Viewer, block_id: int) -> boo
     # 묶음 안의 그림 블록이면 부모 묶음도 보여야 한다 — 가지째(코드 검토 v9 B-1 과 같은 빈틈)
     if blk.parent_id is not None and not block_view(viewer, SimpleNamespace(is_active=blk.p_active, audience=blk.p_audience, min_level=blk.p_min_level)):
         return False
-    return blk.layout_id is not None or (blk.status == "published" and blk.view_level <= viewer.level)
+    return blk.layout_id is not None or page_read(viewer, blk)
 
 
 async def _authorized(db: AsyncSession, viewer: Viewer, attachment_id: int, *, purpose: Literal["file", "thumb"]):

@@ -1,5 +1,6 @@
 // 화면 메타·구조화 데이터 만들기 — 순수 함수(§10). 페이지의 generateMetadata 와 JSON-LD 가 쓴다.
 import type { Metadata } from "next";
+import type { PageData } from "@/lib/blocks/types";
 import type { BoardPage, PostPage } from "@/lib/boards/types";
 import { absolute, type SiteSeo } from "./site";
 
@@ -62,6 +63,17 @@ export function boardMetadata(site: SiteSeo, data: BoardPage): Metadata {
     title,
     description: visible ? board.description || undefined : undefined,
     alternates: { canonical: path, types: visible ? { "application/rss+xml": [{ url: `/boards/${board.slug}/rss.xml`, title: board.name }] } : undefined },
+    ...(visible ? {} : { robots: HIDDEN }),
+  };
+}
+
+/** 사용자 페이지(홈블록 §3.5·본 §10) — 초안·열람 등급 페이지·색인 거부는 noindex */
+export function pageMetadata(site: SiteSeo, page: PageData, mode: "public" | "personal" | "draft"): Metadata {
+  const visible = site.indexable && page.indexable && mode === "public";
+  return {
+    title: page.path === "/" ? { absolute: page.title } : page.title,
+    description: visible ? page.description || undefined : undefined,
+    alternates: { canonical: page.path },
     ...(visible ? {} : { robots: HIDDEN }),
   };
 }

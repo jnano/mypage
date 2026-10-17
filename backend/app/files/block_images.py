@@ -17,7 +17,7 @@ from sqlalchemy.orm import aliased
 from app.auth.viewer import GUEST
 from app.core import outbox
 from app.models import Attachment, Block, Page
-from app.permissions import block_view
+from app.permissions import block_view, page_read
 
 PARENT = aliased(Block, name="parent")
 ROW_COLUMNS = (
@@ -30,7 +30,7 @@ ROW_COLUMNS = (
 
 
 def desired(row: Any) -> str:
-    owner_public = row.layout_id is not None or (row.page_status == "published" and row.page_view_level == 0)
+    owner_public = row.layout_id is not None or page_read(GUEST, SimpleNamespace(status=row.page_status, view_level=row.page_view_level))
     parent_public = row.parent_id is None or block_view(GUEST, SimpleNamespace(is_active=row.p_active, audience=row.p_audience, min_level=row.p_min_level))
     return "public" if owner_public and parent_public and block_view(GUEST, row) else "private"
 

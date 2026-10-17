@@ -238,3 +238,13 @@ async def public_paths(db: AsyncSession) -> dict[str, Any]:
         )
     }
     return {"pages": pages, "moved": moved, "cache": {"tags": ["pages:paths"]}}
+
+
+async def sitemap_pages(db: AsyncSession) -> list[dict[str, Any]]:
+    """sitemap 의 사용자 페이지(본 §10) — 게시 ∧ 열람 등급 0 ∧ 색인 허용. lastmod = content_updated_at ?? published_at"""
+    rows = await db.execute(
+        select(Page.path, func.coalesce(Page.content_updated_at, Page.published_at).label("lastmod"))
+        .where(Page.status == "published", Page.view_level == 0, Page.indexable.is_(True))
+        .order_by(Page.path)
+    )
+    return [{"path": r.path, "lastmod": r.lastmod.isoformat() if r.lastmod else None} for r in rows]

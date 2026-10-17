@@ -7,7 +7,7 @@ from sqlalchemy import select, text
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.blocks.routes import is_page_path
+from app.blocks.routes import PAGE_PATH_SAMPLES, is_page_path
 from app.blocks.types import BLOCK_TYPES, PENDING_BLOCK_TYPES, STORED_BLOCK_TYPES
 from app.core.problems import Problem
 from app.files import attach
@@ -78,32 +78,9 @@ async def _attachment(db: AsyncSession, uploader_id: int | None, *, key: str, ag
 
 # ── 주소 형식: DB CHECK ↔ 백엔드 검증 (§3.5, 검토 v2 N-11 — 프런트 형식 검사는 걸음 3 의 생성 파일로 더함) ──
 
-PATH_SAMPLES = [
-    ("/", True),
-    ("/about", True),
-    ("/intro/history", True),
-    ("/a/b/c", True),
-    ("/x-1/y-2/z-3", True),
-    ("/" + "a" * 50, True),
-    ("/0", True),
-    ("/a-", True),
-    ("", False),
-    ("about", False),
-    ("/About", False),
-    ("/a_b", False),
-    ("/a/b/c/d", False),
-    ("/" + "a" * 51, False),
-    ("/a//b", False),
-    ("/a/", False),
-    ("//a", False),
-    ("/a b", False),
-    ("/a\n", False),
-    ("/한글", False),
-    ("/a.b", False),
-]
 
 
-@pytest.mark.parametrize(("path", "expected"), PATH_SAMPLES)
+@pytest.mark.parametrize(("path", "expected"), PAGE_PATH_SAMPLES)
 async def test_page_path_db_and_backend_agree(db: AsyncSession, path: str, expected: bool) -> None:
     assert is_page_path(path) is expected
     if expected:

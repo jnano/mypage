@@ -16,7 +16,7 @@ from app.blocks import frame
 from app.blocks import types as t
 from app.blocks.modules import MODULES
 from app.blocks.resolve import NOT_YET, Lookup, resolve
-from app.blocks.routes import PAGE_PATH_PATTERN
+from app.blocks.routes import PAGE_PATH_PATTERN, PAGE_PATH_SAMPLES
 from app.blocks.tree import collect_refs
 from app.blocks.menus import ITEM_COLUMNS
 from app.editor.render import ImageSource
@@ -80,6 +80,7 @@ def render() -> str:
         "$generated": "backend/scripts/gen_blocks.py — 직접 고치지 않는다",
         "regions": list(t.REGIONS),
         "pagePathPattern": PAGE_PATH_PATTERN,
+        "pagePathSamples": [[path, ok] for path, ok in PAGE_PATH_SAMPLES],
         "types": [
             {"type": k, "label": s.label, "group": s.group, "places": list(s.places), "available": s.available}
             for k, s in t.SPECS.items()

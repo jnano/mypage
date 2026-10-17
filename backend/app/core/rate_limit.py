@@ -32,8 +32,8 @@ LIMITS: dict[str, Limit] = {
     "comment.create": Limit(20, 60),
     "comment.update": Limit(30, 60),
     "upload": Limit(30, 60),
-    "site.design": Limit(30, 60),
-    "frame.draft": Limit(60, 60),  # 운영자의 초안 보기(홈블록 §5.5) — 회원 id. 위조 쿠키로 늘릴 수 있는 호출의 상한  # 운영자의 틀·페이지·메뉴·블록 저장(홈블록 §7) — 회원 id
+    "site.design": Limit(30, 60),  # 운영자의 틀·페이지·메뉴·블록 저장(홈블록 §7) — 회원 id
+    "frame.draft": Limit(60, 60),  # 운영자의 초안 보기(홈블록 §5.5) — 회원 id. 위조 쿠키로 늘릴 수 있는 호출의 상한
     "editor.preview": Limit(60, 60),
     "report.create": Limit(10, 600),
     "search": Limit(30, 60),  # 회원 id 또는 비회원 client_ip()(§6.3)

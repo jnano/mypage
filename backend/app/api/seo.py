@@ -4,6 +4,7 @@ from fastapi import APIRouter, Depends, Query
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.admin import settings as site_settings
+from app.blocks import pages
 from app.core.problems import Problem
 from app.db.session import get_db
 from app.seo import queries
@@ -26,7 +27,8 @@ async def site(db: AsyncSession = Depends(get_db)):
 
 @router.get("/seo/sitemap")
 async def sitemap_index(db: AsyncSession = Depends(get_db)):
-    return await queries.sitemap_index(db) | {"cache": {"tags": ["sitemap", "boards:structure"]}}
+    # 사용자 페이지(홈블록 §15 — 본 §10 에 더함). 페이지 게시·주소 변경은 page.updated 가 pages:paths(즉시)·sitemap(max) 을 만료한다
+    return await queries.sitemap_index(db) | {"pages": await pages.sitemap_pages(db), "cache": {"tags": ["sitemap", "boards:structure", "pages:paths"]}}
 
 
 @router.get("/seo/sitemap/posts")

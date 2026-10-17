@@ -74,8 +74,22 @@ export type FrameNode = {
   columns?: FrameNode[][];
 };
 
+export type PageData = {
+  id: number;
+  path: string;
+  title: string;
+  description: string | null;
+  indexable: boolean;
+  view_level: number;
+  published_at: string | null;
+  content_updated_at: string | null;
+  draft: boolean;
+  blocks: FrameNode[];
+};
+
 export type FrameBundle = {
   layout: { id: number; version: number; regions: Partial<Record<string, FrameNode[]>> } | null;
+  page?: PageData | null;
   personal_block_ids: number[];
   cache: { tags: string[] };
 };

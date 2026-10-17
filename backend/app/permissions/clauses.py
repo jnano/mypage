@@ -73,6 +73,21 @@ def guest_listable_boards_clause(board=Board) -> ColumnElement[bool]:
     return and_(board.is_active.is_(true()), board.list_level <= GUEST_LEVEL)
 
 
+def listable_boards_clause(viewer: Viewer, board=Board) -> ColumnElement[bool]:
+    """보는 사람이 목록을 볼 수 있는 게시판 — can(viewer, role, 'board.list') 의 SQL 판(게시판 행 기준).
+    담당자는 사용 중지여도 통과, 명부의 열람 허용은 list_level 대신. 역할을 따로 읽지 않는다(홈블록 코드 검토 v12 N-1)"""
+    if viewer.is_admin:
+        return true()
+    if viewer.member_id is None:
+        return guest_listable_boards_clause(board)
+    moderator = (
+        exists()
+        .where(BoardModerator.board_id == board.id, BoardModerator.member_id == viewer.member_id)
+        .correlate_except(BoardModerator)
+    )
+    return or_(moderator, and_(board.is_active.is_(true()), or_(board.list_level <= viewer.level, _listed(viewer, board.id))))
+
+
 def guest_readable_boards_clause(board=Board) -> ColumnElement[bool]:
     """비회원이 글을 열 수 있는 게시판 — 위 + read_level. 글 단위 조건(비밀·가림·등급)은 readable_posts_clause"""
     return and_(guest_listable_boards_clause(board), board.read_level <= GUEST_LEVEL)

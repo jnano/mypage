@@ -2,6 +2,7 @@
 
 from app.permissions.clauses import (
     guest_listable_boards_clause,
+    listable_boards_clause,
     guest_readable_boards_clause,
     listable_posts_clause,
     own_posts_openable_clause,
@@ -19,6 +20,7 @@ __all__ = [
     "block_view",
     "can",
     "guest_listable_boards_clause",
+    "listable_boards_clause",
     "guest_readable_boards_clause",
     "listable_posts_clause",
     "load_board_role",

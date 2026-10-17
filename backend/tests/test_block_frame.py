@@ -6,10 +6,10 @@ import pytest
 from sqlalchemy import select, text
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.auth.viewer import GUEST
-from app.blocks.frame import frame_bundle
-from app.models import Block, Comment, Layout, Post
-from app.permissions import NO_ROLE, can
+from app.auth.viewer import GUEST, Viewer
+from app.blocks.frame import frame_bundle, viewer_frame
+from app.models import Block, BoardAccess, BoardModerator, Comment, Layout, MemberGroup, Post
+from app.permissions import NO_ROLE, can, listable_boards_clause, load_board_roles
 from tests.factories import make_board, make_member, make_post
 from tests.helpers import count_queries
 
@@ -199,8 +199,8 @@ async def test_board_links_and_menus(db: AsyncSession) -> None:
     assert f"menu:{menu}" in out["cache"]["tags"]
 
 
-async def test_query_budget_at_max_config(db: AsyncSession) -> None:
-    """틀 묶음 하나당 쿼리 ≤ 8 — 모든 종류를 담은 최대 구성(§5.2·§12)"""
+async def _max_config(db: AsyncSession) -> int:
+    """모든 종류를 담은 최대 구성 — 틀 id"""
     author = await make_member(db)
     boards = [await make_board(db, slug=f"b{i}") for i in range(10)]
     for b in boards[:3]:
@@ -223,6 +223,12 @@ async def test_query_budget_at_max_config(db: AsyncSession) -> None:
     await _block(db, lid, "top", "text", {"source": "**안내**"}, order=32)
     await _block(db, lid, "footer", "footer_info", {"copyright": "© 예시"})
     await db.flush()
+    return lid
+
+
+async def test_query_budget_at_max_config(db: AsyncSession) -> None:
+    """틀 묶음 하나당 쿼리 ≤ 8 — 모든 종류를 담은 최대 구성(§5.2·§12)"""
+    await _max_config(db)
     with count_queries() as q:
         out = await frame_bundle(db, board_slug="b0")
     assert q["n"] <= 8, q["sql"]
@@ -257,6 +263,46 @@ async def test_guest_board_clauses_match_can(db: AsyncSession) -> None:
     assert listable == {i for i, (b, _) in cases.items() if can(GUEST, NO_ROLE, "board.list", b)}
     assert readable == {i for i, (b, p) in cases.items() if can(GUEST, NO_ROLE, "post.read", b, p)}
     assert len(listable) == 2 and len(readable) == 1  # 대조: 조건 하나라도 다르면 위 두 줄이 갈린다
+
+
+async def test_viewer_frame_query_budget_at_max_config(db: AsyncSession) -> None:
+    """개인 틀도 묶음 하나당 ≤ 8(§12) — 회원 게시판 판정이 역할 쿼리 없이 대상 문장 안에서(코드 검토 v12 N-1)"""
+    lid = await _max_config(db)
+    await db.execute(text("INSERT INTO pages (path, title, status, view_level, layout_id, published_at) VALUES ('/vip', 'VIP', 'published', 1, :l, now())"), {"l": lid})
+    member = await make_member(db, level=1)
+    with count_queries() as q:
+        out = await viewer_frame(db, Viewer(member_id=member.id, level=1), "/vip", draft=False)
+    assert q["n"] <= 8, q["sql"]
+    assert out["page"]["title"] == "VIP" and len(_flat(out)) == 16
+
+
+async def test_member_board_clause_matches_can(db: AsyncSession) -> None:
+    """회원 게시판 목록 절 ↔ can(viewer, role, 'board.list') — 등급·사용 중지 8조합 + 명부(본인·모임)·담당(사용 중지여도)"""
+    me = await make_member(db, level=1)
+    group = MemberGroup(name="모임")
+    db.add(group)
+    await db.flush()
+    boards = [await make_board(db, is_active=a, list_level=lv) for a in (True, False) for lv in (0, 1, 2, 3)]
+    listed, by_group, moderated, other = [await make_board(db, list_level=5) for _ in range(4)]
+    moderated.is_active = False
+    db.add_all([
+        BoardAccess(board_id=listed.id, subject_type="member", subject_id=me.id, can_read=True),
+        BoardAccess(board_id=by_group.id, subject_type="group", subject_id=group.id, can_read=True),
+        BoardModerator(board_id=moderated.id, member_id=me.id),
+        BoardAccess(board_id=other.id, subject_type="member", subject_id=me.id, can_write=True),  # 쓰기만 — 목록은 아님
+    ])  # fmt: skip
+    await db.flush()
+    every = [*boards, listed, by_group, moderated, other]
+    ids = [b.id for b in every]
+    from app.models import Board as BoardModel
+
+    for viewer in (Viewer(member_id=me.id, level=1, group_ids=frozenset({group.id})), Viewer(member_id=me.id, level=9, is_admin=True), GUEST):
+        roles = await load_board_roles(db, viewer, ids) if viewer.member_id else {}
+        got = set((await db.execute(select(BoardModel.id).where(BoardModel.id.in_(ids), listable_boards_clause(viewer)))).scalars())
+        assert got == {b.id for b in every if can(viewer, roles.get(b.id, NO_ROLE), "board.list", b)}, viewer
+    member = Viewer(member_id=me.id, level=1, group_ids=frozenset({group.id}))
+    got = set((await db.execute(select(BoardModel.id).where(BoardModel.id.in_(ids), listable_boards_clause(member)))).scalars())
+    assert {listed.id, by_group.id, moderated.id} <= got and other.id not in got and len(got) == 5  # 대조: 등급 0·1 사용 중 둘 + 셋
 
 
 async def test_recent_comments_stay_in_their_board(db: AsyncSession) -> None:

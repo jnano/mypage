@@ -32,11 +32,9 @@ from app.files.attach import ROW_COLUMNS, image_sources, thumb_template
 from app.models import Attachment, Block, Board, Comment, Layout, LayoutBinding, MenuItem, Page, PagePathHistory, Post
 from app.permissions import (
     block_view,
-    can,
-    guest_listable_boards_clause,
     guest_readable_boards_clause,
+    listable_boards_clause,
     listable_posts_clause,
-    load_board_roles,
     page_read,
     readable_posts_clause,
 )
@@ -120,8 +118,7 @@ class Targets:
 
 async def _targets(db: AsyncSession, board_ids: set[int], page_ids: set[int], viewer: Viewer = GUEST) -> Targets:
     """④ 참조 게시판·페이지 — 한 문장(UNION ALL). 게시판은 목록·열람 가능 여부와 최근 글 시각(게시판 바로가기).
-    비회원은 판정 절(SQL)로, 회원은 can(board.list) 로 — 명부·담당 역할은 쿼리 한 번(load_board_roles)"""
-    guest = viewer.member_id is None
+    목록 판정은 보는 사람 기준 절(listable_boards_clause — 명부·담당 EXISTS 포함)로 같은 문장 안에서(코드 검토 v12 N-1)"""
     parts = []
     if board_ids:
         last = (
@@ -135,8 +132,8 @@ async def _targets(db: AsyncSession, board_ids: set[int], page_ids: set[int], vi
         parts.append(
             select(
                 literal("board").label("kind"), Board.id, Board.slug.label("key"), Board.name,
-                guest_listable_boards_clause().label("listable"), guest_readable_boards_clause().label("readable"),
-                last.label("last_posted_at"), Board.is_active, Board.list_level,
+                listable_boards_clause(viewer).label("listable"), guest_readable_boards_clause().label("readable"),
+                last.label("last_posted_at"),
             ).where(Board.id.in_(board_ids))
         )  # fmt: skip
     if page_ids:
@@ -145,20 +142,16 @@ async def _targets(db: AsyncSession, board_ids: set[int], page_ids: set[int], vi
             select(
                 literal("page").label("kind"), Page.id, Page.path.label("key"), Page.title.label("name"),
                 public.label("listable"), public.label("readable"), literal(None).label("last_posted_at"),
-                literal(True).label("is_active"), literal(0).label("list_level"),
             ).where(Page.id.in_(page_ids))
         )  # fmt: skip
     out = Targets()
     if not parts:
         return out
     rows = list(await db.execute(union_all(*parts) if len(parts) > 1 else parts[0]))
-    boards = [row for row in rows if row.kind == "board"]
-    roles = {} if guest else await load_board_roles(db, viewer, [b.id for b in boards])
     for row in rows:
         if row.kind == "board":
-            listable = row.listable if guest else can(viewer, roles[row.id], "board.list", row)
             # readable 은 비회원 기준(공개 묶음의 개인 블록 판정용) — 회원 경로의 글 판정은 readable_posts_clause(viewer)(코드 검토 v9 N-2)
-            out.boards[row.id] = SimpleNamespace(key=row.key, name=row.name, listable=listable, readable=row.readable, last_posted_at=row.last_posted_at)
+            out.boards[row.id] = SimpleNamespace(key=row.key, name=row.name, listable=row.listable, readable=row.readable, last_posted_at=row.last_posted_at)
         elif row.listable:
             out.pages[row.id] = row.key
     return out
@@ -428,8 +421,8 @@ def _prune(nodes: list[Node], viewer: Viewer) -> list[Node]:
 
 async def _bundle(db: AsyncSession, viewer: Viewer, owner: Owner, tags: list[str]) -> dict[str, Any]:
     """비회원(공개 캐시)이면 개인 블록은 자리만·회원이면 다시(_decide), 보는 사람 기준(개인 틀)이면 못 보는 블록을 빼고
-    모두 그 사람 기준으로 푼다. 쿼리 ≤ 8: 주인·블록·메뉴·대상(+역할)·글·댓글·그림·이름 — 개인 틀의 역할 쿼리는 주인 고르기와
-    합쳐 세지 않는다(개인 틀은 공개 묶음이 아니라 회원 블록 호출과 같은 몫, §5.2)"""
+    모두 그 사람 기준으로 푼다. 쿼리 ≤ 8(§12, 공개 묶음·개인 틀 같음): 주인·블록·메뉴·대상·글·댓글·그림·설정 —
+    명부·담당은 대상 문장 안의 EXISTS 라 따로 세지 않는다(코드 검토 v12 N-1)"""
     public = viewer.member_id is None
     regions = _tree(await _blocks(db, owner))  # ②
     if not public:
@@ -527,7 +520,7 @@ async def viewer_frame(db: AsyncSession, viewer: Viewer, path: str, *, draft: bo
 # ── 회원 블록(걸음 5-3) — GET /api/me/page-state?blocks= ─────────────────────
 # 공개 묶음의 personal_block_ids(내용 없는 자리·회원이면 다시)를 보는 사람 기준으로 채운다(§5.4). 블록 id 는 비밀이 아니므로
 # 주인이 지금 화면 것인지 따지지 않고, 블록마다 보이기(block.view)와 데이터를 이 사람 기준으로 다시 판정한다 — 못 보는
-# 블록은 응답에 없다(빈 값이 아니라 없음). 쿼리는 공개 묶음과 같은 방식으로 모아서 ≤ 8(블록·메뉴·대상·역할·글·댓글·그림·이름)
+# 블록은 응답에 없다(빈 값이 아니라 없음). 쿼리는 공개 묶음과 같은 방식으로 모아서 ≤ 8(블록·메뉴·대상·글·댓글·그림·이름)
 
 MAX_PERSONAL_BLOCKS = 30
 
@@ -577,7 +570,7 @@ async def personal_blocks(db: AsyncSession, viewer: Viewer, block_ids: Sequence[
     for items in menus.values():
         refs.boards |= {i.board_id for i in items if i.link_kind == "board"}
         refs.pages |= {i.page_id for i in items if i.link_kind == "page"}
-    targets = await _targets(db, refs.boards, refs.pages, viewer)  # ③ (+ 역할 한 번)
+    targets = await _targets(db, refs.boards, refs.pages, viewer)  # ③
     post_targets = _recent_targets(every, "recent_posts")
     pinned = any(n.row.type == "recent_posts" and n.model.include_pinned for n in every)
     posts = await _recent_posts(db, post_targets, pinned, viewer)  # ④

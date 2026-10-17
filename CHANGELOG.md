@@ -5,6 +5,8 @@
 
 ## [Unreleased]
 
+## [0.2.0] - 2026-10-17
+
 ### Added
 - 홈블록 걸음 3(홈블록 설계도 §4.4): 블록 종류 등록부(종류마다 설정 형식·놓을 곳·견본, 관리 화면용 JSON Schema), 모듈 등록부(게시판 모듈 형식), 상한 값, 설정 → 그리기용 모양 해결(없는 페이지·게시판·그림을 가리키면 그 항목을 빼고, 남은 것이 없으면 블록을 그리지 않음 — 글과 같은 마크다운 변환·정화), 생성 파일 `blocks.gen.json`, 정적 블록 15종 부품(사이트 이름·검색·계정·바닥 정보·제목·글·그림·배너·단추·링크 목록·동영상·자주 묻는 질문·구분선·묶음·칸 나누기), 개발 견본 화면 `/dev/blocks`(접근성 검사 대상)
 - 비회원 글쓰기(설계도 §6.3, 묶음 D): 쓰기 등급 0 게시판에 비회원 폼(이름·비밀번호·보안 문자 덧셈), 승인 대기(공개 게시판 기본)와 담당자 알림, 비밀번호로 비밀글 열기·수정·삭제, '(비회원)' 표시, 회원 이름·운영자 사칭 막기, IP 해시(최대 180일)·30일 지난 대기 글 정리, 비회원 검색 요청 수 제한. 운영에 새 환경 변수 `IP_HASH_SECRET`(32자 이상) 필요, 배포 전 고지문 '비회원 글' 문단
@@ -79,5 +81,6 @@
 - 프론트엔드 `/api/*` → FastAPI 프록시 (Next `rewrites`, `BACKEND_URL` 환경변수)
 - PostgreSQL 연결 (SQLAlchemy 2 async · asyncpg) 및 Alembic(async) 마이그레이션 설정, `/api/health/db` 엔드포인트
 
-[Unreleased]: https://github.com/jnano/mypage/compare/v0.1.0...HEAD
+[Unreleased]: https://github.com/jnano/mypage/compare/v0.2.0...HEAD
+[0.2.0]: https://github.com/jnano/mypage/compare/v0.1.0...v0.2.0
 [0.1.0]: https://github.com/jnano/mypage/releases/tag/v0.1.0

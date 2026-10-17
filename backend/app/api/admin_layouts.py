@@ -8,6 +8,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.admin.scope import StaffScope
 from app.api.admin_boards import admin_scope
 from app.blocks import layouts
+from app.blocks.bootstrap import bootstrap as bootstrap_default
 from app.core import rate_limit
 from app.core.if_match import expected_version
 from app.core.invalidation import tags_for
@@ -73,8 +74,8 @@ async def set_default(layout_id: int, scope: StaffScope = Depends(admin_scope)):
     """기본 틀 바꾸기 — 대응이 없는 화면 종류·틀을 고르지 않은 게시판·페이지가 모두 바뀐다(태그 layouts:bindings)"""
     await _limit(scope)
     async with SessionLocal() as db, db.begin():
-        await layouts.set_default(db, scope.viewer, layout_id)
-    return {"default": layout_id, "invalidate": tags_for("layouts.bindings").as_dict()}
+        warnings = await layouts.set_default(db, scope.viewer, layout_id)
+    return {"default": layout_id, "warnings": warnings, "invalidate": tags_for("layouts.bindings").as_dict()}
 
 
 @router.put("/layout-bindings")
@@ -83,3 +84,12 @@ async def save_bindings(body: layouts.BindingsSave, scope: StaffScope = Depends(
     async with SessionLocal() as db, db.begin():
         bindings = await layouts.save_bindings(db, scope.viewer, body)
     return {"bindings": bindings, "invalidate": tags_for("layouts.bindings").as_dict()}
+
+
+@router.post("/layouts/bootstrap", status_code=201)
+async def bootstrap(scope: StaffScope = Depends(admin_scope)):
+    """기본 틀 만들기(§3.6) — 대체 틀과 같은 구성의 기본 틀 + 주 메뉴. 이미 기본 틀이 있으면 409"""
+    await _limit(scope)
+    async with SessionLocal() as db, db.begin():
+        out = await bootstrap_default(db, scope.viewer)
+    return out | {"invalidate": tags_for("layouts.bindings").as_dict()}

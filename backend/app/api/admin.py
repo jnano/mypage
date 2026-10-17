@@ -11,6 +11,7 @@ from app.admin import settings as site_settings
 from app.admin.scope import StaffScope, load_staff_scope
 from app.admin.settings import SearchSettings
 from app.auth.viewer import Viewer, get_viewer
+from app.blocks.dangling import dangling
 from app.core.config import settings
 from app.db.session import get_db
 from app.models import Board, LevelRequest, Member, ModerationLog, OutboxEvent, Post, Report
@@ -79,7 +80,11 @@ async def summary(scope: StaffScope = Depends(staff_scope), db: AsyncSession = D
     ).all()
     # 지금 공개 화면에 나가는 인기 검색어(§9.1) — 이상한 말을 빨리 보고 검색 제외에 넣게(사용자 결정). 사이트 운영자만
     popular_terms = None
+    broken = None
     if scope.is_admin:
+        # 끊긴 블록·예약 주소와 겹친 페이지(홈블록 §11 — 저절로 안 보이게 된 블록을 당사자인 운영자가 알게). 블록 전체를 한 번
+        # 읽는다(쿼리 ≤ 5) — 운영자 대시보드만, 측정은 홈블록 걸음 8
+        broken = await dangling(db)
         search = await site_settings.load(db, "search")
         assert isinstance(search, SearchSettings)
         popular_terms = await search_terms.popular(db, search)
@@ -95,6 +100,8 @@ async def summary(scope: StaffScope = Depends(staff_scope), db: AsyncSession = D
             "signups": row.signups if scope.is_admin else None,
             "level_requests": row.level_requests if scope.is_admin else None,
             "alerts": row.alerts if scope.is_admin else None,
+            "broken_blocks": len(broken["blocks"]) if broken is not None else None,
+            "reserved_pages": len(broken["reserved_conflicts"]) if broken is not None else None,
         },
     }
 

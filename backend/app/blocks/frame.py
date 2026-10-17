@@ -280,6 +280,15 @@ async def _images(db: AsyncSession, block_ids: set[int]) -> list[Any]:
     return list(await db.execute(select(*ROW_COLUMNS, Attachment.block_id).where(Attachment.block_id.in_(block_ids))))  # post-clause: exempt — 첨부 칸(글 아님)
 
 
+async def _images_by_id(db: AsyncSession, ids: set[int]) -> list[Any]:
+    """미리보기의 ⑦ — 설정이 가리키는 그림 첨부(저장 전이라 block_id 로 찾을 수 없다). 운영자 전용 경로에서만 부른다.
+    운영자는 모든 첨부를 받을 수 있으므로 남이 올린 임시 그림이 보여도 새는 것이 아니다 — 저장 때 save_tree 가 다시 판정한다"""
+    if not ids:
+        return []
+    # 글의 첨부는 빼고(블록 저장도 거부한다), 그림만
+    return list(await db.execute(select(*ROW_COLUMNS).where(Attachment.id.in_(ids), Attachment.post_id.is_(None), Attachment.is_image == TRUE)))  # post-clause: exempt — 첨부 칸(글 아님)
+
+
 def _excerpt(text: str) -> str:
     text = " ".join(text.split())
     return text if len(text) <= EXCERPT else text[: EXCERPT - 1] + "…"
@@ -419,12 +428,11 @@ def _prune(nodes: list[Node], viewer: Viewer) -> list[Node]:
     return out
 
 
-async def _bundle(db: AsyncSession, viewer: Viewer, owner: Owner, tags: list[str]) -> dict[str, Any]:
-    """비회원(공개 캐시)이면 개인 블록은 자리만·회원이면 다시(_decide), 보는 사람 기준(개인 틀)이면 못 보는 블록을 빼고
-    모두 그 사람 기준으로 푼다. 쿼리 ≤ 8(§12, 공개 묶음·개인 틀 같음): 주인·블록·메뉴·대상·글·댓글·그림·설정 —
-    명부·담당은 대상 문장 안의 EXISTS 라 따로 세지 않는다(코드 검토 v12 N-1)"""
+async def _views(db: AsyncSession, viewer: Viewer, rows: Sequence[Any], *, preview: bool = False):
+    """블록 행 → 영역마다 그릴 모양. 묶음 응답과 관리 화면 미리보기가 함께 쓴다. preview 면 그림을 블록에 붙은 것이 아니라
+    설정이 가리키는 첨부 id 로 찾는다(저장 전 — 아직 block_id 가 없다)"""
     public = viewer.member_id is None
-    regions = _tree(await _blocks(db, owner))  # ②
+    regions = _tree(rows)  # ②
     if not public:
         regions = {k: _prune(v, viewer) for k, v in regions.items()}
     nodes = [n for top in regions.values() for n in _walk(top)]
@@ -444,13 +452,20 @@ async def _bundle(db: AsyncSession, viewer: Viewer, owner: Owner, tags: list[str
     pinned = any(n.row.type == "recent_posts" and not n.personal and n.model.include_pinned for n in nodes)
     posts = await _recent_posts(db, post_targets, pinned, viewer)  # ⑤
     comments = await _recent_comments(db, _recent_targets(nodes, "recent_comments"), viewer)  # ⑥
-    image_rows = await _images(db, {n.row.id for n in nodes if not n.personal})  # ⑦
+    if preview:
+        image_rows = await _images_by_id(db, {a for n in nodes if not n.personal for a in n.refs.attachments})  # ⑦
+    else:
+        image_rows = await _images(db, {n.row.id for n in nodes if not n.personal})  # ⑦
     seo = await site_settings.load(db, "seo")  # ⑧
     assert isinstance(seo, site_settings.SeoSettings)
 
     images: dict[int, list[int]] = {}
-    for row in image_rows:
-        images.setdefault(row.block_id, []).append(row.id)
+    if preview:
+        found = {row.id for row in image_rows}
+        images = {n.row.id: sorted(n.refs.attachments & found) for n in nodes}
+    else:
+        for row in image_rows:
+            images.setdefault(row.block_id, []).append(row.id)
     lookup = r.Lookup(
         site_name=seo.site_name,
         page_paths=targets.pages,
@@ -471,6 +486,14 @@ async def _bundle(db: AsyncSession, viewer: Viewer, owner: Owner, tags: list[str
 
     # 마크다운 변환·정화는 CPU 작업 — 이벤트 루프가 아니라 정화 스레드 한도 안에서(글 저장과 같은 한도, 코드 검토 v5 N-2)
     out, personal = await run_in_thread("sanitize", assemble)
+    return out, personal, refs, nodes, post_targets
+
+
+async def _bundle(db: AsyncSession, viewer: Viewer, owner: Owner, tags: list[str]) -> dict[str, Any]:
+    """비회원(공개 캐시)이면 개인 블록은 자리만·회원이면 다시(_decide), 보는 사람 기준(개인 틀)이면 못 보는 블록을 빼고
+    모두 그 사람 기준으로 푼다. 쿼리 ≤ 8(§12, 공개 묶음·개인 틀 같음): 주인·블록·메뉴·대상·글·댓글·그림·설정 —
+    명부·담당은 대상 문장 안의 EXISTS 라 따로 세지 않는다(코드 검토 v12 N-1)"""
+    out, personal, refs, nodes, post_targets = await _views(db, viewer, await _blocks(db, owner))  # ②~⑧
     tags += [f"menu:{m}" for m in sorted(refs.menus)]
     if refs.boards:
         tags.append("boards:structure")
@@ -515,6 +538,24 @@ async def viewer_frame(db: AsyncSession, viewer: Viewer, path: str, *, draft: bo
         raise PageNotFound()
     owner = await _page_owner(db, path, viewer, draft=draft)
     return await _bundle(db, viewer, owner, [])
+
+
+async def preview(db: AsyncSession, viewer: Viewer, flat: Sequence[Any], *, as_member: bool) -> dict[str, Any]:
+    """관리 화면 미리보기(POST /api/admin/blocks/preview, §8) — 검증을 마친 저장 전 트리(tree.validate_tree 결과)를 그릴 모양으로.
+    as_member=False 면 비회원이 보는 모습(회원 블록은 자리만 — personal), True 면 이 운영자 기준. 아무것도 저장하지 않는다.
+    새 블록에는 id 가 없어 음수 임시 id 를 준다(응답 안에서만 쓰는 이름)"""
+    ids: dict[int, int] = {}
+    rows = []
+    for i, b in enumerate(flat):
+        ids[id(b)] = b.item.id if b.item.id is not None else -(i + 1)
+    for b in flat:
+        rows.append(SimpleNamespace(
+            id=ids[id(b)], parent_id=ids[id(b.parent)] if b.parent is not None else None, region=b.region,
+            column_index=b.item.column_index, sort_order=b.sort_order, type=b.item.type, config=b.config,
+            audience=b.item.audience, min_level=b.item.min_level, is_active=b.item.is_active,
+        ))  # fmt: skip
+    out, personal, *_ = await _views(db, viewer if as_member else GUEST, rows, preview=True)
+    return {"regions": {k: v for k, v in out.items() if k is not None}, "blocks": out.get(None, []), "personal_block_ids": personal}
 
 
 # ── 회원 블록(걸음 5-3) — GET /api/me/page-state?blocks= ─────────────────────

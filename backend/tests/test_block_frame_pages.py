@@ -153,3 +153,48 @@ async def test_board_module_on_page(db: AsyncSession) -> None:
     assert mine[slot["id"]]["data"]["board"] == {"slug": "club-m"}
     page = (await viewer_frame(db, Viewer(member_id=high.id, level=2), "/club", draft=False))["page"]
     assert page["blocks"][0]["data"]["board"] == {"slug": "club-m"}
+
+
+async def test_page_sql_conditions_match_page_read(db: AsyncSession) -> None:
+    """손으로 쓴 SQL 조건 셋(_page_owner·public_paths·sitemap_pages) ↔ page_read — 상태 × 열람 등급 × 색인 × 보는 사람 표
+    (코드 검토 v14 N-3). 초안 보기(draft)는 운영자만 상태와 무관하게, 그 밖에는 운영자도 게시된 것만(§5.5)"""
+    from types import SimpleNamespace
+
+    from app.blocks import pages as pages_mod
+    from app.blocks.frame import PageNotFound, _page_owner
+    from app.permissions import page_read
+
+    Layout_ = Layout(name="기본", is_default=True)
+    db.add(Layout_)
+    await db.flush()
+    table = {}
+    for status in ("published", "draft"):
+        for level in (0, 1, 3):
+            for indexable in (True, False):
+                path = f"/t-{status}-{level}-{int(indexable)}"
+                row = Page(path=path, title=path, status=status, view_level=level, indexable=indexable,
+                           published_at=text("now()") if status == "published" else None)  # fmt: skip
+                db.add(row)
+                table[path] = SimpleNamespace(status=status, view_level=level, indexable=indexable)
+    await db.flush()
+    guest, low, high, admin = Viewer(None, 0), Viewer(1, 1), Viewer(2, 3), Viewer(3, 9, is_admin=True)
+
+    async def owner_found(viewer: Viewer, path: str, draft: bool) -> bool:
+        try:
+            await _page_owner(db, path, viewer, draft)
+            return True
+        except PageNotFound:
+            return False
+
+    for viewer in (guest, low, high, admin):
+        for path, p in table.items():
+            assert await owner_found(viewer, path, False) == (page_read(viewer, p) and p.status == "published"), (viewer, path)
+            if viewer.is_admin:
+                assert await owner_found(viewer, path, True)  # 초안 보기 — 상태와 무관
+    paths = await pages_mod.public_paths(db)
+    mine = {k: v for k, v in paths["pages"].items() if k in table}
+    assert set(mine) == {k for k, p in table.items() if p.status == "published"}  # 주소 집합 = 게시된 것(등급 페이지도 주소는 있다)
+    assert {k for k, v in mine.items() if v["personal"]} == {k for k in mine if not page_read(guest, table[k])}
+    sitemap = {r["path"] for r in await pages_mod.sitemap_pages(db) if r["path"] in table}
+    assert sitemap == {k for k, p in table.items() if page_read(guest, p) and p.indexable}
+    assert len(sitemap) == 1 and len(mine) == 6  # 대조: 조건 하나라도 다르면 위 줄들이 갈린다

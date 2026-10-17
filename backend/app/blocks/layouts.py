@@ -93,11 +93,15 @@ async def create_layout(db: AsyncSession, viewer: Viewer, body: LayoutCreate) ->
     return await layout_detail(db, layout.id)
 
 
-def _groups(body: LayoutSave) -> list[tuple[str | None, list[tree.BlockIn]]]:
-    unknown = [r for r in body.regions if r not in t.REGIONS]
+def region_groups(regions: dict[str, list[tree.BlockIn]]) -> list[tuple[str | None, list[tree.BlockIn]]]:
+    unknown = [r for r in regions if r not in t.REGIONS]
     if unknown:
         raise tree.problem([{"field": f"regions.{r}", "message": "없는 영역입니다(header·nav·top·aside·bottom·footer)"} for r in unknown])
-    return [(r, body.regions.get(r, [])) for r in t.REGIONS]
+    return [(r, regions.get(r, [])) for r in t.REGIONS]
+
+
+def _groups(body: LayoutSave) -> list[tuple[str | None, list[tree.BlockIn]]]:
+    return region_groups(body.regions)
 
 
 async def save_layout(db: AsyncSession, viewer: Viewer, layout_id: int, body: LayoutSave, expected_version: int) -> dict[str, Any]:
@@ -142,7 +146,10 @@ async def delete_layout(db: AsyncSession, viewer: Viewer, layout_id: int) -> Non
     await db.execute(delete(Layout).where(Layout.id == layout_id))
 
 
-async def set_default(db: AsyncSession, viewer: Viewer, layout_id: int) -> None:
+async def set_default(db: AsyncSession, viewer: Viewer, layout_id: int) -> list[dict[str, str]]:
+    """바꾸고 나서 경고를 돌려준다 — 틀을 고르지 않은 페이지들이 새 기본 틀을 쓰게 되는데, 그 페이지와 새 틀에 같은 이름의
+    탐색·랜드마크가 있으면 그 페이지는 axe landmark-unique 위반이 된다(§10). 막지 않는다 — 기본 틀 바꾸기는 사이트 전체의
+    전환이라 페이지 하나 때문에 막으면 운영자가 할 수 있는 일이 없다. 운영자가 그 페이지의 이름을 고친다(코드 검토 v11 N-2)"""
     # 옛 기본 틀과 새 틀을 한 문장으로 id 순 잠금 — 읽고 잠그는 사이에 기본 틀이 바뀌는 틈이 없다(D-401, 코드 검토 v7 N-4)
     locked = list(
         await db.execute(select(Layout.id, Layout.is_default).where(or_(Layout.is_default, Layout.id == layout_id)).order_by(Layout.id).with_for_update())
@@ -157,6 +164,9 @@ async def set_default(db: AsyncSession, viewer: Viewer, layout_id: int) -> None:
         await db.rollback()
         raise Problem(409, "default_conflict", "다른 사람이 먼저 기본 틀을 바꿨습니다. 다시 불러오세요") from None
     await record(db, viewer, [LogEntry("layout.default", "layout", layout_id, before={"default": current})])
+    names = {name: name for name in await tree.nav_labels(db, layout_ids=[layout_id])}
+    unbound = await tree.page_conflicts(db, layout_id, True, names)  # 고른 페이지는 틀 저장 때 이미 막혔다 — 남는 것은 틀을 안 고른 페이지
+    return [{"message": e["message"].replace("이 틀을 쓰는 페이지", "이제 이 틀을 쓰는 페이지")} for e in unbound]
 
 
 async def save_bindings(db: AsyncSession, viewer: Viewer, body: BindingsSave) -> dict[str, int | None]:

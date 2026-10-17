@@ -5,6 +5,8 @@
 
 ## [Unreleased]
 
+## [0.3.0] - 2026-10-17
+
 ### Added
 - 홈블록 걸음 8(홈블록 설계도 §12): 측정(보통·최대 구성)과 결정 반영 — 블록 글 변환 결과를 기억해 틀 묶음이 빨라짐, 관리 대시보드의 끊긴 블록 수를 작업자가 미리 세어 둠(대시보드 110 → 10ms), 회원용 틀의 요청 수 한도, 바깥에서 공개 틀 묶음을 몰아치면 nginx 가 막음
 - 홈블록 걸음 7-5(홈블록 설계도 §3.6·§10): 개발 시드에 기본 틀·게시판 화면 틀(옆 메뉴)·첫 화면 페이지·블록 견본 페이지(/sample), 접근성 점검에 홈블록 화면 9개(따로 묶어 표시), 편집기에 블록·메뉴 개수 상한 안내
@@ -105,6 +107,7 @@
 - 프론트엔드 `/api/*` → FastAPI 프록시 (Next `rewrites`, `BACKEND_URL` 환경변수)
 - PostgreSQL 연결 (SQLAlchemy 2 async · asyncpg) 및 Alembic(async) 마이그레이션 설정, `/api/health/db` 엔드포인트
 
-[Unreleased]: https://github.com/jnano/mypage/compare/v0.2.0...HEAD
+[Unreleased]: https://github.com/jnano/mypage/compare/v0.3.0...HEAD
+[0.3.0]: https://github.com/jnano/mypage/compare/v0.2.0...v0.3.0
 [0.2.0]: https://github.com/jnano/mypage/compare/v0.1.0...v0.2.0
 [0.1.0]: https://github.com/jnano/mypage/releases/tag/v0.1.0

@@ -2,6 +2,7 @@ import Link from "next/link";
 import { Suspense } from "react";
 import { ApiError, type ProblemBody } from "@/lib/api/problem";
 import { personalGet } from "@/lib/server/backend";
+import { getSearchTerms } from "@/lib/server/search";
 import { formatDate } from "@/lib/format/time";
 
 // 검색 — 결과는 캐시하지 않는다(검색어는 사용자가 마음대로 넣는 값, 설계도 §9). 보는 사람 기준(요청 시점)
@@ -70,6 +71,8 @@ async function SearchScreen({ searchParams }: PageProps<"/search">) {
         )}
       </form>
 
+      {!q.trim() && <TermLists />}
+
       {data && (
         <div aria-live="polite">
           <p>
@@ -108,6 +111,40 @@ async function SearchScreen({ searchParams }: PageProps<"/search">) {
             </nav>
           )}
         </div>
+      )}
+    </>
+  );
+}
+
+/** 검색어가 없을 때만 — 검색 결과 화면의 호출 수를 늘리지 않는다(§9.1) */
+async function TermLists() {
+  const { popular, recommended } = await getSearchTerms();
+  const href = (term: string) => `/search?${new URLSearchParams({ q: term })}`;
+  return (
+    <>
+      {popular.length > 0 && (
+        <section data-slot="popular-terms" aria-labelledby="popular-terms-heading">
+          <h2 id="popular-terms-heading">인기 검색어</h2>
+          <ol>
+            {popular.map((p) => (
+              <li key={p.term}>
+                <Link href={href(p.display)}>{p.display}</Link>
+              </li>
+            ))}
+          </ol>
+        </section>
+      )}
+      {recommended.length > 0 && (
+        <section data-slot="recommended-terms" aria-labelledby="recommended-terms-heading">
+          <h2 id="recommended-terms-heading">추천 검색어</h2>
+          <ul>
+            {recommended.map((t) => (
+              <li key={t}>
+                <Link href={href(t)}>{t}</Link>
+              </li>
+            ))}
+          </ul>
+        </section>
       )}
     </>
   );

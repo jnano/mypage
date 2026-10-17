@@ -32,7 +32,11 @@ export const SETTINGS_SECTIONS: SectionSpec[] = [
   {
     id: "search",
     title: "검색",
-    fields: [{ name: "recommended", label: "추천 검색어(줄마다 하나)", type: "lines" }],
+    fields: [
+      { name: "recommended", label: "추천 검색어(줄마다 하나)", type: "lines" },
+      { name: "excluded_terms", label: "인기 검색어에서 뺄 말(줄마다 하나, 띄어쓰기·대소문자 무시)", type: "lines" },
+      { name: "popular_min_people", label: "인기 검색어 문턱(그날 서로 다른 사람 수, 2~50)", type: "int", help: "이름·전화번호 같은 말이 인기 검색어에 오르지 않게 합니다" },
+    ],
   },
   {
     id: "signup",

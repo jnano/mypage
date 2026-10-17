@@ -44,6 +44,23 @@ async function Dashboard() {
             </li>
           ))}
       </ul>
+      {data.popular_terms && (
+        <section aria-labelledby="popular-terms-heading" data-slot="admin-popular-terms">
+          <h2 id="popular-terms-heading">지금 인기 검색어</h2>
+          {data.popular_terms.length === 0 ? (
+            <p>아직 없습니다.</p>
+          ) : (
+            <ol>
+              {data.popular_terms.map((t) => (
+                <li key={t.term}>{t.display}</li>
+              ))}
+            </ol>
+          )}
+          <p>
+            이상한 말이 있으면 <Link href="/admin/settings">사이트 설정 → 검색</Link>의 &lsquo;인기 검색어에서 뺄 말&rsquo;에 넣으세요.
+          </p>
+        </section>
+      )}
       <h2>{data.viewer.is_admin ? "게시판" : "맡은 게시판"}</h2>
       <ul>
         {data.boards.map((board) => (

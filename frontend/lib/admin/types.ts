@@ -1,6 +1,8 @@
 // 관리 API 응답 모양 — backend app/api/admin*.py (설계도 §14.3)
 
 export interface AdminSummary {
+  /** 지금 공개 화면에 나가는 인기 검색어(§9.1) — 사이트 운영자만, 담당자는 null */
+  popular_terms: { term: string; display: string }[] | null;
   viewer: { member_id: number; is_admin: boolean };
   boards: { id: number; slug: string; name: string }[];
   badges: {

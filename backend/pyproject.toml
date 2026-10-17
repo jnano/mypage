@@ -23,4 +23,5 @@ dev = [
 ]
 
 [tool.pytest.ini_options]
+markers = ["real_clock: 요청 수 제한 시계를 고정하지 않는다(창 경계를 보는 시험 — tests/conftest.py rate_limit_clock)"]
 testpaths = ["tests"]

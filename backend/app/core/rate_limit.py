@@ -7,6 +7,7 @@
 import logging
 import math
 import time
+from collections.abc import Callable
 from dataclasses import dataclass
 from datetime import UTC, datetime
 
@@ -67,10 +68,15 @@ LIMITS: dict[str, Limit] = {
 WARN_ON_EXCEED = frozenset({"post.react", "post.view", "post.share", "post.create_guest_attempt", "post.create_guest", "post.update_guest", "guest.token", "guest.token_post"})
 
 
+# 창을 정하는 시계 — 시험이 바꾸는 공개 지점(창은 고정 창이라 시험이 요청 사이에 창 경계를 지나면 결과가 갈린다, D-715).
+# 운영은 늘 time.time
+clock: Callable[[], float] = time.time
+
+
 async def tally(action: str, subject: str, count: int | None = None) -> tuple[int, Limit, float]:
     """한 번 세고 (지금 창의 횟수, 한도, 창 시작 시각)을 돌려준다 — 막지 않는다(경보 판정용)."""
     limit = LIMITS[action] if count is None else Limit(count, LIMITS[action].window_sec)
-    now = time.time()
+    now = clock()
     start = math.floor(now / limit.window_sec) * limit.window_sec
     stmt = (
         insert(RateLimitCounter)
@@ -92,7 +98,7 @@ async def tally(action: str, subject: str, count: int | None = None) -> tuple[in
 
 
 def exceeded(limit: Limit, start: float) -> Problem:
-    retry_after = max(1, math.ceil(start + limit.window_sec - time.time()))
+    retry_after = max(1, math.ceil(start + limit.window_sec - clock()))
     return Problem(
         429,
         "rate_limited",

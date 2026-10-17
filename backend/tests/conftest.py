@@ -1,4 +1,5 @@
 import os
+import time as _time
 from collections.abc import AsyncIterator
 from pathlib import Path
 
@@ -24,6 +25,7 @@ from httpx import ASGITransport, AsyncClient  # noqa: E402
 from sqlalchemy import text  # noqa: E402
 from sqlalchemy.ext.asyncio import AsyncSession  # noqa: E402
 
+from app.core import rate_limit  # noqa: E402
 from app.core.config import settings  # noqa: E402
 from app.db.base import Base  # noqa: E402
 from app.db.session import SessionLocal, engine  # noqa: E402
@@ -92,6 +94,17 @@ def file_roots(tmp_path, monkeypatch: pytest.MonkeyPatch):
     monkeypatch.setattr(settings, "media_root", str(tmp_path / "media"))
     monkeypatch.setattr(settings, "private_root", str(tmp_path / "private"))
     return tmp_path
+
+
+@pytest.fixture(autouse=True)
+def rate_limit_clock(request: pytest.FixtureRequest, monkeypatch: pytest.MonkeyPatch) -> None:
+    """요청 수 제한 시계(공개 지점 rate_limit.clock)를 이 시험의 시작 시각으로 고정한다. 제한은 고정 창(60초 등)이라, 한도를
+    넘기는 시험이 요청 사이에 창 경계를 지나면 새 창에서 다시 세어 429 대신 200 이 나왔다(느린 실행에서 간헐 실패 — D-715).
+    카운터 동작은 그대로다. 창 경계 자체를 보는 시험은 @pytest.mark.real_clock 으로 빠진다(그 시험이 시계를 직접 정한다)"""
+    if request.node.get_closest_marker("real_clock"):
+        return
+    now = _time.time()
+    monkeypatch.setattr(rate_limit, "clock", lambda: now)
 
 
 @pytest.fixture

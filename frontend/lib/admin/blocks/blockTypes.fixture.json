@@ -1631,6 +1631,162 @@
       }
     }
   },
+  "menu_item": {
+    "$defs": {
+      "BoardLink": {
+        "additionalProperties": false,
+        "properties": {
+          "kind": {
+            "const": "board",
+            "title": "링크 종류",
+            "type": "string",
+            "x-enum-labels": {
+              "page": "페이지",
+              "board": "게시판",
+              "url": "주소"
+            }
+          },
+          "board_id": {
+            "minimum": 1,
+            "title": "게시판",
+            "type": "integer",
+            "x-widget": "board"
+          },
+          "new_window": {
+            "default": false,
+            "title": "새 창으로 열기",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "kind",
+          "board_id"
+        ],
+        "title": "BoardLink",
+        "type": "object"
+      },
+      "PageLink": {
+        "additionalProperties": false,
+        "properties": {
+          "kind": {
+            "const": "page",
+            "title": "링크 종류",
+            "type": "string",
+            "x-enum-labels": {
+              "page": "페이지",
+              "board": "게시판",
+              "url": "주소"
+            }
+          },
+          "page_id": {
+            "minimum": 1,
+            "title": "페이지",
+            "type": "integer",
+            "x-widget": "page"
+          },
+          "new_window": {
+            "default": false,
+            "title": "새 창으로 열기",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "kind",
+          "page_id"
+        ],
+        "title": "PageLink",
+        "type": "object"
+      },
+      "UrlLink": {
+        "additionalProperties": false,
+        "properties": {
+          "kind": {
+            "const": "url",
+            "title": "링크 종류",
+            "type": "string",
+            "x-enum-labels": {
+              "page": "페이지",
+              "board": "게시판",
+              "url": "주소"
+            }
+          },
+          "url": {
+            "maxLength": 500,
+            "minLength": 1,
+            "title": "주소",
+            "type": "string"
+          },
+          "new_window": {
+            "default": false,
+            "title": "새 창으로 열기",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "kind",
+          "url"
+        ],
+        "title": "UrlLink",
+        "type": "object"
+      }
+    },
+    "additionalProperties": false,
+    "properties": {
+      "label": {
+        "maxLength": 50,
+        "minLength": 1,
+        "title": "항목 이름",
+        "type": "string"
+      },
+      "link": {
+        "anyOf": [
+          {
+            "discriminator": {
+              "mapping": {
+                "board": "#/$defs/BoardLink",
+                "page": "#/$defs/PageLink",
+                "url": "#/$defs/UrlLink"
+              },
+              "propertyName": "kind"
+            },
+            "oneOf": [
+              {
+                "$ref": "#/$defs/PageLink"
+              },
+              {
+                "$ref": "#/$defs/BoardLink"
+              },
+              {
+                "$ref": "#/$defs/UrlLink"
+              }
+            ]
+          },
+          {
+            "type": "null"
+          }
+        ],
+        "default": null,
+        "title": "링크(없으면 아래 항목을 펼치는 제목)"
+      },
+      "min_level": {
+        "default": 0,
+        "maximum": 99,
+        "minimum": 0,
+        "title": "최소 회원 등급(표시 조건, 0 = 모두)",
+        "type": "integer"
+      },
+      "is_active": {
+        "default": true,
+        "title": "보이기",
+        "type": "boolean"
+      }
+    },
+    "required": [
+      "label"
+    ],
+    "title": "MenuItemFields",
+    "type": "object"
+  },
   "regions": [
     "header",
     "nav",

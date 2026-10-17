@@ -432,7 +432,7 @@ function UnionField({ schema, root, value, onChange, path, errors, options, titl
   return (
     <fieldset data-slot="field" data-kind="union">
       <legend>{title}</legend>
-      <label htmlFor={id}>{variant?.schema.properties?.[tag]?.title ?? "종류"}</label>
+      <label htmlFor={id}>{(variant ?? all[0])?.schema.properties?.[tag]?.title ?? "종류"}</label>
       <select
         id={id}
         value={kind}

@@ -55,6 +55,7 @@ def test_every_field_has_a_name() -> None:
         assert ("schema" in item) == (t.SPECS[item["type"]].available and t.SPECS[item["type"]].model is not None)
     fields = [p for item in out["types"] if "schema" in item for _, p in _props(item["schema"])]
     fields += [p for m in out["modules"].values() for _, p in _props(m["schema"])]
+    fields += [p for _, p in _props(out["menu_item"])]  # 메뉴 항목 폼도 같은 규칙
     assert fields and all(p["title"] and not p["title"].isascii() for p in fields)  # 영문 기본 이름이 남지 않는다
     def objects(node):
         if isinstance(node, dict):
@@ -66,7 +67,7 @@ def test_every_field_has_a_name() -> None:
             for v in node:
                 yield from objects(v)
 
-    schemas = [i["schema"] for i in out["types"] if "schema" in i] + [m["schema"] for m in out["modules"].values()]
+    schemas = [i["schema"] for i in out["types"] if "schema" in i] + [m["schema"] for m in out["modules"].values()] + [out["menu_item"]]
     assert not [o for s in schemas for o in objects(s) if "description" in o]  # 모델 docstring(개발자 주석)이 나가지 않는다
 
 

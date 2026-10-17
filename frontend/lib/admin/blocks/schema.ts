@@ -190,6 +190,7 @@ export interface BlockTypeInfo {
 export interface BlockTypes {
   types: BlockTypeInfo[];
   modules: Record<string, { label: string; available: boolean; schema: JsonSchema }>;
+  menu_item: JsonSchema; // 메뉴 항목 폼(라벨·링크·최소 등급·보이기)
   regions: string[];
   audiences: string[];
 }

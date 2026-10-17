@@ -29,6 +29,8 @@ async function Dashboard() {
     ["가입 대기", b.signups, "/admin/members/pending"],
     ["승급 대기", b.level_requests, "/admin/level-requests"],
     ["경보(24시간)", b.alerts, "/admin/logs"],
+    ["끊긴 블록", b.broken_blocks, "/admin/blocks"],
+    ["시스템 주소와 겹친 페이지", b.reserved_pages, "/admin/blocks"],
   ];
   return (
     <>

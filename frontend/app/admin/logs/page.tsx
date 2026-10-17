@@ -9,16 +9,23 @@ import { formatDateTime } from "@/lib/format/time";
 export const metadata = { title: "운영 기록" };
 
 const FILTERS = ["actor_id", "action", "target_type", "target_id", "board_id", "since", "until"] as const;
-const TARGET_TYPES: [string, string][] = [
-  ["", "모두"],
-  ["board", "게시판"],
-  ["post", "글"],
-  ["comment", "댓글"],
-  ["report", "신고"],
-  ["member", "회원"],
-  ["sanction", "제재"],
-  ["setting", "설정"],
-];
+// 대상 종류의 이름표 — 백엔드 MODERATION_TARGET_TYPES(생성 파일 enums.gen.json)를 빠짐없이 덮어야 한다. 종류가 늘고 이름표를
+// 빠뜨리면 satisfies 가 타입 검사에서 잡는다(손으로 따로 적은 두 목록이 어긋나 group 이 빠졌던 일 — 통합 설계도 D-712)
+type TargetType = keyof (typeof import("@/lib/admin/enums.gen.json"))["moderationTargetTypes"];
+const TARGET_LABELS = {
+  board: "게시판",
+  post: "글",
+  comment: "댓글",
+  report: "신고",
+  member: "회원",
+  sanction: "제재",
+  setting: "설정",
+  group: "그룹",
+  layout: "틀",
+  page: "페이지",
+  menu: "메뉴",
+} satisfies Record<TargetType, string>;
+const TARGET_TYPES: [string, string][] = [["", "모두"], ...Object.entries(TARGET_LABELS)];
 
 export default function LogsPage(props: PageProps<"/admin/logs">) {
   return (

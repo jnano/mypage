@@ -55,6 +55,8 @@ _FIELDS: dict[str, tuple[str, Widget | None]] = {
     "page_id": ("페이지", PAGE),
     "board_id": ("게시판", BOARD),
     "new_window": ("새 창으로 열기", None),
+    "min_level": ("최소 회원 등급(표시 조건, 0 = 모두)", None),
+    "is_active": ("보이기", None),
 }
 _BY_MODEL: dict[tuple[str, str], tuple[str, Widget | None]] = {
     ("Menu", "label"): ("탐색 이름(화면 읽기 프로그램이 읽음)", None),
@@ -67,6 +69,8 @@ _BY_MODEL: dict[tuple[str, str], tuple[str, Widget | None]] = {
     ("LinkList", "items"): ("링크", None),
     ("Details", "items"): ("질문과 답", None),
     ("Video", "url"): ("동영상 주소(허용된 곳만)", None),
+    ("MenuItemFields", "label"): ("항목 이름", None),
+    ("MenuItemFields", "link"): ("링크(없으면 아래 항목을 펼치는 제목)", None),
 }
 # 고르기 값 → 보이는 이름(숫자 고르기는 값 그대로)
 _ENUM_LABELS: dict[str, dict[str, str]] = {
@@ -129,4 +133,13 @@ def block_types() -> dict[str, Any]:
     modules = {
         k: {"label": m.label, "available": m.available, "schema": form_schema(m.params_model)} for k, m in MODULES.items()
     }
-    return {"types": out, "modules": modules, "regions": list(t.REGIONS), "audiences": list(t.AUDIENCES)}
+    # 메뉴 항목 폼(§8 메뉴 편집) — 같은 링크 형식·같은 이름표 규칙을 블록과 함께 쓴다. menus 를 여기서 부르면 순환이라 늦게
+    from app.blocks.menus import MenuItemFields
+
+    return {
+        "types": out,
+        "modules": modules,
+        "menu_item": form_schema(MenuItemFields),
+        "regions": list(t.REGIONS),
+        "audiences": list(t.AUDIENCES),
+    }

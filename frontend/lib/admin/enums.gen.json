@@ -1,0 +1,16 @@
+{
+  "$generated": "backend/scripts/gen_blocks.py — 직접 고치지 않는다",
+  "moderationTargetTypes": {
+    "board": true,
+    "post": true,
+    "comment": true,
+    "report": true,
+    "member": true,
+    "sanction": true,
+    "setting": true,
+    "group": true,
+    "layout": true,
+    "page": true,
+    "menu": true
+  }
+}

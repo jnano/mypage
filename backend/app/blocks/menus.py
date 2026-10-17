@@ -22,14 +22,19 @@ from app.models import Board, Menu, MenuItem, Page
 MenuName = t.trimmed(1, 50)
 
 
-class MenuItemIn(BaseModel):
+class MenuItemFields(BaseModel):
+    """항목 하나의 칸 — 관리 화면 폼 형식(schema.block_types 의 menu_item)도 이 모델에서 나온다(칸 명세 한 곳)"""
+
     model_config = ConfigDict(extra="forbid")
 
-    id: Annotated[int, Field(ge=1)] | None = None  # 있으면 이 메뉴의 기존 항목
     label: t.trimmed(1, 50)
     link: t.LinkTarget | None = None  # None = 링크 없는 묶음 제목(펼치기 단추만)
     min_level: Annotated[int, Field(ge=0, le=99)] = 0  # 표시 조건 — 권한이 아니다(§6)
     is_active: bool = True
+
+
+class MenuItemIn(MenuItemFields):
+    id: Annotated[int, Field(ge=1)] | None = None  # 있으면 이 메뉴의 기존 항목
     children: list["MenuItemIn"] = []
 
 

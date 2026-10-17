@@ -18,6 +18,10 @@ const NAV: [string, string][] = [
   ["/admin/member-groups", "그룹"],
   ["/admin/level-requests", "승급 신청"],
   ["/admin/privacy-notices", "개인정보 고지"],
+  ["/admin/layouts", "틀"],
+  ["/admin/pages", "페이지"],
+  ["/admin/menus", "메뉴"],
+  ["/admin/blocks", "끊긴 블록"],
   ["/admin/settings", "사이트 설정"],
   ["/admin/jobs", "실패 작업"],
 ];

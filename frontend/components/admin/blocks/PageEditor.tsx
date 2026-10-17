@@ -64,7 +64,7 @@ export function PageEditor({ detail, types, options, layouts }: { detail: PageDe
     restore: setState,
     save: (version) => savePageAction<PageDetail>(detail.id, version, body()),
     previewBody: (asMember) => ({ owner: "page", blocks: body().blocks, as_member: asMember, layout_id: p.layout_id }),
-    onSaved: (d) => setState(stateOf(d)),
+    onSaved: (d) => (setState(stateOf(d)), setStatus(d.status)), // 다른 탭이 게시를 바꿨어도 저장 응답의 상태로(코드 검토 v17 N-1)
   });
   const set = (patch: Partial<Props>) => setState({ ...state, props: { ...p, ...patch } });
   const err = (field: string) => editor.errors.find((e) => e.field === field);

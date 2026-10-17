@@ -23,6 +23,7 @@ from app.blocks.schema import block_types
 from app.blocks.tree import collect_refs
 from app.blocks.menus import ITEM_COLUMNS
 from app.editor.render import ImageSource
+from app.models.enums import MODERATION_TARGET_TYPES
 
 
 def _item(id: int, parent: int | None, order: int, label: str, kind: str = "url", url: str | None = None, page: int | None = None):
@@ -46,6 +47,8 @@ EXAMPLE_MENU = [
 
 TARGET = Path(__file__).resolve().parents[2] / "frontend" / "lib" / "blocks" / "blocks.gen.json"
 FORMS_TARGET = Path(__file__).resolve().parents[2] / "frontend" / "lib" / "admin" / "blocks" / "blockTypes.fixture.json"
+# 관리 화면이 손으로 따로 적던 목록 — 운영 기록 대상 종류(화면의 이름표 표가 빠짐없이 덮는지 프런트 타입 검사가 본다, 통합 설계도 D-712)
+ENUMS_TARGET = Path(__file__).resolve().parents[2] / "frontend" / "lib" / "admin" / "enums.gen.json"
 
 # 견본 해결용 조회 결과 — 그림은 '썸네일 전'(자리 표시)이라 없는 파일 주소를 만들지 않는다
 EXAMPLE_LOOKUP = Lookup(
@@ -101,12 +104,20 @@ def render() -> str:
     return json.dumps(data, ensure_ascii=False, indent=2, default=lambda v: v.isoformat()) + "\n"
 
 
+def render_enums() -> str:
+    data = {
+        "$generated": "backend/scripts/gen_blocks.py — 직접 고치지 않는다",
+        "moderationTargetTypes": dict.fromkeys(MODERATION_TARGET_TYPES, True),  # 객체 키로 — 프런트 타입이 글자 그대로 읽는다
+    }
+    return json.dumps(data, ensure_ascii=False, indent=2) + "\n"
+
+
 def render_forms() -> str:
     return json.dumps(block_types(), ensure_ascii=False, indent=2) + "\n"
 
 
 def main() -> int:
-    for target, text in ((TARGET, render()), (FORMS_TARGET, render_forms())):
+    for target, text in ((TARGET, render()), (FORMS_TARGET, render_forms()), (ENUMS_TARGET, render_enums())):
         target.parent.mkdir(parents=True, exist_ok=True)
         target.write_text(text, encoding="utf-8")
         print(f"생성: {target}")

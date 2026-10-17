@@ -13,6 +13,8 @@ export interface AdminSummary {
     signups: number | null;
     level_requests: number | null;
     alerts: number | null;
+    broken_blocks: number | null; // 홈블록 — 끊긴 참조가 있는 블록(운영자만)
+    reserved_pages: number | null; // 홈블록 — 시스템 주소에 가려진 페이지(운영자만)
   };
 }
 

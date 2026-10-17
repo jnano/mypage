@@ -2,6 +2,7 @@ import Link from "next/link";
 import { Suspense } from "react";
 import { reindexAction, updateSettingsAction } from "@/app/admin/actions";
 import { AdminForm } from "@/components/admin/AdminForm";
+import { PageToc } from "@/components/admin/PageToc";
 import { AdminProblem } from "@/components/admin/AdminProblem";
 import { SettingField } from "@/components/admin/SettingField";
 import { fieldValue } from "@/lib/admin/boardFields";
@@ -35,7 +36,14 @@ async function Settings() {
       <p>
         알림 수신 설정은 <Link href="/me/notifications">내 알림</Link>에서 바꿉니다(신고 접수·승인 대기 알림 포함).
       </p>
-      <AdminForm action={updateSettingsAction.bind(null, "levels")} submitLabel="등급 이름표 저장" label="등급 이름표">
+      <PageToc
+        items={[
+          { id: "s-levels", label: "등급 이름표" },
+          ...SETTINGS_SECTIONS.map((s) => ({ id: `s-${s.id}`, label: s.title })),
+          { id: "reindex", label: "검색 색인" },
+        ]}
+      />
+      <AdminForm id="s-levels" action={updateSettingsAction.bind(null, "levels")} submitLabel="등급 이름표 저장" label="등급 이름표">
         <fieldset>
           <legend>등급 이름표</legend>
           <label htmlFor="level-names">줄마다 &quot;등급 이름&quot;(0 = 비회원). 운영자는 레벨이 아니라 회원 화면의 &apos;운영자 지정&apos;입니다</label>
@@ -45,7 +53,13 @@ async function Settings() {
         </fieldset>
       </AdminForm>
       {SETTINGS_SECTIONS.map((section) => (
-        <AdminForm key={section.id} action={updateSettingsAction.bind(null, section.id)} submitLabel={`${section.title} 저장`} label={section.title}>
+        <AdminForm
+          key={section.id}
+          id={`s-${section.id}`}
+          action={updateSettingsAction.bind(null, section.id)}
+          submitLabel={`${section.title} 저장`}
+          label={section.title}
+        >
           <fieldset>
             <legend>{section.title}</legend>
             {section.fields.map((field) => (
@@ -59,7 +73,7 @@ async function Settings() {
           </fieldset>
         </AdminForm>
       ))}
-      <h2>검색 색인</h2>
+      <h2 id="reindex">검색 색인</h2>
       <p>글 상태·게시판 설정과 검색 색인이 어긋났을 때 전체를 다시 만듭니다. 작업자가 500글씩 차례로 처리합니다.</p>
       <AdminForm action={reindexAction} submitLabel="전체 재색인" label="전체 재색인" />
     </>

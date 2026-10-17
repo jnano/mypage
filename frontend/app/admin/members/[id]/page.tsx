@@ -137,12 +137,15 @@ async function Member({ params }: PageProps<"/admin/members/[id]">) {
             <p>메일 발송이 없는 동안의 방법입니다. 링크는 24시간, 한 번만 쓰입니다. 새로 만들면 이전 링크는 막힙니다.</p>
             <Reauth id="m-reset-pw" />
           </AdminForm>
-          <AdminForm action={forceWithdrawAction.bind(null, m.id)} submitLabel="강제 탈퇴" label="강제 탈퇴" danger>
-            <p>개인 정보가 지워지고 글·댓글의 작성자는 &apos;탈퇴 회원&apos;이 됩니다. 되돌릴 수 없습니다.</p>
-            <label htmlFor="m-withdraw-reason">사유(필수, 운영 기록)</label>
-            <input id="m-withdraw-reason" name="reason" maxLength={500} required />
-            <Reauth id="m-withdraw-pw" />
-          </AdminForm>
+          <section id="danger-zone" aria-labelledby="danger-zone-heading" data-slot="danger-zone">
+            <h2 id="danger-zone-heading">강제 탈퇴</h2>
+            <AdminForm action={forceWithdrawAction.bind(null, m.id)} submitLabel="강제 탈퇴" label="강제 탈퇴" danger>
+              <p>개인 정보가 지워지고 글·댓글의 작성자는 &apos;탈퇴 회원&apos;이 됩니다. 되돌릴 수 없습니다.</p>
+              <label htmlFor="m-withdraw-reason">사유(필수, 운영 기록)</label>
+              <input id="m-withdraw-reason" name="reason" maxLength={500} required />
+              <Reauth id="m-withdraw-pw" />
+            </AdminForm>
+          </section>
         </>
       )}
     </>

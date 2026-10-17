@@ -55,7 +55,11 @@ async function Group({ params }: PageProps<"/admin/member-groups/[id]">) {
         <label htmlFor="g-members">회원 번호(쉼표·띄어쓰기로 나눔 — 이 목록으로 통째로 바뀝니다)</label>
         <textarea id="g-members" name="member_ids" rows={4} defaultValue={g.members.map((m) => m.id).join(", ")} />
       </AdminForm>
-      <AdminForm action={deleteMemberGroupAction.bind(null, g.id)} submitLabel="그룹 삭제" label={`${g.name} 그룹 삭제`} danger />
+      <section id="danger-zone" aria-labelledby="danger-zone-heading" data-slot="danger-zone">
+        <h2 id="danger-zone-heading">그룹 삭제</h2>
+        <p>그룹을 지우면 게시판 명부의 이 그룹 줄도 지워집니다.</p>
+        <AdminForm action={deleteMemberGroupAction.bind(null, g.id)} submitLabel="그룹 삭제" label={`${g.name} 그룹 삭제`} danger />
+      </section>
     </>
   );
 }

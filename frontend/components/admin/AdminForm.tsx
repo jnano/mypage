@@ -17,6 +17,7 @@ export function AdminForm({
   label,
   danger,
   bulk,
+  id,
 }: {
   action: (prev: AdminFormState, formData: FormData) => Promise<AdminFormState>;
   children?: ReactNode;
@@ -24,6 +25,8 @@ export function AdminForm({
   label?: string;
   danger?: boolean;
   bulk?: { legend: string; fields: ReactNode };
+  /** 화면 목차(PageToc)가 가리키는 자리 */
+  id?: string;
 }) {
   const [state, formAction, pending] = useActionState(action, {});
   const buttonOnly = children === undefined;
@@ -63,6 +66,7 @@ export function AdminForm({
   return (
     <form
       ref={formRef}
+      id={id}
       action={formAction}
       onSubmit={onSubmit}
       aria-label={buttonOnly ? undefined : label}

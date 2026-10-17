@@ -1,0 +1,400 @@
+/* mypage 관리 화면 — 4단계 화면 틀
+   화면  main[data-slot="admin-main"] > section > h1 (+ p 안내 / p 링크들) + 본문
+   대시보드  ul[data-slot="admin-badges"] + section[data-slot="admin-popular-terms"] + h2 게시판 + ul 링크
+   설정      nav[data-slot="page-toc"](새) + form[data-slot="admin-form"] 카드들 + h2 묶음 + section[data-slot="danger-zone"](새)
+   회원 상세 dl[data-slot="member-info"] + 폼 카드 + danger-zone */
+
+/* ── 화면 머리 ─────────────────────────────────────────── */
+[data-slot="admin"] main[data-slot="admin-main"] > section {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  row-gap: 0;
+  align-content: start;
+  max-width: 1040px;
+}
+[data-slot="admin"] main[data-slot="admin-main"] > section > * { min-width: 0; margin: 0; }
+[data-slot="admin"] main[data-slot="admin-main"] > section > * + * { margin-top: var(--space-5); }
+[data-slot="admin"] main[data-slot="admin-main"] > section > h1 {
+  color: var(--text-strong);
+  font: var(--weight-bold) var(--text-2xl) / var(--leading-tight) var(--font-sans);
+  letter-spacing: var(--tracking-tight);
+  text-wrap: balance;
+}
+/* h1 바로 뒤 안내 한 줄 */
+[data-slot="admin"] main[data-slot="admin-main"] > section > h1 + p:not(:has(> a)) {
+  margin-top: var(--space-2);
+  color: var(--text-muted);
+  font-size: var(--ui-fs-help);
+}
+/* h1 뒤 링크 줄: 링크마다 44px */
+[data-slot="admin"] main[data-slot="admin-main"] > section > :is(h1, h1 + p) + p:has(> a) {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0 var(--space-2);
+  margin-top: var(--space-2);
+}
+[data-slot="admin"] main[data-slot="admin-main"] > section > :is(h1, h1 + p) + p:has(> a) > a:not([data-slot]) {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  min-height: var(--ui-target);
+  font: var(--weight-medium) var(--ui-fs-label) / 1.2 var(--font-sans);
+}
+[data-slot="admin"] main[data-slot="admin-main"] > section > :is(h1, h1 + p) + p:has(> a) > a[data-slot="button-link"] { margin-inline-start: auto; }
+/* 화면 안 묶음 제목 */
+[data-slot="admin"] main[data-slot="admin-main"] > section > h2 {
+  margin-top: var(--space-10);
+  color: var(--text-strong);
+  font: var(--weight-bold) var(--text-xl) / var(--leading-snug) var(--font-sans);
+  letter-spacing: var(--tracking-tight);
+}
+[data-slot="admin"] main[data-slot="admin-main"] > section > h2 + * { margin-top: var(--space-3); }
+[data-slot="admin"] main[data-slot="admin-main"] > section > h2 + p:not(:has(> a:only-child)) {
+  color: var(--text-muted);
+  font-size: var(--ui-fs-help);
+}
+[data-slot="admin"] main[data-slot="admin-main"] > section > h2 + p + * { margin-top: var(--space-3); }
+[data-slot="admin"] main[data-slot="admin-main"] > section > [id] { scroll-margin-top: calc(var(--admin-topbar) + var(--space-4)); }
+
+/* 설정 폼 카드: 제출 단추 — 모바일 폭 전체, sm 이상 오른쪽 */
+[data-slot="admin"] form[data-slot="admin-form"] > fieldset:not([data-slot]) > button[type="submit"] { width: 100%; }
+@media (min-width: 640px) {
+  [data-slot="admin"] form[data-slot="admin-form"] > fieldset:not([data-slot]) > button[type="submit"] {
+    width: auto;
+    justify-self: end;
+  }
+}
+
+/* ── 대시보드: 처리할 일 칸 ─────────────────────────────── */
+[data-slot="admin"] main[data-slot="admin-main"] > section > ul[data-slot="admin-badges"] {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--space-2);
+}
+[data-slot="admin"] main[data-slot="admin-main"] > section > ul[data-slot="admin-badges"] a {
+  display: grid;
+  align-content: space-between;
+  justify-content: stretch;
+  gap: var(--space-2);
+  min-height: 104px;
+  padding: var(--space-3) var(--space-4);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-lg);
+  background: var(--surface-card);
+  box-shadow: var(--shadow-sm);
+  color: var(--text-strong);
+  font: var(--weight-semibold) var(--ui-fs-label) / var(--leading-snug) var(--font-sans);
+  transition: border-color var(--dur-fast) var(--ease-out), box-shadow var(--dur-fast) var(--ease-out);
+}
+/* 큰 숫자: OkDanDan 32px, 코랄 #e8674f(큰 글자 3.24 ≥ 3) */
+[data-slot="admin"] main[data-slot="admin-main"] > section > ul[data-slot="admin-badges"] a > [data-slot="badge"] {
+  justify-self: start;
+  min-width: 0;
+  min-height: 0;
+  padding: 0;
+  background: none;
+  color: var(--coral-500);
+  font: 700 32px / 1 var(--font-display);
+  letter-spacing: var(--tracking-tight);
+}
+[data-slot="admin"] main[data-slot="admin-main"] > section > ul[data-slot="admin-badges"] a > [data-slot="badge"]::after {
+  content: "건";
+  margin-inline-start: 2px;
+  color: var(--zinc-600);
+  font: var(--weight-medium) var(--ui-fs-help) / 1 var(--font-sans);
+}
+[data-slot="admin"] main[data-slot="admin-main"] > section > ul[data-slot="admin-badges"] a:not(:has(> [data-slot="badge"]))::after {
+  content: "없음";
+  color: var(--zinc-600);
+  font: var(--weight-medium) var(--ui-fs-help) / 1.3 var(--font-sans);
+}
+@media (hover: hover) {
+  [data-slot="admin"] main[data-slot="admin-main"] > section > ul[data-slot="admin-badges"] a:hover {
+    border-color: var(--zinc-500);
+    background: var(--surface-card);
+    box-shadow: var(--shadow-md);
+  }
+}
+@media (min-width: 640px) {
+  [data-slot="admin"] main[data-slot="admin-main"] > section > ul[data-slot="admin-badges"] { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  [data-slot="admin"] main[data-slot="admin-main"] > section > ul[data-slot="admin-badges"] a { border-radius: var(--radius-lg); }
+}
+@media (min-width: 1024px) {
+  [data-slot="admin"] main[data-slot="admin-main"] > section > ul[data-slot="admin-badges"] { grid-template-columns: repeat(5, minmax(0, 1fr)); }
+}
+
+/* ── 대시보드: 많이 찾은 말 ─────────────────────────────── */
+[data-slot="admin"] section[data-slot="admin-popular-terms"] {
+  display: grid;
+  gap: var(--space-2);
+  padding: var(--space-4);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-lg);
+  background: var(--surface-card);
+  box-shadow: var(--shadow-sm);
+}
+[data-slot="admin"] main[data-slot="admin-main"] > section > section[data-slot="admin-popular-terms"] { margin-top: var(--space-8); }
+[data-slot="admin"] section[data-slot="admin-popular-terms"] > h2 {
+  margin: 0;
+  color: var(--text-strong);
+  font: var(--weight-semibold) var(--text-lg) / var(--leading-snug) var(--font-sans);
+}
+[data-slot="admin"] section[data-slot="admin-popular-terms"] > ol {
+  display: grid;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  counter-reset: term;
+}
+[data-slot="admin"] section[data-slot="admin-popular-terms"] > ol > li {
+  display: flex;
+  align-items: baseline;
+  gap: var(--space-3);
+  min-height: 40px;
+  padding: 9px 0;
+  border-bottom: 1px solid var(--border-subtle);
+  color: var(--text-strong);
+  counter-increment: term;
+}
+[data-slot="admin"] section[data-slot="admin-popular-terms"] > ol > li:last-child { border-bottom: 0; }
+[data-slot="admin"] section[data-slot="admin-popular-terms"] > ol > li::before {
+  content: counter(term);
+  flex: none;
+  width: 1.5em;
+  color: var(--zinc-600);
+  font: var(--weight-medium) var(--text-sm) / 1 var(--font-mono);
+  text-align: end;
+}
+[data-slot="admin"] section[data-slot="admin-popular-terms"] > ol > li > :is(data, span):last-child {
+  margin-inline-start: auto;
+  color: var(--zinc-600);
+  font: var(--weight-regular) var(--text-sm) / 1 var(--font-mono);
+  font-feature-settings: "tnum" 1;
+}
+[data-slot="admin"] section[data-slot="admin-popular-terms"] > p {
+  margin: 0;
+  color: var(--text-muted);
+  font-size: var(--ui-fs-help);
+}
+
+/* ── 링크 목록(대시보드 게시판 등): h2 뒤 ul > li > a ─────── */
+[data-slot="admin"] main[data-slot="admin-main"] > section > h2 + ul:not([data-slot]):has(> li > a) {
+  display: grid;
+  padding: 0 var(--space-4);
+  list-style: none;
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-lg);
+  background: var(--surface-card);
+  box-shadow: var(--shadow-sm);
+}
+[data-slot="admin"] main[data-slot="admin-main"] > section > h2 + ul:not([data-slot]) > li + li { border-top: 1px solid var(--border-subtle); }
+[data-slot="admin"] main[data-slot="admin-main"] > section > h2 + ul:not([data-slot]) > li > a {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  min-height: 52px;
+  color: var(--text-strong);
+  font: var(--weight-medium) var(--ui-fs-body) / 1.3 var(--font-sans);
+  text-decoration: none;
+}
+[data-slot="admin"] main[data-slot="admin-main"] > section > h2 + ul:not([data-slot]) > li > a > [data-slot="badge"] { margin-inline-start: auto; }
+[data-slot="admin"] main[data-slot="admin-main"] > section > h2 + ul:not([data-slot]) > li > a::after {
+  content: "";
+  flex: none;
+  width: 18px;
+  height: 18px;
+  background: var(--zinc-500);
+  -webkit-mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m9 18 6-6-6-6'/%3E%3C/svg%3E") center / contain no-repeat;
+          mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m9 18 6-6-6-6'/%3E%3C/svg%3E") center / contain no-repeat;
+}
+[data-slot="admin"] main[data-slot="admin-main"] > section > h2 + ul:not([data-slot]) > li > a:not(:has(> [data-slot="badge"]))::after { margin-inline-start: auto; }
+@media (hover: hover) {
+  [data-slot="admin"] main[data-slot="admin-main"] > section > h2 + ul:not([data-slot]) > li > a:hover { text-decoration: underline; text-underline-offset: 2px; }
+}
+
+/* 대시보드 lg: 많이 찾은 말 | 게시판 두 칸 */
+@media (min-width: 1024px) {
+  [data-slot="admin"] main[data-slot="admin-main"] > section:has(> ul[data-slot="admin-badges"]) {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    column-gap: var(--space-6);
+  }
+  [data-slot="admin"] main[data-slot="admin-main"] > section:has(> ul[data-slot="admin-badges"]) > * { grid-column: 1 / -1; }
+  [data-slot="admin"] main[data-slot="admin-main"] > section:has(> ul[data-slot="admin-badges"]) > section[data-slot="admin-popular-terms"] {
+    grid-column: 1;
+    grid-row: span 2;
+    align-self: start;
+  }
+  [data-slot="admin"] main[data-slot="admin-main"] > section:has(> ul[data-slot="admin-badges"]) > section[data-slot="admin-popular-terms"] ~ :is(h2, ul) { grid-column: 2; }
+  [data-slot="admin"] main[data-slot="admin-main"] > section:has(> ul[data-slot="admin-badges"]) > section[data-slot="admin-popular-terms"] + h2 { margin-top: var(--space-8); }
+}
+
+/* ── 긴 화면 목차 (새 슬롯 page-toc) ───────────────────── */
+[data-slot="admin"] nav[data-slot="page-toc"] {
+  padding: var(--space-2) var(--space-4);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-lg);
+  background: var(--surface-card);
+}
+[data-slot="admin"] nav[data-slot="page-toc"] > :is(h2, p) {
+  margin: var(--space-2) 0 0;
+  color: var(--zinc-600);
+  font: var(--weight-semibold) var(--text-xs) / 1.3 var(--font-sans);
+  letter-spacing: var(--tracking-wide);
+}
+[data-slot="admin"] nav[data-slot="page-toc"] > ol {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0 var(--space-3);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+[data-slot="admin"] nav[data-slot="page-toc"] a {
+  display: flex;
+  align-items: center;
+  min-height: var(--ui-target);
+  color: var(--text-strong);
+  font: var(--weight-medium) var(--ui-fs-label) / 1.25 var(--font-sans);
+  text-decoration: none;
+}
+[data-slot="admin"] nav[data-slot="page-toc"] a[href="#danger-zone"],
+[data-slot="admin"] nav[data-slot="page-toc"] a[data-danger] { color: var(--danger-ink); }
+@media (hover: hover) {
+  [data-slot="admin"] nav[data-slot="page-toc"] a:hover { text-decoration: underline; text-underline-offset: 2px; }
+}
+[data-slot="admin"] nav[data-slot="page-toc"] a[aria-current="true"] { color: var(--coral-700); font-weight: var(--weight-bold); }
+/* lg 이상: 오른쪽에 붙는 목차 */
+@media (min-width: 1024px) {
+  [data-slot="admin"] main[data-slot="admin-main"] > section:has(> nav[data-slot="page-toc"]) {
+    grid-template-columns: minmax(0, var(--admin-measure)) 200px;
+    column-gap: var(--space-8);
+  }
+  [data-slot="admin"] main[data-slot="admin-main"] > section:has(> nav[data-slot="page-toc"]) > * { grid-column: 1; }
+  [data-slot="admin"] main[data-slot="admin-main"] > section > nav[data-slot="page-toc"] {
+    grid-column: 2;
+    grid-row: 1 / span 60;
+    align-self: start;
+    position: sticky;
+    top: calc(var(--admin-topbar) + var(--space-6));
+    margin-top: 0;
+    padding: 0 0 0 var(--space-4);
+    border: 0;
+    border-inline-start: 1px solid var(--border-subtle);
+    border-radius: 0;
+    background: none;
+  }
+  [data-slot="admin"] nav[data-slot="page-toc"] > ol { grid-template-columns: minmax(0, 1fr); }
+  [data-slot="admin"] nav[data-slot="page-toc"] a { min-height: 32px; font-size: var(--text-base); }
+}
+
+/* ── 위험 구역 (새 슬롯 danger-zone) ───────────────────── */
+[data-slot="admin"] section[data-slot="danger-zone"] {
+  display: grid;
+  gap: var(--space-3);
+  padding: var(--space-4);
+  border: 1px solid var(--danger-ink);
+  border-radius: var(--radius-lg);
+  background: var(--surface-card);
+}
+[data-slot="admin"] main[data-slot="admin-main"] > section > section[data-slot="danger-zone"] { margin-top: var(--space-10); }
+[data-slot="admin"] section[data-slot="danger-zone"] > h2 {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  margin: 0;
+  color: var(--danger-ink);
+  font: var(--weight-bold) var(--text-xl) / var(--leading-snug) var(--font-sans);
+  letter-spacing: var(--tracking-tight);
+}
+[data-slot="admin"] section[data-slot="danger-zone"] > h2::before {
+  content: "";
+  flex: none;
+  width: 22px;
+  height: 22px;
+  background: currentColor;
+  -webkit-mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3'/%3E%3Cpath d='M12 9v4M12 17h.01'/%3E%3C/svg%3E") center / contain no-repeat;
+          mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3'/%3E%3Cpath d='M12 9v4M12 17h.01'/%3E%3C/svg%3E") center / contain no-repeat;
+}
+[data-slot="admin"] section[data-slot="danger-zone"] > p { margin: 0; color: var(--text-muted); font-size: var(--ui-fs-help); }
+[data-slot="admin"] section[data-slot="danger-zone"] > form[data-slot="admin-form"] { display: block; max-width: none; }
+/* 안의 위험 폼: 카드 대신 위 선으로 나눈 줄 */
+[data-slot="admin"] section[data-slot="danger-zone"] > form[data-slot="admin-form"] > fieldset:not([data-slot]) {
+  gap: var(--space-2);
+  padding: var(--space-4) 0 0;
+  border: 0;
+  border-top: 1px solid var(--border-subtle);
+  border-radius: 0;
+  box-shadow: none;
+}
+[data-slot="admin"] section[data-slot="danger-zone"] > form[data-slot="admin-form"] > fieldset:not([data-slot]) > legend {
+  font-size: var(--text-lg);
+}
+[data-slot="admin"] section[data-slot="danger-zone"] > form[data-slot="admin-form"] > fieldset:not([data-slot]) > p:not(:has(> label)) {
+  margin: 0;
+  color: var(--text-body);
+  font-size: var(--ui-fs-help);
+}
+[data-slot="admin"] section[data-slot="danger-zone"] > form[data-slot="admin-form"] > fieldset:not([data-slot]) > button { width: 100%; }
+@media (min-width: 640px) {
+  [data-slot="admin"] section[data-slot="danger-zone"] { padding: var(--space-5) var(--space-6); }
+  [data-slot="admin"] section[data-slot="danger-zone"] > form[data-slot="admin-form"] > fieldset:not([data-slot]) {
+    grid-template-columns: minmax(0, 1fr) auto;
+    column-gap: var(--space-6);
+    align-items: center;
+  }
+  [data-slot="admin"] section[data-slot="danger-zone"] > form[data-slot="admin-form"] > fieldset:not([data-slot]) > * { grid-column: 1; }
+  [data-slot="admin"] section[data-slot="danger-zone"] > form[data-slot="admin-form"] > fieldset:not([data-slot]) > button {
+    grid-column: 2;
+    grid-row: 1 / span 3;
+    width: auto;
+    justify-self: end;
+  }
+}
+
+/* ── 회원 상세: 정보 목록 ──────────────────────────────── */
+[data-slot="admin"] dl[data-slot="member-info"] {
+  display: grid;
+  grid-template-columns: max-content minmax(0, 1fr);
+  margin: 0;
+  padding: 0 var(--space-4);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-lg);
+  background: var(--surface-card);
+  box-shadow: var(--shadow-sm);
+}
+[data-slot="admin"] dl[data-slot="member-info"] > div { display: contents; }
+[data-slot="admin"] dl[data-slot="member-info"] :is(dt, dd) {
+  margin: 0;
+  padding: 12px 0;
+  border-bottom: 1px solid var(--border-subtle);
+}
+[data-slot="admin"] dl[data-slot="member-info"] > :is(dt, dd):nth-last-child(-n + 2),
+[data-slot="admin"] dl[data-slot="member-info"] > div:last-child > :is(dt, dd) { border-bottom: 0; }
+[data-slot="admin"] dl[data-slot="member-info"] dt {
+  padding-inline-end: var(--space-5);
+  color: var(--zinc-600);
+  font: var(--weight-medium) var(--ui-fs-label) / var(--leading-snug) var(--font-sans);
+}
+[data-slot="admin"] dl[data-slot="member-info"] dd {
+  color: var(--text-strong);
+  font: var(--weight-regular) var(--ui-fs-body) / var(--leading-snug) var(--font-sans);
+  overflow-wrap: anywhere;
+}
+[data-slot="admin"] dl[data-slot="member-info"] dd :is(time, data, code) {
+  font-family: var(--font-mono);
+  font-size: 0.93em;
+  font-feature-settings: "tnum" 1;
+}
+@media (min-width: 1024px) {
+  [data-slot="admin"] dl[data-slot="member-info"] {
+    grid-template-columns: max-content minmax(0, 1fr) max-content minmax(0, 1fr);
+    column-gap: 0;
+    padding-inline: var(--space-5);
+  }
+  [data-slot="admin"] dl[data-slot="member-info"] dd:nth-of-type(odd) { padding-inline-end: var(--space-8); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  [data-slot="admin"] main[data-slot="admin-main"] > section > ul[data-slot="admin-badges"] a { transition: none; }
+}

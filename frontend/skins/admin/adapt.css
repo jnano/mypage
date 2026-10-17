@@ -1,57 +1,74 @@
 /* 관리 화면 스킨 — 받아 온 부품 CSS(Claude Design)를 mypage 골격에 맞추는 조정. 맨 마지막에 싣는다.
    받아 온 파일은 그대로 두고 여기서만 덮는다 — 다음 판을 받아 올 때 바꿈이 섞이지 않게(관리디자인 지시서 §4).
-   2단계에서 여기 두었던 조정(설정 fieldset 카드·빈 결과 알림·선택 목록 화살표)은 3단계 판이 흡수해 뺐다. */
+   2·3단계에서 여기 두었던 조정(설정 카드·빈 결과 알림·선택 목록 화살표·건너뛰기 링크 범위·일괄 막대 순서·조치별 칸·
+   카드 고르기 칸·표 칸 단추 폼)은 4단계 판이 흡수해 뺐다. */
 
 /* ── 스위치 칸(설정의 켜고 끄기): 도움말은 라벨 글자와 같은 줄 시작 ── */
 [data-slot="admin"] p:has(> label[data-slot="switch-field"]) > :is(small, [data-slot="field-help"]) { padding-inline-start: 0; }
 
-/* ── 본문의 링크 목록(대시보드 게시판 목록 등): 줄마다 누르는 곳 44px ── */
+/* ── 본문의 링크 목록(대시보드 밖 — h2 바로 뒤가 아닌 목록 포함): 줄마다 누르는 곳 44px ── */
 [data-slot="admin"] main[data-slot="admin-main"] ul:not([data-slot]) > li > a:only-child {
   display: inline-flex;
   align-items: center;
   min-height: var(--ui-target);
 }
 
-/* ── 일괄 조치 막대: 보이는 순서 = 마크업 순서(표 다음) ──
-   받아 온 판은 order:-1 로 표 위에 올렸다 — 그러면 키보드 순서(표 → 막대)와 보이는 순서가 어긋난다(WCAG 2.4.3).
-   대신 화면 아래에 붙여(엄지 쪽) 긴 표를 내려가는 동안에도 보이게 한다. 고른 수 셈(counter)은 순서와 무관하게 맞다 */
-[data-slot="admin"] fieldset[data-slot="bulk-bar"] {
-  order: 0;
-  top: auto;
-  bottom: calc(var(--space-2) + env(safe-area-inset-bottom));
+/* ── 편집기 블록 상태 글자: 숨김은 마크업 제목에 이미 "(숨김)" 이 있다(화면낭독기가 확실히 읽게) — CSS 배지는 끈다.
+   data-broken 은 편집기에서 '고칠 곳이 있는 블록'(저장 전 검증 오류)이라 '끊김' 대신 '오류' ── */
+[data-slot="admin"] li:is([data-slot="editor-block"], [data-slot="editor-menu-item"])[data-inactive]:not([data-broken]) > :is(h3, p):first-child::after { content: none; }
+[data-slot="admin"] li:is([data-slot="editor-block"], [data-slot="editor-menu-item"])[data-broken] > :is(h3, p):first-child::after { content: "오류"; }
+
+/* ── 블록 단추 줄의 '옮길 영역'(라벨 + 선택 + 옮기기): 받아 온 판은 display:contents 라 라벨·선택이 단추 칸에 흩어졌다 —
+   한 줄로 묶어 단추 줄 아래 폭 전체에 놓는다 ── */
+[data-slot="admin"] :is([data-slot="block-buttons"], [data-slot="item-buttons"]) > [data-slot="move-group"] {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2);
+  grid-column: 1 / -1;
+  flex: 1 1 100%;
+  min-width: 0;
+}
+[data-slot="admin"] [data-slot="move-group"] > label {
+  color: var(--text-strong);
+  font: var(--weight-semibold) var(--ui-fs-label) / 1.2 var(--font-sans);
+  white-space: nowrap;
+}
+[data-slot="admin"] [data-slot="move-group"] > select {
+  flex: 1 1 10rem;
+  width: auto;
 }
 
-/* ── 조치별 칸: 받아 온 판의 값(move·category·level·hide·trash) 중 실제 조치 값과 다른 것을 더한다
-   — 글 관리의 복사(copy)는 옮기기와 같은 게시판 칸, 열람 등급은 view_level ── */
-[data-slot="admin"] form:has(table[data-slot="admin-table"] > tbody input[type="checkbox"]:checked) > fieldset[data-slot="bulk-bar"]:has(select[name="action"] option[value="copy"]:checked) [data-action-field~="copy"],
-[data-slot="admin"] form:has(table[data-slot="admin-table"] > tbody input[type="checkbox"]:checked) > fieldset[data-slot="bulk-bar"]:has(select[name="action"] option[value="view_level"]:checked) [data-action-field~="view_level"] {
+/* ── 블록 설정 폼의 묶음 칸(그림·게시판·목록 등 fieldset[data-slot=field]): 브라우저 기본 테두리 대신 옅은 상자 ── */
+[data-slot="admin"] [data-slot="config-form"] fieldset[data-slot="field"] {
   display: grid;
+  gap: var(--space-3);
+  min-width: 0;
+  margin: 0;
+  padding: var(--space-3) var(--space-4) var(--space-4);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-md);
+}
+[data-slot="admin"] [data-slot="config-form"] fieldset[data-slot="field"] > legend {
+  padding: 0 var(--space-1);
+  color: var(--text-strong);
+  font: var(--weight-semibold) var(--ui-fs-label) / var(--leading-snug) var(--font-sans);
 }
 
-/* ── 카드 목록의 고르기 칸: 칸 이름(::before)을 끈다 — 저장소 표는 모든 칸에 data-label 을 붙여(표 읽기용)
-   받아 온 판의 가정(고르기 칸엔 이름 없음)과 달라, '고르기' 글자가 44px 칸 밖으로 새고 체크가 제목을 가렸다 ── */
-[data-slot="admin"] table[data-slot="admin-table"] > tbody > tr > td:first-child:has(> input[type="checkbox"])::before { content: none; }
-
-/* ── 고르기 칸이 없는 표(게시판·틀·작업 목록 등)의 카드: 왼쪽 44px 칸을 비워 두지 않는다 ── */
-[data-slot="admin"] table[data-slot="admin-table"] > tbody > tr:not(:has(> td:first-child > input[type="checkbox"])) {
-  grid-template-columns: minmax(0, 1fr);
-  padding-inline-start: var(--space-4);
+/* ── 파일 고르기: 단추 부분을 보조 단추 모양으로(글자는 브라우저가 정한다) ── */
+[data-slot="admin"] input[type="file"] {
+  max-width: 100%;
+  color: var(--text-body);
+  font: var(--weight-regular) var(--ui-fs-help) / 1.4 var(--font-sans);
 }
-[data-slot="admin"] table[data-slot="admin-table"] > tbody > tr:not(:has(> td:first-child > input[type="checkbox"])) > :is(th, td) { grid-column: 1; }
-
-/* ── 표 칸 안의 단추 폼(위로·아래로·지우기 — AdminForm): 1024px 이상에서는 작은 단추를 나란히(줄 높이를 낮게).
-   모바일 카드에서는 받아 온 판대로 44px. 결과 알림(form-status)은 비어 있으면 높이 0 이라 그대로 둔다 ── */
-@media (min-width: 1024px) {
-  [data-slot="admin"] table[data-slot="admin-table"] td > form[data-slot="admin-form"] {
-    display: inline-flex;
-    flex-wrap: wrap;
-    align-items: center;
-    gap: var(--space-1);
-    vertical-align: middle;
-  }
-  [data-slot="admin"] table[data-slot="admin-table"] td > form[data-slot="admin-form"] > button[type="submit"] {
-    --_px: 14px;
-    min-height: var(--ui-target-compact);
-    font-size: var(--text-sm);
-  }
+[data-slot="admin"] input[type="file"]::file-selector-button {
+  min-height: var(--ui-target);
+  margin-inline-end: var(--space-3);
+  padding: 0 var(--space-4);
+  border: 1px solid var(--zinc-500);
+  border-radius: var(--radius-pill);
+  background: var(--surface-card);
+  color: var(--text-strong);
+  font: var(--weight-semibold) var(--ui-fs-label) / 1 var(--font-sans);
+  cursor: pointer;
 }

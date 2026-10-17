@@ -14,6 +14,7 @@ import {
 } from "@/app/admin/actions";
 import { AdminForm } from "@/components/admin/AdminForm";
 import { AdminProblem } from "@/components/admin/AdminProblem";
+import { PageToc } from "@/components/admin/PageToc";
 import { SettingField as Field } from "@/components/admin/SettingField";
 import { BOARD_SECTIONS, fieldValue } from "@/lib/admin/boardFields";
 import { adminGet, query } from "@/lib/admin/load";
@@ -52,9 +53,24 @@ async function BoardSettings({ params, searchParams }: PageProps<"/admin/boards/
       <p>
         <Link href={`/boards/${board.slug}`}>게시판 보기</Link> · <Link href="/admin/boards">게시판 목록</Link>
       </p>
+      <PageToc
+        items={[
+          ...BOARD_SECTIONS.map((s) => ({ id: `s-${s.id}`, label: s.title })),
+          { id: "categories", label: "카테고리" },
+          { id: "access", label: "명부와 담당자" },
+          { id: "permission-preview", label: "권한 미리보기" },
+          ...(board.is_system ? [] : [{ id: "danger-zone", label: "비우기·삭제", danger: true }]),
+        ]}
+      />
 
       {BOARD_SECTIONS.map((section) => (
-        <AdminForm key={section.id} action={updateBoardAction.bind(null, board.slug, section.id)} submitLabel={`${section.title} 저장`} label={section.title}>
+        <AdminForm
+          key={section.id}
+          id={`s-${section.id}`}
+          action={updateBoardAction.bind(null, board.slug, section.id)}
+          submitLabel={`${section.title} 저장`}
+          label={section.title}
+        >
           <fieldset>
             <legend>{section.title}</legend>
             {section.fields.map((field) =>
@@ -71,7 +87,7 @@ async function BoardSettings({ params, searchParams }: PageProps<"/admin/boards/
         </AdminForm>
       ))}
 
-      <h2>카테고리</h2>
+      <h2 id="categories">카테고리</h2>
       <p>지우기는 글이 없는 카테고리만 됩니다. 글이 있으면 다른 카테고리로 병합하세요.</p>
       <ol>
         {categories.map((c, i) => (
@@ -105,7 +121,7 @@ async function BoardSettings({ params, searchParams }: PageProps<"/admin/boards/
         <input name="name" maxLength={50} required aria-label="새 카테고리 이름" />
       </AdminForm>
 
-      <h2>명부와 담당자</h2>
+      <h2 id="access">명부와 담당자</h2>
       <AdminForm action={accessAction.bind(null, board.slug)} submitLabel="명부 저장" label="명부">
         <label htmlFor="access-entries">명부 — 등급이 모자라도 허용. 줄마다 &quot;member 회원번호 rw&quot; 또는 &quot;group 그룹번호 r&quot;(r 읽기, w 쓰기)</label>
         <textarea
@@ -122,7 +138,7 @@ async function BoardSettings({ params, searchParams }: PageProps<"/admin/boards/
         <span>지금: {moderators.length ? moderators.map((m) => `${m.name}(#${m.id})`).join(", ") : "없음"}</span>
       </AdminForm>
 
-      <h2>권한 미리보기</h2>
+      <h2 id="permission-preview">권한 미리보기</h2>
       <form method="get" aria-label="권한 미리보기">
         <label>
           등급 <input name="level" inputMode="numeric" defaultValue={(sp.level as string) ?? ""} />
@@ -153,8 +169,9 @@ async function BoardSettings({ params, searchParams }: PageProps<"/admin/boards/
       )}
 
       {!board.is_system && (
-        <>
-          <h2>비우기·삭제</h2>
+        <section id="danger-zone" aria-labelledby="danger-zone-heading" data-slot="danger-zone">
+          <h2 id="danger-zone-heading">비우기·삭제</h2>
+          <p>되돌릴 수 없습니다. 실행 전에 한 번 더 묻습니다.</p>
           <AdminForm action={emptyBoardAction.bind(null, board.slug)} submitLabel="게시판 비우기(모든 글 영구 삭제)" label="게시판 비우기" danger>
             <label>
               확인: 주소 <code>{board.slug}</code> 를 적으세요 <input name="confirm" autoComplete="off" />
@@ -168,7 +185,7 @@ async function BoardSettings({ params, searchParams }: PageProps<"/admin/boards/
               확인: 주소 <code>{board.slug}</code> 를 적으세요 <input name="confirm" autoComplete="off" />
             </label>
           </AdminForm>
-        </>
+        </section>
       )}
     </section>
   );

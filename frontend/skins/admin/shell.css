@@ -60,8 +60,7 @@
 }
 [data-slot="admin"] [data-slot="admin-header"] a:active { background: var(--ink-700); }
 
-/* 본문 바로가기: body 바로 아래 하나. 초점을 받을 때만 보임, 보일 때 44px
-   저장소 반영 때 고침: 관리 화면일 때만(body:has) — 관리 CSS 는 클라이언트 이동 뒤에도 남아 일반 화면의 건너뛰기 링크까지 바꾸게 된다 */
+/* 본문 바로가기: body 바로 아래 하나. 관리 화면이 있을 때만 — 일반 화면의 건너뛰기 링크는 건드리지 않는다. 초점 때만 보임, 44px */
 body:has(> [data-slot="admin"]) > a[data-slot="skip-link"] {
   box-sizing: border-box;
   position: fixed;

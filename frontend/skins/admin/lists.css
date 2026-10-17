@@ -3,7 +3,7 @@
            role(table·rowgroup·row·columnheader·rowheader·cell) 을 마크업에 붙인다 — 모바일에서 display 를 바꿔도 표로 읽히게.
            1024px 미만: 줄 하나 = 카드 하나. 칸 이름은 attr(data-label). 1024px 이상: 표.
    거르기  form[method=get][data-slot="filters"] > label(글자 + select|input) … + fieldset[data-slot="segmented"] + button
-   일괄    form[data-slot="admin-form"] > 표 + fieldset[data-slot="bulk-bar"] (새 슬롯) — 화면에서는 표 위에 붙는다
+   일괄    form[data-slot="admin-form"] > 표 + fieldset[data-slot="bulk-bar"] (새 슬롯) — 표 다음, 화면 아래에 붙는다
    더 보기 p[data-slot="more"] > a  (또는 목록 바로 뒤 p > a 하나)
    대기    ol[data-slot="pending-list"|"report-list"|"level-requests"|"pending-members"] > li > p + form(승인) + form(거부)
    빈 목록 p[data-slot="empty"]   불러오는 중 p[data-slot="loading"] */
@@ -94,6 +94,14 @@
   align-items: flex-start;
   padding-top: 11px;
 }
+/* 고르기 칸에도 data-label 이 있다 — 카드에서는 칸 이름을 끈다 */
+[data-slot="admin"] table[data-slot="admin-table"] > tbody > tr > td:first-child:has(> input[type="checkbox"])::before { content: none; }
+/* 고르기 칸이 없는 표(게시판·틀·작업 목록): 왼쪽 44px 빈 칸 없음 */
+[data-slot="admin"] table[data-slot="admin-table"] > tbody > tr:not(:has(> td:first-child > input[type="checkbox"])) {
+  grid-template-columns: minmax(0, 1fr);
+  padding-inline-start: var(--space-4);
+}
+[data-slot="admin"] table[data-slot="admin-table"] > tbody > tr:not(:has(> td:first-child > input[type="checkbox"])) > :is(th, td) { grid-column: 1; }
 [data-slot="admin"] table[data-slot="admin-table"] input[type="checkbox"]::before {
   content: "";
   position: absolute;
@@ -149,6 +157,7 @@
   border-top: 1px solid var(--border-subtle);
 }
 [data-slot="admin"] table[data-slot="admin-table"] > tbody > tr > td:has(> :is(button, a[data-slot="button-link"], form))::before { content: none; }
+[data-slot="admin"] table[data-slot="admin-table"] > tbody > tr > td > form { display: contents; }
 /* 고른 줄: 코랄 테두리 + 옅은 바탕 (칸 이름은 zinc-600 — zinc-500 은 coral-50 위 4.37) */
 [data-slot="admin"] table[data-slot="admin-table"] > tbody > tr:has(> td:first-child input[type="checkbox"]:checked) {
   border-color: var(--coral-700);
@@ -229,6 +238,21 @@
   }
   [data-slot="admin"] table[data-slot="admin-table"] > tbody > tr > td:has(> :is(button, a[data-slot="button-link"], form)) > * + * { margin-inline-start: var(--space-1); }
   [data-slot="admin"] table[data-slot="admin-table"] > tbody > tr:last-child > * { border-bottom: 0; }
+  /* 칸 안 단추 폼(위로·아래로·지우기): 32px 단추를 나란히 */
+  [data-slot="admin"] table[data-slot="admin-table"] > tbody > tr > td > form {
+    display: inline-flex;
+    gap: var(--space-1);
+    max-width: none;
+    margin: 0;
+    vertical-align: middle;
+  }
+  [data-slot="admin"] table[data-slot="admin-table"] > tbody > tr > td > form :is(button, a[data-slot="button-link"]):not([role="switch"]) {
+    --_px: 12px;
+    min-height: var(--ui-target-compact);
+    min-width: var(--ui-target-compact);
+    font-size: var(--text-sm);
+  }
+  [data-slot="admin"] table[data-slot="admin-table"] > tbody > tr > td > form button[data-shape="icon"] { --_px: 0px; width: var(--ui-target-compact); }
   @media (hover: hover) {
     [data-slot="admin"] table[data-slot="admin-table"] > tbody > tr:hover > * { background: var(--zinc-50); }
   }
@@ -284,7 +308,7 @@
 }
 
 /* ── 일괄 조치 막대 ────────────────────────────────────── */
-/* 마크업 순서는 표 → 막대 그대로. 화면에서는 order 로 표 위에 붙이고, 고른 수는 CSS 셈(counter)으로 보인다. */
+/* 마크업 순서(표 → 막대) 그대로, 화면 아래에 붙인다 — 키보드 순서 = 보이는 순서. 고른 수는 CSS 셈(counter). */
 [data-slot="admin"] form[data-slot="admin-form"]:has(> fieldset[data-slot="bulk-bar"]) {
   display: flex;
   flex-direction: column;
@@ -296,9 +320,10 @@
   counter-increment: picked;
 }
 [data-slot="admin"] fieldset[data-slot="bulk-bar"] {
-  order: -1;
+  order: 0;
   position: sticky;
-  top: calc(var(--admin-topbar) + var(--space-2));
+  top: auto;
+  bottom: calc(var(--space-2) + env(safe-area-inset-bottom));
   z-index: 5;
   display: grid;
   grid-template-columns: minmax(0, 1fr);
@@ -331,13 +356,22 @@
   color: var(--text-strong);
   font: var(--weight-semibold) var(--ui-fs-label) / var(--leading-snug) var(--font-sans);
 }
-/* 조치에 따라 나오는 칸: data-action-field="move" 처럼 조치 값을 적는다 (새 속성) */
+/* 조치에 따라 나오는 칸: data-action-field 에 조치 값을 띄어 적는다 (게시판 "move copy", 카테고리 "category", 열람 등급 "view_level").
+   조치 값 — 글: trash restore purge(위험) pin unpin blind unblind move copy category view_level publish_now / 댓글: blind unblind delete(위험) */
 [data-slot="admin"] fieldset[data-slot="bulk-bar"] [data-action-field] { display: none; }
+[data-slot="admin"] form:has(table[data-slot="admin-table"] > tbody input[type="checkbox"]:checked) > fieldset[data-slot="bulk-bar"]:has(select[name="action"] option[value="trash"]:checked) [data-action-field~="trash"],
+[data-slot="admin"] form:has(table[data-slot="admin-table"] > tbody input[type="checkbox"]:checked) > fieldset[data-slot="bulk-bar"]:has(select[name="action"] option[value="restore"]:checked) [data-action-field~="restore"],
+[data-slot="admin"] form:has(table[data-slot="admin-table"] > tbody input[type="checkbox"]:checked) > fieldset[data-slot="bulk-bar"]:has(select[name="action"] option[value="purge"]:checked) [data-action-field~="purge"],
+[data-slot="admin"] form:has(table[data-slot="admin-table"] > tbody input[type="checkbox"]:checked) > fieldset[data-slot="bulk-bar"]:has(select[name="action"] option[value="pin"]:checked) [data-action-field~="pin"],
+[data-slot="admin"] form:has(table[data-slot="admin-table"] > tbody input[type="checkbox"]:checked) > fieldset[data-slot="bulk-bar"]:has(select[name="action"] option[value="unpin"]:checked) [data-action-field~="unpin"],
+[data-slot="admin"] form:has(table[data-slot="admin-table"] > tbody input[type="checkbox"]:checked) > fieldset[data-slot="bulk-bar"]:has(select[name="action"] option[value="blind"]:checked) [data-action-field~="blind"],
+[data-slot="admin"] form:has(table[data-slot="admin-table"] > tbody input[type="checkbox"]:checked) > fieldset[data-slot="bulk-bar"]:has(select[name="action"] option[value="unblind"]:checked) [data-action-field~="unblind"],
 [data-slot="admin"] form:has(table[data-slot="admin-table"] > tbody input[type="checkbox"]:checked) > fieldset[data-slot="bulk-bar"]:has(select[name="action"] option[value="move"]:checked) [data-action-field~="move"],
+[data-slot="admin"] form:has(table[data-slot="admin-table"] > tbody input[type="checkbox"]:checked) > fieldset[data-slot="bulk-bar"]:has(select[name="action"] option[value="copy"]:checked) [data-action-field~="copy"],
 [data-slot="admin"] form:has(table[data-slot="admin-table"] > tbody input[type="checkbox"]:checked) > fieldset[data-slot="bulk-bar"]:has(select[name="action"] option[value="category"]:checked) [data-action-field~="category"],
-[data-slot="admin"] form:has(table[data-slot="admin-table"] > tbody input[type="checkbox"]:checked) > fieldset[data-slot="bulk-bar"]:has(select[name="action"] option[value="level"]:checked) [data-action-field~="level"],
-[data-slot="admin"] form:has(table[data-slot="admin-table"] > tbody input[type="checkbox"]:checked) > fieldset[data-slot="bulk-bar"]:has(select[name="action"] option[value="hide"]:checked) [data-action-field~="hide"],
-[data-slot="admin"] form:has(table[data-slot="admin-table"] > tbody input[type="checkbox"]:checked) > fieldset[data-slot="bulk-bar"]:has(select[name="action"] option[value="trash"]:checked) [data-action-field~="trash"] {
+[data-slot="admin"] form:has(table[data-slot="admin-table"] > tbody input[type="checkbox"]:checked) > fieldset[data-slot="bulk-bar"]:has(select[name="action"] option[value="view_level"]:checked) [data-action-field~="view_level"],
+[data-slot="admin"] form:has(table[data-slot="admin-table"] > tbody input[type="checkbox"]:checked) > fieldset[data-slot="bulk-bar"]:has(select[name="action"] option[value="publish_now"]:checked) [data-action-field~="publish_now"],
+[data-slot="admin"] form:has(table[data-slot="admin-table"] > tbody input[type="checkbox"]:checked) > fieldset[data-slot="bulk-bar"]:has(select[name="action"] option[value="delete"]:checked) [data-action-field~="delete"] {
   display: grid;
 }
 /* 되돌리기 어려운 조치(option[data-danger])를 고르면 제출 단추가 위험 모양 */

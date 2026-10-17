@@ -5,11 +5,6 @@
   --coral-800: #8f321b;            /* 새 값: 주 단추 누름·올림 (흰 글자 7.95) */
   --ui-danger-press: #7a1e13;      /* 새 값: 위험 확정 누름·올림 (흰 글자 10.38) */
 
-  /* 대비 보정 별칭 */
-  --text-link: var(--coral-700);   /* 4.21 → 5.87 */
-  --text-faint: var(--zinc-500);   /* 자리 글자 2.56 → 4.83 */
-  --border-strong: var(--zinc-500);/* 입력 테두리 1.48 → 4.83 */
-  --border-focus: var(--coral-700);
   --ui-accent: var(--coral-700);        /* 주 단추 바탕 3.24 → 5.87 */
   --ui-accent-press: var(--coral-800);
   --ui-danger: var(--danger-ink);       /* 위험 단추 4.09 → 8.01 */
@@ -33,6 +28,13 @@
   --ui-fs-input: 16px;
   --ui-fs-label: 15px;
   --ui-fs-help: 14px;
+}
+/* ProjectM 의미 별칭을 덮는 대비 보정은 관리 화면 안에서만 (일반 화면 값은 그대로) */
+[data-slot="admin"] {
+  --text-link: var(--coral-700);   /* 4.21 → 5.87 */
+  --text-faint: var(--zinc-500);   /* 자리 글자 2.56 → 4.83 */
+  --border-strong: var(--zinc-500);/* 입력 테두리 1.48 → 4.83 */
+  --border-focus: var(--coral-700);
 }
 @media (min-width: 1024px) {
   :root {

@@ -73,7 +73,8 @@
 }
 
 /* ── 입력칸 · 선택 · 여러 줄 ───────────────────────────── */
-[data-slot="admin"] :is(input:not([type="checkbox"], [type="radio"], [type="hidden"], [type="file"], [type="range"], [type="color"]), select, textarea) {
+/* 공통 입력 규칙은 :where() 로 우선순위를 낮춰(0,1,0) select·textarea 개별 규칙이 이기게 한다 */
+[data-slot="admin"] :where(input:not([type="checkbox"], [type="radio"], [type="hidden"], [type="file"], [type="range"], [type="color"]), select, textarea) {
   box-sizing: border-box;
   width: 100%;
   min-width: 0;

@@ -1,6 +1,6 @@
 """모듈 등록부 — 홈블록 설계도 §3.4. 빈 블록 `module` 에 끼우는 코드 기능.
 
-프런트 frontend/lib/blocks/modules.ts 의 registerModule 과 키가 같아야 한다(생성 파일 blocks.gen.json 으로 대조).
+프런트 components/blocks/ModuleSlot.tsx 의 MODULE_REGISTRY 와 키가 같아야 한다(생성 파일 blocks.gen.json 의 modules ↔ ModuleKey 타입 대조).
 모듈은 자기 데이터를 자기 API·캐시 태그로 불러온다 — 블록 묶음 응답이 모듈 데이터를 대신 싣지 않는다.
 """
 

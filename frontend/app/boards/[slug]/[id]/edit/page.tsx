@@ -1,8 +1,10 @@
 import { notFound } from "next/navigation";
 import { Suspense } from "react";
 import { PostForm } from "@/components/boards/PostForm";
+import { RelationsPanel } from "@/components/boards/RelationsPanel";
 import { ProblemNotice } from "@/components/boards/ProblemNotice";
 import { ApiError } from "@/lib/api/problem";
+import type { RelationItem } from "@/lib/boards/relations";
 import type { BoardPage, EditablePost } from "@/lib/boards/types";
 import { personalGet } from "@/lib/server/backend";
 import { updatePostAction } from "../../../actions";
@@ -22,11 +24,20 @@ async function EditScreen({ params }: PageProps<"/boards/[slug]/[id]/edit">) {
   if (!/^[1-9][0-9]{0,17}$/.test(id)) notFound();
   let post: EditablePost;
   let board: BoardPage;
+  let relations: RelationItem[] | null;
   try {
-    // 수정 화면은 쓴 형식의 원문과 version(낙관적 잠금)을 받는다 — 서로 독립이라 병렬로
-    [post, board] = await Promise.all([
+    // 수정 화면은 쓴 형식의 원문과 version(낙관적 잠금)을 받는다 — 서로 독립이라 병렬로.
+    // 관련 글 편집(§6.2)은 권한이 다를 수 있어(정지 등) 실패해도 화면은 그대로 — 칸만 뺀다
+    [post, board, relations] = await Promise.all([
       personalGet<EditablePost>(`/api/posts/${id}`),
       personalGet<BoardPage>(`/api/boards/${encodeURIComponent(slug)}/page`),
+      personalGet<{ items: RelationItem[] }>(`/api/posts/${id}/relations`).then(
+        (r) => r.items,
+        (e: unknown) => {
+          if (e instanceof ApiError) return null;
+          throw e;
+        },
+      ),
     ]);
   } catch (e) {
     if (e instanceof ApiError) {
@@ -61,6 +72,7 @@ async function EditScreen({ params }: PageProps<"/boards/[slug]/[id]/edit">) {
           temp: false,
         }))}
       />
+      {relations && <RelationsPanel postId={post.id} initial={relations} />}
     </section>
   );
 }

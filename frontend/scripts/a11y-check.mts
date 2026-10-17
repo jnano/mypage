@@ -94,13 +94,15 @@ try {
   for (const path of ["/", "/boards/free", "/boards/notice", ...(postPath ? [postPath] : []), "/search?q=회의", "/dev/login", "/login", "/signup", "/privacy", "/reset"]) {
     findings.push(...(await check(guest, path, "비회원")));
   }
-  // 회원 — 글쓰기(마크다운·리치)·알림·글 보기(댓글 폼)
+  // 회원 — 글쓰기(마크다운·리치)·알림·글 보기(댓글 폼)·내 목록 셋
   const member = await open(browser, values.member!);
   findings.push(...(await check(member, "/boards/free/write", "회원")));
   findings.push(...(await check(member, "/boards/meeting/write", "회원", '[data-slot="editor-content"]')));
   if (postPath) findings.push(...(await check(member, postPath, "회원")));
   findings.push(...(await check(member, "/me/notifications", "회원")));
   findings.push(...(await check(member, "/me/account", "회원")));
+  // 내 목록(설계도 §6.2)
+  for (const path of ["/me/posts", "/me/comments", "/me/scraps"]) findings.push(...(await check(member, path, "회원")));
   // 운영자 — 관리 화면
   const admin = await open(browser, values.admin!);
   for (const path of [

@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { MyTabs } from "@/components/me/MyTabs";
 import { Suspense } from "react";
 import { logoutAllAction } from "@/app/auth/actions";
 import { cancelLevelRequestAction, changePasswordAction, requestLevelAction, revokeSessionAction, withdrawAction } from "./actions";
@@ -41,6 +42,7 @@ export default function AccountPage(props: PageProps<"/me/account">) {
   return (
     <section data-slot="account">
       <h1>내 계정</h1>
+      <MyTabs />
       <Suspense fallback={<p data-slot="loading">불러오는 중…</p>}>
         <AccountView {...props} />
       </Suspense>

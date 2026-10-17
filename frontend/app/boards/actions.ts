@@ -2,6 +2,7 @@
 
 import { redirect } from "next/navigation";
 import { ApiError, type ProblemBody } from "@/lib/api/problem";
+import type { RelationItem } from "@/lib/boards/relations";
 import type { Invalidation } from "@/lib/boards/types";
 import { personalSend } from "@/lib/server/backend";
 import { applyInvalidation } from "@/lib/server/invalidate";
@@ -254,6 +255,33 @@ export async function setReactionAction(postId: number, kind: "like" | "scrap", 
   try {
     const { data } = await personalSend<ReactionResponse>(on ? "PUT" : "DELETE", `/api/posts/${postId}/${kind}`);
     return kind === "like" ? { on: data.liked === true, count: data.like_count } : { on: data.scrapped === true, count: data.scrap_count };
+  } catch (e) {
+    return { problem: asProblem(e) };
+  }
+}
+
+// ── 관련 글 편집(§6.2) — 담당자·회원 작성자. 원본 글 화면을 즉시 갱신(post:{원본}) ──
+
+export interface RelationsResult {
+  items?: RelationItem[];
+  problem?: ProblemBody;
+}
+
+export async function addRelationAction(postId: number, targetId: number): Promise<RelationsResult> {
+  try {
+    const { data } = await personalSend<{ items: RelationItem[]; invalidate: Invalidation }>("POST", `/api/posts/${postId}/relations`, { target_id: targetId });
+    applyInvalidation(data.invalidate);
+    return { items: data.items };
+  } catch (e) {
+    return { problem: asProblem(e) };
+  }
+}
+
+export async function removeRelationAction(postId: number, targetId: number): Promise<RelationsResult> {
+  try {
+    const { data } = await personalSend<{ items: RelationItem[]; invalidate: Invalidation }>("DELETE", `/api/posts/${postId}/relations/${targetId}`);
+    applyInvalidation(data.invalidate);
+    return { items: data.items };
   } catch (e) {
     return { problem: asProblem(e) };
   }

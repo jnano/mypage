@@ -18,6 +18,7 @@ from app.admin import settings as site_settings
 from app.blocks import types as t
 from app.blocks.limits import MAX_BLOCKS_PER_OWNER, MAX_DYNAMIC_BLOCKS, MAX_MODULES_PER_PAGE
 from app.core.problems import Problem
+from app.core.validation_messages import ko_message
 from app.files import block_images
 from app.models import Attachment, Block, Board, Menu, Page
 
@@ -105,42 +106,6 @@ def _loc(err: dict) -> str:
     for part in err["loc"]:
         out += f"[{part}]" if isinstance(part, int) else f".{part}"
     return out
-
-
-def ko_message(err: Any) -> str:
-    """Pydantic 기본 오류 문구(영문) → 관리 화면에 보일 한국어. 우리 검증기의 문구(ValueError)는 'Value error, ' 머리만 뗀다.
-    모르는 종류는 원문 그대로(빠진 번역이 오류를 숨기지 않게)"""
-    ctx = err.get("ctx") or {}
-    match err["type"]:
-        case "value_error":
-            return str(ctx.get("error", err["msg"]))
-        case "missing":
-            return "필요한 칸입니다"
-        case "string_too_short":
-            return "비어 있습니다" if ctx.get("min_length") == 1 else f"{ctx.get('min_length')}자 이상이어야 합니다"
-        case "string_too_long":
-            return f"{ctx.get('max_length')}자까지입니다"
-        case "too_short":
-            return f"{ctx.get('min_length')}개 이상 골라야 합니다" if ctx.get("min_length") else "비어 있습니다"
-        case "too_long":
-            return f"{ctx.get('max_length')}개까지입니다"
-        case "greater_than_equal":
-            return f"{ctx.get('ge')} 이상이어야 합니다"
-        case "less_than_equal":
-            return f"{ctx.get('le')} 이하여야 합니다"
-        case "int_parsing" | "int_type" | "int_from_float":
-            return "숫자를 넣습니다"
-        case "string_type":
-            return "글자를 넣습니다"
-        case "bool_type" | "bool_parsing":
-            return "참·거짓 값이어야 합니다"
-        case "literal_error" | "enum":
-            return "고를 수 있는 값이 아닙니다"
-        case "union_tag_invalid" | "union_tag_not_found":
-            return "링크 종류를 고릅니다"
-        case "extra_forbidden":
-            return "모르는 칸입니다"
-    return err["msg"]
 
 
 def validate_tree(

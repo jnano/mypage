@@ -338,3 +338,4 @@ def test_search_box_is_a_named_landmark() -> None:
         validate_tree("page", [(None, [BlockIn(type="search_box")])], "blocks", {SEARCH_LANDMARK: "틀 1"})
     validate_tree("layout", [("header", [BlockIn(type="search_box")])], "regions")  # 대조: 하나면 통과
     # 화면의 이름은 생성 파일(enums.gen.json 의 searchLandmark)에서 — 원본과 같은지는 test_generated_file_is_current(코드 검토 v19 N-1)
+

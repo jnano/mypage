@@ -10,6 +10,8 @@ from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
 from starlette.exceptions import HTTPException as StarletteHTTPException
 
+from app.core.validation_messages import ko_message
+
 MEDIA_TYPE = "application/problem+json"
 
 
@@ -64,7 +66,7 @@ async def _on_http_exception(_: Request, exc: Exception) -> JSONResponse:
 async def _on_validation_error(_: Request, exc: Exception) -> JSONResponse:
     assert isinstance(exc, RequestValidationError)
     errors = [
-        {"field": ".".join(str(p) for p in e["loc"]), "message": e["msg"]} for e in exc.errors()
+        {"field": ".".join(str(p) for p in e["loc"]), "message": ko_message(e)} for e in exc.errors()
     ]
     return problem_response(422, "validation_error", "입력값이 올바르지 않습니다", errors=errors)
 

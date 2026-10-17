@@ -213,6 +213,8 @@ jobs:
           start() { sudo systemctl daemon-reload; sudo systemctl restart mypage-backend; for i in $(seq 1 30); do curl -sf http://127.0.0.1:8000/api/health > /dev/null && return 0; sleep 1; done; sudo journalctl -u mypage-backend -n 30 --no-pager; return 1; }
           workers() { n=0; for pid in $(pgrep -f "uvicorn app.main:app"); do c=$(pgrep -P "$pid" -f spawn_main | wc -l); [ "$c" -gt "$n" ] && n=$c; done; echo $n; }
           start; n=$(workers); [ "$n" = 2 ] || { echo "✗ 작업자 $n개 — 기대 2"; exit 1; }; echo "✓ 틀 그대로(WEB_CONCURRENCY 주석) → 유닛 기본 2개"
+          # 운영(ENV=prod)에서는 FastAPI 기본 문서가 꺼진다(설계도 §11)
+          for path in /docs /redoc /openapi.json; do c=$(curl -s -o /dev/null -w '%{http_code}' "http://127.0.0.1:8000$path"); [ "$c" = 404 ] || { echo "✗ 운영에서 $path → $c"; exit 1; }; done; echo "✓ 운영에서 /docs·/redoc·/openapi.json 404"
           echo 'WEB_CONCURRENCY=3' | sudo tee -a /etc/mypage/backend.env > /dev/null
           start; n=$(workers); [ "$n" = 3 ] || { echo "✗ 작업자 $n개 — 기대 3"; exit 1; }; echo "✓ WEB_CONCURRENCY=3 → 3개(EnvironmentFile 이 이김)"
           sudo sed -i 's|^WEB_CONCURRENCY=3$|WEB_CONCURRENCY=|' /etc/mypage/backend.env

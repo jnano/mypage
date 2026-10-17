@@ -34,7 +34,14 @@ async def lifespan(_: FastAPI) -> AsyncIterator[None]:
     await engine.dispose()
 
 
-app = FastAPI(title=settings.app_name, debug=settings.debug, lifespan=lifespan)
+def docs_urls(env: str) -> dict[str, str | None]:
+    """FastAPI 기본 문서(/docs·/redoc·/openapi.json) — 운영(ENV=prod)에서는 끈다(설계도 §11).
+    운영 백엔드는 127.0.0.1 에만 묶이고 nginx 가 이 경로를 넘기지 않아 바깥에서는 닿지 않지만, API 지도를 내보일 까닭이 없다."""
+    on = env != "prod"
+    return {"docs_url": "/docs" if on else None, "redoc_url": "/redoc" if on else None, "openapi_url": "/openapi.json" if on else None}
+
+
+app = FastAPI(title=settings.app_name, debug=settings.debug, lifespan=lifespan, **docs_urls(settings.env))
 problems.install(app)
 csrf.install(app)
 if settings.server_timing:

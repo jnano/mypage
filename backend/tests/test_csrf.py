@@ -30,7 +30,7 @@ async def test_reads_need_no_secret(browser: AsyncClient) -> None:
 
 async def test_internal_write_passes_the_boundary(client: AsyncClient) -> None:
     # 경계는 통과하고, 그다음 판정(로그인 필요)에서 멈춘다
-    res = await client.post("/api/editor/preview", json={"markdown": "x"})
+    res = await client.post("/api/reports", json={"target_type": "post", "target_id": 1, "reason_code": "spam"})
     assert res.json()["code"] == "login_required"
 
 

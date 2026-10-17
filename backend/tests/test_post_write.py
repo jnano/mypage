@@ -201,8 +201,22 @@ async def test_trashed_post_is_not_editable(dev_header, committed_db, client) ->
     assert (res.status_code, res.json()["code"]) == (409, "post_not_editable")
 
 
-async def test_preview(dev_header, committed_db, client) -> None:
+async def test_preview(dev_header, committed_db, client, monkeypatch) -> None:
     member, *_ = await _setup(committed_db)
     res = await client.post("/api/editor/preview", json={"markdown": "https://youtu.be/dQw4w9WgXcQ"}, headers=as_member(member.id))
     assert res.status_code == 200 and "youtube-nocookie.com/embed/dQw4w9WgXcQ" in res.json()["html"]
-    assert (await client.post("/api/editor/preview", json={"markdown": "x"})).status_code == 401
+    # 비회원(비회원 글쓰기 화면 — §6.3)도 미리보기를 쓴다. 한도는 실제 IP 기준
+    guest = await client.post("/api/editor/preview", json={"markdown": "**굵게**"}, headers={"X-Client-IP": "198.51.100.90"})
+    assert guest.status_code == 200 and "<strong>" in guest.json()["html"]
+
+
+async def test_guest_preview_limit_is_per_ip(committed_db, client, monkeypatch) -> None:
+    """비회원 미리보기는 IP 마다 따로 센다 — 모든 비회원이 한 통(m:None)을 쓰지 않게(설계도 §6.3)"""
+    from app.core import rate_limit
+    from app.core.rate_limit import Limit
+
+    monkeypatch.setitem(rate_limit.LIMITS, "editor.preview", Limit(1, 60))
+    send = lambda ip: client.post("/api/editor/preview", json={"markdown": "x"}, headers={"X-Client-IP": ip})  # noqa: E731
+    assert (await send("198.51.100.91")).status_code == 200
+    assert (await send("198.51.100.92")).status_code == 200
+    assert (await send("198.51.100.91")).status_code == 429

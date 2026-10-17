@@ -1,0 +1,393 @@
+{
+  "$generated": "backend/scripts/gen_blocks.py — 직접 고치지 않는다",
+  "regions": [
+    "header",
+    "nav",
+    "top",
+    "aside",
+    "bottom",
+    "footer"
+  ],
+  "pagePathPattern": "^/([a-z0-9-]{1,50}(/[a-z0-9-]{1,50}){0,2})?$",
+  "types": [
+    {
+      "type": "site_brand",
+      "label": "사이트 이름·로고",
+      "group": "site",
+      "places": [
+        "layout"
+      ],
+      "available": true
+    },
+    {
+      "type": "menu",
+      "label": "주 메뉴",
+      "group": "site",
+      "places": [
+        "layout"
+      ],
+      "available": true
+    },
+    {
+      "type": "sub_menu",
+      "label": "옆 메뉴",
+      "group": "site",
+      "places": [
+        "layout"
+      ],
+      "available": true
+    },
+    {
+      "type": "breadcrumb",
+      "label": "경로 표시",
+      "group": "site",
+      "places": [
+        "layout"
+      ],
+      "available": true
+    },
+    {
+      "type": "search_box",
+      "label": "검색",
+      "group": "site",
+      "places": [
+        "layout",
+        "page"
+      ],
+      "available": true
+    },
+    {
+      "type": "account",
+      "label": "계정",
+      "group": "site",
+      "places": [
+        "layout"
+      ],
+      "available": true
+    },
+    {
+      "type": "footer_info",
+      "label": "바닥 정보",
+      "group": "site",
+      "places": [
+        "layout"
+      ],
+      "available": true
+    },
+    {
+      "type": "heading",
+      "label": "제목",
+      "group": "content",
+      "places": [
+        "layout",
+        "page"
+      ],
+      "available": true
+    },
+    {
+      "type": "text",
+      "label": "글",
+      "group": "content",
+      "places": [
+        "layout",
+        "page"
+      ],
+      "available": true
+    },
+    {
+      "type": "image",
+      "label": "그림",
+      "group": "content",
+      "places": [
+        "layout",
+        "page"
+      ],
+      "available": true
+    },
+    {
+      "type": "banner",
+      "label": "배너",
+      "group": "content",
+      "places": [
+        "page"
+      ],
+      "available": true
+    },
+    {
+      "type": "buttons",
+      "label": "단추 모음",
+      "group": "content",
+      "places": [
+        "layout",
+        "page"
+      ],
+      "available": true
+    },
+    {
+      "type": "link_list",
+      "label": "링크 목록",
+      "group": "content",
+      "places": [
+        "layout",
+        "page"
+      ],
+      "available": true
+    },
+    {
+      "type": "video",
+      "label": "동영상",
+      "group": "content",
+      "places": [
+        "page"
+      ],
+      "available": true
+    },
+    {
+      "type": "details",
+      "label": "자주 묻는 질문",
+      "group": "content",
+      "places": [
+        "page"
+      ],
+      "available": true
+    },
+    {
+      "type": "divider",
+      "label": "구분선",
+      "group": "content",
+      "places": [
+        "layout",
+        "page"
+      ],
+      "available": true
+    },
+    {
+      "type": "recent_posts",
+      "label": "최근 글",
+      "group": "dynamic",
+      "places": [
+        "layout",
+        "page"
+      ],
+      "available": true
+    },
+    {
+      "type": "recent_comments",
+      "label": "최근 댓글",
+      "group": "dynamic",
+      "places": [
+        "layout",
+        "page"
+      ],
+      "available": true
+    },
+    {
+      "type": "board_links",
+      "label": "게시판 바로가기",
+      "group": "dynamic",
+      "places": [
+        "layout",
+        "page"
+      ],
+      "available": true
+    },
+    {
+      "type": "group",
+      "label": "묶음",
+      "group": "structure",
+      "places": [
+        "layout",
+        "page"
+      ],
+      "available": true
+    },
+    {
+      "type": "columns",
+      "label": "칸 나누기",
+      "group": "structure",
+      "places": [
+        "page"
+      ],
+      "available": true
+    },
+    {
+      "type": "outlet",
+      "label": "본문 자리",
+      "group": "empty",
+      "places": [
+        "layout"
+      ],
+      "available": true
+    },
+    {
+      "type": "module",
+      "label": "모듈 자리",
+      "group": "empty",
+      "places": [
+        "page"
+      ],
+      "available": true
+    },
+    {
+      "type": "popular_posts",
+      "label": "인기 글",
+      "group": "dynamic",
+      "places": [
+        "layout",
+        "page"
+      ],
+      "available": false
+    },
+    {
+      "type": "visitor_count",
+      "label": "방문자 수",
+      "group": "dynamic",
+      "places": [
+        "layout",
+        "page"
+      ],
+      "available": false
+    },
+    {
+      "type": "popup",
+      "label": "팝업",
+      "group": "content",
+      "places": [
+        "layout"
+      ],
+      "available": false
+    },
+    {
+      "type": "map",
+      "label": "지도",
+      "group": "content",
+      "places": [
+        "page"
+      ],
+      "available": false
+    },
+    {
+      "type": "calendar",
+      "label": "일정",
+      "group": "content",
+      "places": [
+        "page"
+      ],
+      "available": false
+    }
+  ],
+  "modules": [
+    {
+      "key": "board",
+      "label": "게시판",
+      "available": true
+    }
+  ],
+  "examples": {
+    "site_brand": {
+      "href": "/",
+      "name": "예시 사이트",
+      "logo": null
+    },
+    "search_box": {
+      "action": "/search",
+      "placeholder": "검색어"
+    },
+    "account": {},
+    "footer_info": {
+      "lines": [
+        {
+          "label": "운영",
+          "value": "예시 운영 주체"
+        },
+        {
+          "label": "연락처",
+          "value": "02-000-0000"
+        }
+      ],
+      "copyright": "© 예시 사이트"
+    },
+    "heading": {
+      "text": "회의 안내",
+      "level": 2
+    },
+    "text": {
+      "html": "<p>이번 주 <strong>회의</strong>는 화요일입니다.</p>\n<ul>\n<li>장소: 회의실</li>\n<li>시간: 오후 3시</li>\n</ul>\n"
+    },
+    "image": {
+      "image": {
+        "alt": "회의실 사진",
+        "width": 1200,
+        "height": 600,
+        "pending": true
+      },
+      "link": null
+    },
+    "banner": {
+      "image": {
+        "alt": "",
+        "width": 1200,
+        "height": 600,
+        "pending": true
+      },
+      "title": "모집 공고",
+      "description": "함께할 분을 찾습니다.",
+      "buttons": [
+        {
+          "label": "자세히 보기",
+          "href": "/boards/notice",
+          "new_window": false
+        }
+      ]
+    },
+    "buttons": {
+      "items": [
+        {
+          "label": "공지",
+          "href": "/boards/notice",
+          "new_window": false
+        },
+        {
+          "label": "예시 사이트",
+          "href": "https://example.org",
+          "new_window": true
+        }
+      ]
+    },
+    "link_list": {
+      "title": "바로가기",
+      "items": [
+        {
+          "label": "자유게시판",
+          "href": "/boards/free",
+          "new_window": false
+        },
+        {
+          "label": "예시 사이트",
+          "href": "https://example.org",
+          "new_window": true
+        }
+      ]
+    },
+    "video": {
+      "title": "안내 영상",
+      "embed_url": "https://www.youtube-nocookie.com/embed/aaaaaaaaaaa"
+    },
+    "details": {
+      "items": [
+        {
+          "question": "회의는 언제인가요?",
+          "html": "<p>매주 <strong>화요일</strong> 오후입니다.</p>\n"
+        }
+      ]
+    },
+    "divider": {},
+    "group": {
+      "title": "안내",
+      "landmark": true
+    },
+    "columns": {
+      "count": 2
+    }
+  }
+}

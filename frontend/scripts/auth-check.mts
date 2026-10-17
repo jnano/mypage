@@ -99,7 +99,7 @@ try {
     await gp.fill("#title", title);
     await gp.fill("#content", "브라우저 점검으로 쓴 글입니다.");
     await gp.waitForTimeout(3500); // 정책의 최소 경과 시간
-    await gp.click('button[type="submit"]');
+    await gp.click('main button[type="submit"]'); // 본문 안 — 틀의 머리에 검색 블록이 있으면 그 단추가 먼저다(D-714)
     await gp.waitForURL(/\/boards\/open\/\d+$/);
     const cookie = (await gctx.cookies()).find((c) => /gt_\d+$/.test(c.name));
     check(cookie?.httpOnly === true, "비회원 글: 그 글의 토큰이 HttpOnly 쿠키로");
@@ -112,15 +112,15 @@ try {
     const op = await other.newPage();
     await op.goto(`${postUrl}/guest?purpose=edit`);
     await op.fill("#guest-password", "wrong-password");
-    await op.click('button[type="submit"]');
+    await op.click('main button[type="submit"]');
     await op.waitForSelector("#guest-password-error");
     check(true, "비회원 글: 틀린 비밀번호는 거부");
     await op.fill("#guest-password", "check-pass-01");
-    await op.click('button[type="submit"]');
+    await op.click('main button[type="submit"]');
     await op.waitForURL(`${postUrl}/edit`);
     check((await op.locator('input[type="file"]').count()) === 0, "비회원 글 수정: 비밀번호 뒤 수정 화면, 올리기 없음");
     await op.fill("#title", `${title} 고침`);
-    await op.click('button[type="submit"]');
+    await op.click('main button[type="submit"]');
     await op.waitForURL(postUrl);
     check((await op.locator('[data-slot="post-title"]').textContent())?.includes("고침") === true, "비회원 글 수정: 반영");
     await op.click('form[data-slot="inline-form"] button');

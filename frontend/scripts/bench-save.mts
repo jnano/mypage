@@ -44,7 +44,7 @@ for (let i = 0; i < warmup + runs; i++) {
 
   const started = performance.now();
   const actionDone = page.waitForResponse((r) => r.request().method() === "POST" && r.request().headers()["next-action"] !== undefined);
-  await page.click('button[type="submit"]');
+  await page.click('main button[type="submit"]'); // 본문 안 — 틀의 머리 검색 단추를 누르지 않게(D-714)
   // 응답 헤더 도착 = 저장·무효화가 끝나고 redirect 응답이 시작된 시점.
   // (redirect 응답은 새 화면을 같은 응답에 이어 스트리밍하므로 본문 끝은 저장 시점이 아니다)
   await actionDone;

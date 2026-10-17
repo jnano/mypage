@@ -1,6 +1,7 @@
 "use client";
 
 import { useActionState, useEffect, useId, useRef, useState, type FormEvent, type ReactNode } from "react";
+import { flushSync } from "react-dom";
 import type { AdminFormState } from "@/app/admin/actions";
 
 // 관리 폼 — Server Action 결과(성공 문구·RFC 9457 오류)를 aria-live 로 알린다(§13). 모양은 스킨.
@@ -50,12 +51,10 @@ export function AdminForm({
     }
     e.preventDefault();
     const action = e.currentTarget.querySelector<HTMLSelectElement>('select[name="action"]');
-    if (bulk && action) {
-      const picked = e.currentTarget.querySelectorAll('tbody input[type="checkbox"]:checked').length;
-      setTitle(`고른 ${picked}건 — ${action.selectedOptions[0]?.textContent ?? submitLabel}`);
-    } else {
-      setTitle(label ?? submitLabel);
-    }
+    const picked = e.currentTarget.querySelectorAll('tbody input[type="checkbox"]:checked').length;
+    const next = bulk && action ? `고른 ${picked}건 — ${action.selectedOptions[0]?.textContent ?? submitLabel}` : (label ?? submitLabel);
+    // 제목을 먼저 DOM 에 반영한 뒤 연다 — 그냥 setTitle 이면 showModal 순간엔 이전 제목이라 대화 이름이 늦게 바뀐다(코드 검토 v2 N-1)
+    flushSync(() => setTitle(next));
     dialog.showModal();
   }
   function proceed() {

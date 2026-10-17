@@ -191,6 +191,8 @@ export interface BlockTypes {
   types: BlockTypeInfo[];
   modules: Record<string, { label: string; available: boolean; schema: JsonSchema }>;
   menu_item: JsonSchema; // 메뉴 항목 폼(라벨·링크·최소 등급·보이기)
+  dynamic_types: string[];
+  limits: { blocks_per_owner: number; dynamic_blocks: number; modules_per_page: number; menu_depth: number; menu_items: number };
   regions: string[];
   audiences: string[];
 }

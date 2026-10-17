@@ -1,9 +1,7 @@
 import { newKey } from "@/lib/admin/blocks/tree";
 
-// 메뉴 편집기의 항목 트리(홈블록 설계도 §4.5·§8) — 위로·아래로·들여쓰기·내어쓰기 단추. 3단까지(MAX_MENU_DEPTH — 저장 검증이
-// 최종 판정, 여기서는 단추를 못 누르게만). 저장은 통째(If-Match)
-
-export const MAX_DEPTH = 3;
+// 메뉴 편집기의 항목 트리(홈블록 설계도 §4.5·§8) — 위로·아래로·들여쓰기·내어쓰기 단추. 단 수 상한은 부르는 쪽이 넘긴다
+// (block-types 응답의 limits.menu_depth — 원본 limits.py, 저장 검증이 최종 판정). 저장은 통째(If-Match)
 
 export interface MenuFields {
   label: string;
@@ -93,15 +91,15 @@ export function moveItem(items: MenuEditorItem[], key: string, delta: -1 | 1): M
 }
 
 /** 들여쓰기 — 바로 위 형제의 마지막 자식으로. 깊이(부모 단수 + 자신의 높이)가 3을 넘으면 안 된다 */
-export function canIndent(items: MenuEditorItem[], key: string): boolean {
+export function canIndent(items: MenuEditorItem[], key: string, maxDepth: number): boolean {
   const p = pathOf(items, key);
   if (!p || p[p.length - 1] === 0) return false;
   const item = listAt(items, p.slice(0, -1))[p[p.length - 1]];
-  return p.length + height(item) <= MAX_DEPTH;
+  return p.length + height(item) <= maxDepth;
 }
 
-export function indent(items: MenuEditorItem[], key: string): MenuEditorItem[] {
-  if (!canIndent(items, key)) return items;
+export function indent(items: MenuEditorItem[], key: string, maxDepth: number): MenuEditorItem[] {
+  if (!canIndent(items, key, maxDepth)) return items;
   const p = pathOf(items, key)!;
   const parents = p.slice(0, -1);
   const i = p[p.length - 1];

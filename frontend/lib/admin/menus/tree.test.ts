@@ -8,12 +8,12 @@ describe("메뉴 항목 트리", () => {
   it("들여쓰기·내어쓰기", () => {
     const [a, b, c] = [item("가"), item("나"), item("다")];
     let t = [a, b, c];
-    expect(canIndent(t, a.key)).toBe(false); // 맨 위는 들여쓸 곳이 없다
-    t = indent(t, b.key);
+    expect(canIndent(t, a.key, 3)).toBe(false); // 맨 위는 들여쓸 곳이 없다
+    t = indent(t, b.key, 3);
     expect(shape(t)).toEqual([["가", ["나"]], "다"]);
-    t = indent(t, c.key);
+    t = indent(t, c.key, 3);
     expect(shape(t)).toEqual([["가", ["나", "다"]]]);
-    t = indent(t, c.key); // 나 아래로 — 3단
+    t = indent(t, c.key, 3); // 나 아래로 — 3단
     expect(shape(t)).toEqual([["가", [["나", ["다"]]]]]);
     expect(canOutdent(t, a.key)).toBe(false);
     t = outdent(t, c.key);
@@ -25,7 +25,7 @@ describe("메뉴 항목 트리", () => {
   it("3단을 넘는 들여쓰기는 막는다(자식을 가진 항목은 그 높이까지 센다)", () => {
     const deep = item("나", [item("나-1", [item("나-1-1")])]);
     const t = [item("가"), deep];
-    expect(canIndent(t, deep.key)).toBe(false); // 1(부모) + 3(높이) > 3
+    expect(canIndent(t, deep.key, 3)).toBe(false); // 1(부모) + 3(높이) > 3
   });
 
   it("위로·아래로·빼기·개수", () => {

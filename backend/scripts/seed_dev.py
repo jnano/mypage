@@ -1,4 +1,4 @@
-"""개발용 시드 — 게시판·회원·글 몇 개. 예시 데이터는 중립어(§2.4).
+"""개발용 시드 — 게시판·회원·글 몇 개, 홈블록 틀·메뉴·페이지(scripts/seed_homeblock.py). 예시 데이터는 중립어(§2.4).
 
 실행: cd backend && uv run python -m scripts.seed_dev
 이미 notice 게시판이 있으면 아무것도 하지 않는다(다시 넣으려면 DB 를 비운다).
@@ -29,6 +29,7 @@ from app.posts.guest import ip_hash, ip_period
 from app.posts.service import GuestAuthor, insert_post
 from app.search.index import content_fields, title_fields
 from scripts.dev_auth import DEV_PASSWORD, ensure_dev_notice
+from scripts.seed_homeblock import SAMPLE_PATH, seed_homeblock
 
 GUEST_PASSWORD = "guest-pass-01"  # 개발 시드의 비회원 글 비밀번호(접근성·브라우저 점검이 쓴다)
 
@@ -160,11 +161,19 @@ async def main() -> None:
         ).scalar_one()
         await db.execute(update(Post).where(Post.id == first).values(is_pinned=True, pin_order=1))
 
+        # 홈블록 — 기본 틀·게시판 화면 틀·첫 화면·견본 페이지(홈블록 설계도 §3.6·§10)
+        # 출력할 값은 홈블록 시드 전에 — 그 저장 경로(rollback·대량 갱신)가 세션 객체를 만료시켜 뒤에는 읽을 수 없다
+        people = [(m.id, m.display_name, m.email, m.level, m.is_admin) for m in (admin, mod, m1, m3)]
+        board_ids = {slug: b.id for slug, (b, _) in boards.items()}
+        admin_viewer = Viewer(member_id=admin.id, level=admin.level, is_admin=True)
+        homeblock = await seed_homeblock(db, admin_viewer, board_ids)
+
     print("시드 완료")
-    for m in (admin, mod, m1, m3):
-        print(f"  회원 {m.id}: {m.display_name} {m.email} (레벨 {m.level}{', 운영자' if m.is_admin else ''})")
+    for mid, name, email, level, is_admin in people:
+        print(f"  회원 {mid}: {name} {email} (레벨 {level}{', 운영자' if is_admin else ''})")
     print(f"비밀번호(모두): {DEV_PASSWORD}")
     print(f"비회원 글(손님 게시판 open) 비밀번호: {GUEST_PASSWORD}")
+    print(f"홈블록: 기본 틀 {homeblock['default_layout']}, 게시판 화면 틀 {homeblock['board_layout']}, 주 메뉴 {homeblock['menu']}, 첫 화면 페이지 {homeblock['home']}, 견본 페이지 {SAMPLE_PATH}")
     print("개발용 헤더 예: X-Dev-Member: <회원 id>; key=<DEV_VIEWER_SECRET>")
     await engine.dispose()
 

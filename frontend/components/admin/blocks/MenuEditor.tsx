@@ -4,7 +4,6 @@ import { useId, useState } from "react";
 import { saveMenuAction } from "@/app/admin/blockActions";
 import { join, type BlockTypes, type FieldError } from "@/lib/admin/blocks/schema";
 import {
-  MAX_DEPTH,
   canIndent,
   canOutdent,
   countItems,
@@ -32,8 +31,6 @@ export interface MenuDetail {
   version: number;
   items: ServerMenuItem[];
 }
-
-const MAX_ITEMS = 200;
 
 interface State {
   name: string;
@@ -83,7 +80,7 @@ function Item({ ctx, item, path, depth, index, count }: { ctx: Ctx; item: MenuEd
         {button(isOpen ? "설정 닫기" : "설정", () => toggle(item.key), false, { "aria-expanded": isOpen, "aria-controls": panelId })}
         {button("위로", () => set(moveItem(state.items, item.key, -1)), index === 0)}
         {button("아래로", () => set(moveItem(state.items, item.key, 1)), index === count - 1)}
-        {button("들여쓰기", () => set(indent(state.items, item.key)), !canIndent(state.items, item.key))}
+        {button("들여쓰기", () => set(indent(state.items, item.key, types.limits.menu_depth)), !canIndent(state.items, item.key, types.limits.menu_depth))}
         {button("내어쓰기", () => set(outdent(state.items, item.key)), !canOutdent(state.items, item.key))}
         {button("빼기", () => set(removeItem(state.items, item.key)), false, { "data-danger": true })}
       </div>
@@ -160,7 +157,7 @@ export function MenuEditor({ detail, types, options }: { detail: MenuDetail; typ
       </div>
       <h2>항목</h2>
       <p data-slot="field-help">
-        {MAX_DEPTH}단까지, {MAX_ITEMS}개까지(지금 {total}개). 링크 없는 항목은 아래 항목을 펼치는 제목이 됩니다. 최소 등급은 보이기 조건일 뿐 권한이 아닙니다.
+        {types.limits.menu_depth}단까지, {types.limits.menu_items}개까지(지금 {total}개). 링크 없는 항목은 아래 항목을 펼치는 제목이 됩니다. 최소 등급은 보이기 조건일 뿐 권한이 아닙니다.
       </p>
       {state.items.length === 0 ? (
         <p data-slot="empty">항목이 없습니다.</p>
@@ -173,7 +170,7 @@ export function MenuEditor({ detail, types, options }: { detail: MenuDetail; typ
       )}
       <button
         type="button"
-        disabled={total >= MAX_ITEMS}
+        disabled={total >= types.limits.menu_items}
         onClick={() => {
           const it = newItem();
           setState({ ...state, items: [...state.items, it] });

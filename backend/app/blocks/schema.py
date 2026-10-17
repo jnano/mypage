@@ -9,6 +9,7 @@ from typing import Any
 
 from pydantic import BaseModel
 
+from app.blocks import limits
 from app.blocks import types as t
 from app.blocks.modules import MODULES
 
@@ -137,6 +138,16 @@ def block_types() -> dict[str, Any]:
     from app.blocks.menus import MenuItemFields
 
     return {
+        # 편집기가 단추를 막고 '지금 n/60' 을 알리는 데 쓰는 상한 — 원본 limits.py 한 곳(프런트에 다시 적지 않는다, 코드 검토 v18 N-1).
+        # 최종 판정은 저장 검증
+        "limits": {
+            "blocks_per_owner": limits.MAX_BLOCKS_PER_OWNER,
+            "dynamic_blocks": limits.MAX_DYNAMIC_BLOCKS,
+            "modules_per_page": limits.MAX_MODULES_PER_PAGE,
+            "menu_depth": limits.MAX_MENU_DEPTH,
+            "menu_items": limits.MAX_MENU_ITEMS,
+        },
+        "dynamic_types": list(t.DYNAMIC_BLOCK_TYPES),  # dynamic_blocks 상한에 세는 종류
         "types": out,
         "modules": modules,
         "menu_item": form_schema(MenuItemFields),

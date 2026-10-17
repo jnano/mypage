@@ -85,16 +85,16 @@ if (values["self-test"]) {
 }
 
 const findings: Finding[] = [];
+// 홈블록 화면 — 게시판 기반 목록과 따로 묶는다(통합 설계도가 게시판 범위 화면 수를 '전체 − 이 묶음'으로 센다)
+const HOMEBLOCK_GUEST_PATHS = ["/sample", "/dev/blocks"];
+const HOMEBLOCK_ADMIN_LISTS = ["/admin/layouts", "/admin/pages", "/admin/menus"]; // 목록 + 첫 편집 화면
 try {
   // 비회원
   const guest = await open(browser, null);
   await guest.goto(base + "/boards/free");
   await settle(guest);
   const postPath = await guest.locator('[data-slot="post-title"] a, [data-slot="post-list"] a[href^="/boards/free/"]').first().getAttribute("href");
-  // 홈블록 페이지 — 공개 주소 집합에 있으면 첫 공개 페이지(없는 시드면 건너뛴다)
-  const pages = await fetch(base + "/api/pages/paths").then((r) => (r.ok ? r.json() : { pages: {} })).catch(() => ({ pages: {} }));
-  const pagePath = Object.entries(pages.pages as Record<string, { personal: boolean }>).find(([, p]) => !p.personal)?.[0];
-  for (const path of ["/", "/boards/free", "/boards/notice", ...(postPath ? [postPath] : []), ...(pagePath ? [pagePath] : []), "/search?q=회의", "/dev/login", "/dev/blocks", "/login", "/signup", "/privacy", "/reset"]) {
+  for (const path of ["/", "/boards/free", "/boards/notice", ...(postPath ? [postPath] : []), "/search?q=회의", "/dev/login", "/login", "/signup", "/privacy", "/reset"]) {
     findings.push(...(await check(guest, path, "비회원")));
   }
   // 비회원 글쓰기(설계도 §6.3) — 손님 게시판(시드 open, 쓰기 등급 0)의 글쓰기 폼과 비회원 글의 비밀번호 폼
@@ -133,6 +133,17 @@ try {
   ]) {
     findings.push(...(await check(admin, path, "운영자")));
   }
+
+  // ── 홈블록 화면(홈블록 설계도 §10) — 게시판 기반 화면 수(통합 설계도 §0.4 의 35)와 따로 센다: 출력에 [홈블록] 표식 ──
+  // 시드(scripts/seed_homeblock.py)의 견본 페이지·틀·페이지·메뉴. 편집 화면 id 는 목록의 첫 링크에서(시드 순서를 하드코딩하지 않는다)
+  // /dev/blocks 는 그림·배너처럼 시드가 실제 파일 없이 만들 수 없는 블록의 견본이라 남긴다
+  for (const path of HOMEBLOCK_GUEST_PATHS) findings.push(...(await check(guest, path, "[홈블록] 비회원")));
+  for (const path of HOMEBLOCK_ADMIN_LISTS) {
+    findings.push(...(await check(admin, path, "[홈블록] 운영자")));
+    const editor = await admin.locator(`main a[href^="${path}/"]`).first().getAttribute("href");
+    if (editor) findings.push(...(await check(admin, editor, "[홈블록] 운영자")));
+  }
+  findings.push(...(await check(admin, "/admin/blocks", "[홈블록] 운영자")));
 } finally {
   await browser.close();
 }

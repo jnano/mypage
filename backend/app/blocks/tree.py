@@ -25,6 +25,11 @@ Owner = Literal["layout", "page"]
 STRUCTURE = ("group", "columns")
 # 랜드마크 이름이 되는 칸 — 같은 틀(+ 페이지)에서 겹치면 axe landmark-unique(D-703) 위반이라 저장 때 막는다(§10)
 NAMED_NAV = ("menu", "sub_menu", "breadcrumb")
+# 검색 블록은 이름이 고정(프런트 SearchBoxBlock 의 aria-label)이라 한 화면에 둘이면 같은 이름의 search 랜드마크가 된다 — 같은 규칙으로
+# 막는다(걸음 7-5 시드 페이지를 만들다 찾음). 프런트 문구와 같아야 한다
+SEARCH_LANDMARK = "사이트 검색"
+# 이름표 겹침을 보는 종류(저장된 행을 거를 때 — 그룹은 landmark 일 때만 이름이 있다)
+LANDMARK_TYPES = (*NAMED_NAV, "group", "search_box")
 
 
 class BlockIn(BaseModel):
@@ -182,11 +187,7 @@ def validate_tree(
         if item.children and item.type not in STRUCTURE:
             err(f"{f}.children", "자식 블록은 묶음·칸 나누기에만 둡니다")
             return
-        name = None
-        if item.type in NAMED_NAV:
-            name = getattr(model, "label")
-        elif isinstance(model, t.Group) and model.landmark:
-            name = model.title
+        name = nav_name(item.type, model.model_dump())
         if name is not None:
             if name in labels:
                 err(f"{f}.config", f"같은 이름의 탐색·랜드마크가 이미 있습니다: {name}({labels[name]}) — 이름이 달라야 합니다")
@@ -357,11 +358,13 @@ async def _attach_images(db: AsyncSession, member_id: int | None, flat: Sequence
 
 
 def nav_name(block_type: str, config: dict[str, Any]) -> str | None:
-    """탐색·랜드마크 이름(§10) — 메뉴 셋의 label, 랜드마크 묶음의 title. 저장된 설정(dict)에서"""
+    """탐색·랜드마크 이름(§10) — 메뉴 셋의 label, 랜드마크 묶음의 title, 검색 블록의 고정 이름. 저장된 설정(dict)에서"""
     if block_type in NAMED_NAV:
         return config.get("label") or ("현재 위치" if block_type == "breadcrumb" else None)
     if block_type == "group" and config.get("landmark"):
         return config.get("title")
+    if block_type == "search_box":
+        return SEARCH_LANDMARK
     return None
 
 
@@ -373,7 +376,7 @@ async def nav_labels(db: AsyncSession, *, layout_ids: Iterable[int] = (), page_i
     rows = await db.execute(
         select(Block.type, Block.config, Block.layout_id, Block.page_id).where(  # post-clause: exempt — 블록 칸(글 아님)
             or_(Block.layout_id.in_(layouts or [0]), Block.page_id.in_(pages or [0])),
-            Block.type.in_([*NAMED_NAV, "group"]),
+            Block.type.in_(LANDMARK_TYPES),
             Block.is_active.is_(True),
         )
     )
@@ -403,7 +406,7 @@ async def page_conflicts(db: AsyncSession, layout_id: int, is_default: bool, nam
     rows = await db.execute(
         select(Block.type, Block.config, Page.path)  # post-clause: exempt — 블록 칸(글 아님)
         .join(Page, Page.id == Block.page_id)
-        .where(uses, Block.type.in_([*NAMED_NAV, "group"]), Block.is_active.is_(True))
+        .where(uses, Block.type.in_(LANDMARK_TYPES), Block.is_active.is_(True))
     )
     errors = []
     for r in rows:

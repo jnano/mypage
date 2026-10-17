@@ -1,4 +1,17 @@
 {
+  "limits": {
+    "blocks_per_owner": 60,
+    "dynamic_blocks": 10,
+    "modules_per_page": 1,
+    "menu_depth": 3,
+    "menu_items": 200
+  },
+  "dynamic_types": [
+    "recent_posts",
+    "recent_comments",
+    "board_links",
+    "module"
+  ],
   "types": [
     {
       "type": "site_brand",

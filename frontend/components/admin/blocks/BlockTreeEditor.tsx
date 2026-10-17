@@ -84,8 +84,13 @@ export function BlockTreeEditor({
   const typeOf = (type: string) => types.types.find((t) => t.type === type);
   const ctx: Ctx = { value, onChange, open, toggle, errors, options, defs, owner, typeOf };
 
+  const all = Object.values(value).flatMap((list) => list.flatMap((b) => [b, ...b.children]));
+  const dynamic = all.filter((b) => types.dynamic_types.includes(b.type)).length;
   return (
     <div data-slot="block-tree-editor">
+      <p data-slot="field-help">
+        블록 {all.length}/{types.limits.blocks_per_owner}개 · 데이터를 불러오는 블록(최근 글·최근 댓글·게시판 바로가기·모듈) {dynamic}/{types.limits.dynamic_blocks}개
+      </p>
       {defs.map((d) => (
         <GroupEditor key={d.key} def={d}>
           <ol data-slot="editor-blocks">

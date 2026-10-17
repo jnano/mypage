@@ -1,0 +1,160 @@
+/* 관리 화면 기초 토큰 — 기초 디자인(ProjectM Design System)의 토큰을 값 그대로 옮겼다(관리디자인 지시서 §3).
+   이름과 값을 고치지 않는다. 대비 보정·mypage 추가분은 tokens.css 가 이 위에 얹는다.
+   글꼴 이름(--font-*)은 next/font 가 만든 변수를 써야 해서 아래 [data-slot="admin"] 에서 다시 정한다. */
+
+:root {
+  /* ── Neutrals (warm zinc) ─────────────────────────────── */
+  --zinc-0:   #ffffff;
+  --zinc-50:  #fafafa;
+  --zinc-100: #f4f4f5;
+  --zinc-150: #ededee;
+  --zinc-200: #e4e4e7;
+  --zinc-300: #d4d4d8;
+  --zinc-400: #a1a1aa;
+  --zinc-500: #71717a;
+  --zinc-600: #52525b;
+  --zinc-700: #3f3f46;
+  --zinc-800: #27272a;
+  --zinc-900: #18181b;
+  --zinc-950: #0c0c0e;
+
+  /* Dark chrome — the sidebar / top bar surface (warm ink) */
+  --ink-900: #202225;
+  --ink-850: #26282d;
+  --ink-800: #2d2f35;
+  --ink-700: #3a3d44;
+  --ink-fg:  #e7e7ea;
+  --ink-fg-muted: #9b9da3;
+
+  /* ── Coral — the single brand accent ──────────────────── */
+  --coral-50:  #fdf1ed;
+  --coral-100: #fbe0d7;
+  --coral-200: #f6bfac;
+  --coral-300: #f09a7e;
+  --coral-400: #ed7c5b;
+  --coral-500: #e8674f; /* primary */
+  --coral-600: #d4502f;
+  --coral-700: #b03f22;
+
+  /* ── Project palette (used as labels / folder colors) ─── */
+  --teal-500:   #2fb3a3;  --teal-tint:   #d8f1ee;  --teal-ink:   #176158;
+  --green-500:  #6cab5a;  --green-tint:  #e2f0db;  --green-ink:  #3c6630;
+  --blue-500:   #4a7dd4;  --blue-tint:   #dbe6f8;  --blue-ink:   #274d8c;
+  --purple-500: #8a6fc9;  --purple-tint: #e8e1f6;  --purple-ink: #523a8a;
+  --pink-500:   #d46aa1;  --pink-tint:   #f7e0ec;  --pink-ink:   #8c3a64;
+  --amber-500:  #e0a13c;  --amber-tint:  #f8ecd2;  --amber-ink:  #8a5d12;
+
+  /* ── Semantic states ──────────────────────────────────── */
+  --success-500: #3a9d6a;  --success-tint: #ddf0e5;  --success-ink: #1f6041;
+  --warning-500: #e0a13c;  --warning-tint: #f8ecd2;  --warning-ink: #8a5d12;
+  --danger-500:  #d8503f;  --danger-tint:  #f9e1dd;  --danger-ink:  #97271a;
+  --info-500:    #4a7dd4;  --info-tint:    #dbe6f8;  --info-ink:    #274d8c;
+
+  /* ── Semantic surface / text aliases ──────────────────── */
+  --bg-app:        var(--zinc-50);   /* app canvas behind cards */
+  --surface-card:  var(--zinc-0);    /* cards, panels, sheets */
+  --surface-sunken:var(--zinc-100);  /* inset wells, search field */
+  --surface-hover: var(--zinc-100);  /* row / item hover */
+  --surface-chrome:var(--ink-850);   /* dark nav chrome */
+
+  --text-strong:   var(--zinc-900);  /* headings */
+  --text-body:     var(--zinc-700);  /* default body */
+  --text-muted:    var(--zinc-500);  /* secondary, meta */
+  --text-faint:    var(--zinc-400);  /* placeholder, disabled */
+  --text-oncoral:  #ffffff;
+  --text-link:     var(--coral-600);
+
+  --border-subtle: var(--zinc-200);  /* default card / divider border */
+  --border-strong: var(--zinc-300);  /* inputs, emphasized edges */
+  --border-focus:  var(--coral-500);
+
+  --accent:        var(--coral-500);
+  --accent-hover:  var(--coral-600);
+  --accent-soft:   var(--coral-50);
+  --ring:          color-mix(in oklch, var(--coral-500) 40%, transparent);
+}
+
+:root {
+  /* Families */
+  --font-display: "OkDanDan", "Pretendard", system-ui, sans-serif;
+  --font-sans: "Pretendard", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --font-mono: "JetBrains Mono", ui-monospace, "SFMono-Regular", monospace;
+
+  /* Type scale (px → rem at 16px base) */
+  --text-2xs: 0.6875rem; /* 11 — micro labels, badges */
+  --text-xs:  0.75rem;   /* 12 — meta, captions */
+  --text-sm:  0.8125rem; /* 13 — secondary UI text */
+  --text-base:0.875rem;  /* 14 — default app body */
+  --text-md:  0.9375rem; /* 15 — comfortable reading */
+  --text-lg:  1.0625rem; /* 17 — card titles */
+  --text-xl:  1.25rem;   /* 20 — section headings */
+  --text-2xl: 1.5rem;    /* 24 — page titles */
+  --text-3xl: 1.875rem;  /* 30 — greeting */
+  --text-4xl: 2.5rem;    /* 40 — display */
+  --text-5xl: 3.25rem;   /* 52 — hero display */
+
+  /* Weights (Pretendard variable) */
+  --weight-regular: 400;
+  --weight-medium: 500;
+  --weight-semibold: 600;
+  --weight-bold: 700;
+
+  /* Line heights */
+  --leading-tight: 1.15;
+  --leading-snug: 1.3;
+  --leading-normal: 1.5;
+  --leading-relaxed: 1.65;
+
+  /* Letter spacing */
+  --tracking-tight: -0.02em;
+  --tracking-snug: -0.01em;
+  --tracking-normal: 0;
+  --tracking-wide: 0.04em;  /* uppercase eyebrow labels */
+}
+
+:root {
+  /* Spacing — 4px grid */
+  --space-0: 0;
+  --space-1: 0.25rem;  /* 4 */
+  --space-2: 0.5rem;   /* 8 */
+  --space-3: 0.75rem;  /* 12 */
+  --space-4: 1rem;     /* 16 */
+  --space-5: 1.25rem;  /* 20 */
+  --space-6: 1.5rem;   /* 24 */
+  --space-8: 2rem;     /* 32 */
+  --space-10: 2.5rem;  /* 40 */
+  --space-12: 3rem;    /* 48 */
+  --space-16: 4rem;    /* 64 */
+
+  /* Radius */
+  --radius-xs: 4px;
+  --radius-sm: 6px;
+  --radius-md: 8px;    /* inputs, small cards */
+  --radius-lg: 12px;   /* cards, panels */
+  --radius-xl: 16px;   /* large surfaces */
+  --radius-2xl: 20px;
+  --radius-pill: 999px; /* buttons, tags, avatars */
+
+  /* Shadows — subtle, cool-neutral */
+  --shadow-xs: 0 1px 2px rgba(24, 24, 27, 0.06);
+  --shadow-sm: 0 1px 2px rgba(24, 24, 27, 0.06), 0 1px 3px rgba(24, 24, 27, 0.05);
+  --shadow-md: 0 2px 4px rgba(24, 24, 27, 0.05), 0 4px 12px rgba(24, 24, 27, 0.07);
+  --shadow-lg: 0 8px 24px rgba(24, 24, 27, 0.10), 0 2px 6px rgba(24, 24, 27, 0.06);
+  --shadow-xl: 0 16px 48px rgba(24, 24, 27, 0.16), 0 4px 12px rgba(24, 24, 27, 0.08);
+  --shadow-focus: 0 0 0 3px var(--ring);
+
+  /* Motion */
+  --ease-out: cubic-bezier(0.22, 1, 0.36, 1);
+  --ease-in-out: cubic-bezier(0.65, 0, 0.35, 1);
+  --dur-fast: 120ms;
+  --dur-base: 180ms;
+  --dur-slow: 280ms;
+}
+
+/* 글꼴 — next/font 가 [data-slot="admin"] 요소에 --font-pretendard·--font-jetbrains 를 만든다(skins/admin/fonts.ts).
+   표시용 글꼴(OkDanDan)은 라이선스를 확인할 때까지 넣지 않는다 — 본문 글꼴 700 으로 대신한다(지시서 §8). */
+[data-slot="admin"] {
+  --font-sans: var(--font-pretendard), system-ui, -apple-system, "Segoe UI", sans-serif;
+  --font-mono: var(--font-jetbrains), ui-monospace, "SFMono-Regular", monospace;
+  --font-display: var(--font-sans);
+}

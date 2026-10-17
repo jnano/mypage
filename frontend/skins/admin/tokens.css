@@ -1,0 +1,44 @@
+/* mypage 관리 화면 — 토큰 (ProjectM 토큰 위에 얹는다)
+   ProjectM 이름은 그대로, mypage 추가분만 --ui-* / --admin-*.
+   대비 보정(지시서 §3.1) 은 의미 별칭을 바꿔서 한다. 원래 값 변수는 건드리지 않는다. */
+:root {
+  --coral-800: #8f321b;            /* 새 값: 주 단추 누름·올림 (흰 글자 7.95) */
+  --ui-danger-press: #7a1e13;      /* 새 값: 위험 확정 누름·올림 (흰 글자 10.38) */
+
+  /* 대비 보정 별칭 */
+  --text-link: var(--coral-700);   /* 4.21 → 5.87 */
+  --text-faint: var(--zinc-500);   /* 자리 글자 2.56 → 4.83 */
+  --border-strong: var(--zinc-500);/* 입력 테두리 1.48 → 4.83 */
+  --border-focus: var(--coral-700);
+  --ui-accent: var(--coral-700);        /* 주 단추 바탕 3.24 → 5.87 */
+  --ui-accent-press: var(--coral-800);
+  --ui-danger: var(--danger-ink);       /* 위험 단추 4.09 → 8.01 */
+  --ui-focus-ring: 2px solid var(--coral-700); /* 3px 40% 고리 → 2px 실선 + 2px 띄움 */
+  --ui-focus-offset: 2px;
+  --ui-switch-off: var(--zinc-500);
+  --ui-switch-on: var(--coral-700);
+
+  /* 크기 (§3.3) */
+  --ui-target: 44px;
+  --ui-target-compact: 32px;
+  --ui-gutter: 16px;
+  --ui-icon: 20px;
+  --ui-icon-lg: 24px;
+  --admin-nav-width: 244px;
+  --admin-topbar: 56px;
+  --admin-measure: 720px;
+
+  /* 글자 (§3.2, 모바일 먼저) */
+  --ui-fs-body: 16px;
+  --ui-fs-input: 16px;
+  --ui-fs-label: 15px;
+  --ui-fs-help: 14px;
+}
+@media (min-width: 1024px) {
+  :root {
+    --ui-gutter: 24px;
+    --ui-fs-body: var(--text-base);   /* 14 */
+    --ui-fs-label: var(--text-base);  /* 14 */
+    --ui-fs-help: var(--text-sm);     /* 13 */
+  }
+}

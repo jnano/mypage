@@ -1,5 +1,6 @@
 "use client";
 
+import { Icon, ROW_ICONS } from "@/components/admin/Icon";
 import { useId, useState } from "react";
 import { saveMenuAction } from "@/app/admin/blockActions";
 import { join, type BlockTypes, type FieldError } from "@/lib/admin/blocks/schema";
@@ -55,7 +56,16 @@ function Item({ ctx, item, path, depth, index, count }: { ctx: Ctx; item: MenuEd
   const broken = errors.some((e) => e.field === path || e.field.startsWith(`${path}.`) || e.field.startsWith(`${path}[`));
   const Heading = (["h3", "h4", "h5"] as const)[depth - 1] ?? "h5";
   const button = (text: string, onClick: () => void, disabled = false, extra: Record<string, unknown> = {}) => (
-    <button type="button" disabled={disabled} onClick={onClick} aria-label={`${text} — ${name}`} {...extra}>
+    <button
+      type="button"
+      disabled={disabled}
+      onClick={onClick}
+      aria-label={`${text} — ${name}`}
+      data-size="compact"
+      data-variant={extra["data-danger"] ? "danger" : "ghost"}
+      {...extra}
+    >
+      {ROW_ICONS[text] && <Icon name={ROW_ICONS[text]} />}
       {text}
     </button>
   );

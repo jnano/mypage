@@ -1,5 +1,6 @@
 "use client";
 
+import { Icon } from "@/components/admin/Icon";
 import type { ReactNode } from "react";
 import { PreviewBlocks } from "./PreviewBlocks";
 import type { useOwnerEditor } from "./useOwnerEditor";
@@ -29,7 +30,8 @@ export function EditorChrome({ editor, regions, children, previewable = true }: 
       )}
       {children}
       <div data-slot="editor-actions">
-        <button type="button" onClick={editor.save} disabled={editor.pending || editor.conflict}>
+        <button type="button" onClick={editor.save} disabled={editor.pending || editor.conflict} data-variant="primary" aria-busy={editor.pending || undefined}>
+          <Icon name="save" />
           저장
         </button>
         {previewable && (

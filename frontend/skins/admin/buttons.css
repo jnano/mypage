@@ -1,0 +1,503 @@
+/* mypage 관리 화면 — 1단계 버튼 세트 스킨
+   규칙: 선택자는 [data-slot]·ARIA·data-* 상태·시맨틱 요소만. class 없음.
+   폭은 min-width 만. 올림(:hover)은 (hover: hover) 안에서만. 모두 [data-slot="admin"] 아래로 가둔다. */
+
+[data-slot="admin"] {
+  font-family: var(--font-sans);
+  font-size: var(--ui-fs-body);
+  line-height: var(--leading-normal);
+  color: var(--text-body);
+  word-break: keep-all;
+  -webkit-font-smoothing: antialiased;
+}
+[data-slot="admin"] a:not([data-slot="button-link"]) {
+  color: var(--text-link);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+[data-slot="admin"] :focus-visible {
+  outline: var(--ui-focus-ring);
+  outline-offset: var(--ui-focus-offset);
+  box-shadow: none;
+}
+
+/* ── 단추 공통 ─────────────────────────────────────────── */
+/* 기본값(보조 단추) — 낮은 우선순위로 둬서 종류별 값이 이긴다 */
+[data-slot="admin"] :where(button, a[data-slot="button-link"]) {
+  --_px: 20px;
+  --_bg: var(--surface-card);   --_fg: var(--text-strong);  --_bd: var(--zinc-500);
+  --_bg-h: var(--zinc-100);     --_bd-h: var(--zinc-600);
+  --_bg-a: var(--zinc-150);     --_bd-a: var(--zinc-700);
+}
+[data-slot="admin"] :is(button, a[data-slot="button-link"]):not([role="switch"]) {
+  box-sizing: border-box;
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-2);
+  min-height: var(--ui-target);
+  min-width: var(--ui-target);
+  margin: 0;
+  padding-block: 0;
+  padding-inline: var(--_px);
+  border: 1px solid var(--_bd);
+  border-radius: var(--radius-pill);
+  background: var(--_bg);
+  color: var(--_fg);
+  font: var(--weight-semibold) var(--ui-fs-label) / 1.2 var(--font-sans);
+  letter-spacing: var(--tracking-snug);
+  text-align: center;
+  text-decoration: none;
+  word-break: keep-all;
+  cursor: pointer;
+  user-select: none;
+  -webkit-tap-highlight-color: transparent;
+  transition:
+    background-color var(--dur-fast) var(--ease-out),
+    border-color var(--dur-fast) var(--ease-out),
+    color var(--dur-fast) var(--ease-out),
+    transform var(--dur-fast) var(--ease-out);
+}
+[data-slot="admin"] :is(button, a[data-slot="button-link"]) > svg {
+  flex: none;
+  width: var(--ui-icon);
+  height: var(--ui-icon);
+}
+[data-slot="admin"] :is(button, a[data-slot="button-link"])[data-size="large"] > svg {
+  width: var(--ui-icon-lg);
+  height: var(--ui-icon-lg);
+}
+
+/* 종류 */
+[data-slot="admin"] [data-variant="primary"]:is(button, a) {
+  --_bg: var(--ui-accent);        --_fg: var(--text-oncoral); --_bd: var(--ui-accent);
+  --_bg-h: var(--ui-accent-press); --_bd-h: var(--ui-accent-press);
+  --_bg-a: var(--ui-accent-press); --_bd-a: var(--ui-accent-press);
+}
+[data-slot="admin"] [data-variant="ghost"]:is(button, a) {
+  --_px: 14px;
+  --_bg: transparent;  --_fg: var(--text-body);  --_bd: transparent;
+  --_bg-h: var(--zinc-100); --_bd-h: transparent;
+  --_bg-a: var(--zinc-150); --_bd-a: transparent;
+}
+[data-slot="admin"] [data-variant="danger"]:is(button, a) {
+  --_bg: var(--surface-card); --_fg: var(--ui-danger); --_bd: var(--ui-danger);
+  --_bg-h: var(--danger-tint); --_bd-h: var(--ui-danger);
+  --_bg-a: var(--danger-tint); --_bd-a: var(--ui-danger-press);
+}
+[data-slot="admin"] [data-variant="danger-confirm"]:is(button, a) {
+  --_bg: var(--ui-danger); --_fg: var(--text-oncoral); --_bd: var(--ui-danger);
+  --_bg-h: var(--ui-danger-press); --_bd-h: var(--ui-danger-press);
+  --_bg-a: var(--ui-danger-press); --_bd-a: var(--ui-danger-press);
+}
+
+/* 아이콘 단추: aria-label + svg 하나 + data-shape="icon" → 44×44 원형. 종류가 없으면 조용한 모양.
+   표시를 마크업에 둔다 — CSS 의 :only-child 는 글자 노드를 세지 않아 아이콘+글자 단추도 원형이 됐다(받아 온 1단계 CSS 를 고침) */
+[data-slot="admin"] button[aria-label][data-shape="icon"] {
+  --_px: 0px;
+  width: var(--ui-target);
+  border-radius: 50%;
+}
+[data-slot="admin"] button[aria-label][data-shape="icon"]:not([data-variant]) {
+  --_bg: transparent;  --_fg: var(--text-body);  --_bd: transparent;
+  --_bg-h: var(--zinc-100); --_bd-h: transparent;
+  --_bg-a: var(--zinc-150); --_bd-a: transparent;
+}
+
+/* 누름 토글 */
+[data-slot="admin"] button[aria-pressed="true"] {
+  --_bg: var(--coral-50);  --_fg: var(--coral-700); --_bd: var(--coral-700);
+  --_bg-h: var(--coral-100); --_bd-h: var(--coral-800);
+  --_bg-a: var(--coral-100); --_bd-a: var(--coral-800);
+}
+[data-slot="admin"] button[aria-pressed] > svg[data-icon="check"] { display: none; }
+[data-slot="admin"] button[aria-pressed="true"] > svg[data-icon="check"] { display: block; }
+[data-slot="admin"] button[aria-pressed="true"] > svg:not([data-icon="check"]) { display: none; }
+
+/* 상태: 올림 · 누름 */
+@media (hover: hover) {
+  [data-slot="admin"] :is(button, a[data-slot="button-link"]):not([role="switch"]):hover:not(:disabled, [aria-disabled="true"], [aria-busy="true"]) {
+    background: var(--_bg-h);
+    border-color: var(--_bd-h);
+    transform: translateY(-0.5px);
+  }
+}
+[data-slot="admin"] :is(button, a[data-slot="button-link"]):not([role="switch"]):active:not(:disabled, [aria-disabled="true"], [aria-busy="true"]) {
+  background: var(--_bg-a);
+  border-color: var(--_bd-a);
+  transform: none;
+}
+
+/* 상태: 꺼짐 (대비 기준 예외. 그래도 4.40 을 지킨다) */
+[data-slot="admin"] :is(button, a[data-slot="button-link"]):not([role="switch"]):is(:disabled, [aria-disabled="true"]) {
+  background: var(--zinc-100);
+  border-color: var(--zinc-200);
+  color: var(--zinc-500);
+  cursor: not-allowed;
+  transform: none;
+}
+/* 조용한·아이콘 단추의 꺼짐은 바탕 없이 — 위 일반 꺼짐 규칙보다 우선순위가 높아야 한다(받아 온 CSS 는 낮아 회색 알약이 됐다) */
+[data-slot="admin"] :is(button, a[data-slot="button-link"])[data-variant="ghost"]:not([role="switch"]):is(:disabled, [aria-disabled="true"]),
+[data-slot="admin"] button[aria-label][data-shape="icon"]:not([data-variant], [role="switch"]):disabled {
+  background: transparent;
+  border-color: transparent;
+}
+
+/* 상태: 처리 중 — 글자 그대로, 폭 그대로(왼쪽 여백을 표식 자리로 옮긴다) */
+[data-slot="admin"] :is(button, a[data-slot="button-link"])[aria-busy="true"] {
+  padding-inline-start: calc(var(--_px) + 14px);
+  padding-inline-end: max(0px, calc(var(--_px) - 14px));
+  cursor: progress;
+}
+[data-slot="admin"] :is(button, a[data-slot="button-link"])[aria-busy="true"]::before {
+  content: "";
+  position: absolute;
+  inset-inline-start: max(8px, calc(var(--_px) - 8px));
+  top: 50%;
+  width: 14px;
+  height: 14px;
+  margin-top: -7px;
+  box-sizing: border-box;
+  border: 2px solid currentColor;
+  border-inline-end-color: transparent;
+  border-radius: 50%;
+  animation: ui-spin 0.8s linear infinite;
+}
+[data-slot="admin"] button[aria-label][aria-busy="true"][data-shape="icon"] { padding: 0; }
+[data-slot="admin"] button[aria-label][aria-busy="true"][data-shape="icon"] > svg { visibility: hidden; }
+[data-slot="admin"] button[aria-label][aria-busy="true"][data-shape="icon"]::before {
+  inset-inline-start: 50%;
+  margin-inline-start: -7px;
+}
+@keyframes ui-spin { to { transform: rotate(1turn); } }
+
+/* 크기: 작게 — lg 이상 표 줄 안에서만. 모바일은 기본 44 */
+@media (min-width: 1024px) {
+  [data-slot="admin"] :is(button, a[data-slot="button-link"])[data-size="compact"] {
+    --_px: 14px;
+    min-height: var(--ui-target-compact);
+    min-width: var(--ui-target-compact);
+    font-size: var(--text-sm);
+  }
+  [data-slot="admin"] button[aria-label][data-size="compact"][data-shape="icon"] {
+    --_px: 0px;
+    width: var(--ui-target-compact);
+  }
+  [data-slot="admin"] :is(button, a)[data-size="compact"] > svg { width: 18px; height: 18px; }
+}
+
+/* ── 단추 묶음 ─────────────────────────────────────────── */
+[data-slot="admin"] [data-slot="button-group"][role="group"] {
+  display: inline-flex;
+  flex-wrap: nowrap;
+  max-width: 100%;
+}
+[data-slot="admin"] [data-slot="button-group"][role="group"] > :is(button, a) {
+  --_px: 14px;
+  --_bg: var(--surface-card); --_fg: var(--text-strong); --_bd: var(--zinc-500);
+  --_bg-h: var(--zinc-100);   --_bd-h: var(--zinc-600);
+  width: auto;
+  border-radius: 0;
+}
+[data-slot="admin"] [data-slot="button-group"][role="group"] > :is(button, a) + :is(button, a) { margin-inline-start: -1px; }
+[data-slot="admin"] [data-slot="button-group"][role="group"] > :first-child {
+  border-start-start-radius: var(--radius-pill);
+  border-end-start-radius: var(--radius-pill);
+  padding-inline-start: 18px;
+}
+[data-slot="admin"] [data-slot="button-group"][role="group"] > :last-child {
+  border-start-end-radius: var(--radius-pill);
+  border-end-end-radius: var(--radius-pill);
+  padding-inline-end: 18px;
+}
+[data-slot="admin"] [data-slot="button-group"][role="group"] > :is(:hover, :focus-visible) { z-index: 1; }
+[data-slot="admin"] [data-slot="button-group"][role="group"] > [aria-current="page"] {
+  --_bg: var(--coral-50); --_fg: var(--coral-700); --_bd: var(--coral-700);
+  --_bg-h: var(--coral-100); --_bd-h: var(--coral-800);
+  z-index: 1;
+  font-weight: var(--weight-bold);
+}
+
+/* ── 스위치 ────────────────────────────────────────────── */
+/* button[role=switch] 과 폼 안 label[data-slot=switch-field] > input[role=switch] 가 같은 모양.
+   한 줄 전체(라벨 포함)가 44px 누르는 곳. 트랙 48×28, 손잡이 24. */
+[data-slot="admin"] button[role="switch"],
+[data-slot="admin"] label[data-slot="switch-field"] {
+  box-sizing: border-box;
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+  width: 100%;
+  min-height: var(--ui-target);
+  margin: 0;
+  padding: var(--space-2) 0;
+  border: 0;
+  border-radius: var(--radius-md);
+  background: none;
+  color: var(--text-strong);
+  font: var(--weight-medium) var(--ui-fs-label) / var(--leading-snug) var(--font-sans);
+  text-align: start;
+  word-break: keep-all;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+[data-slot="admin"] label[data-slot="switch-field"] > input[role="switch"] {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  margin: 0;
+  opacity: 0;
+  cursor: inherit;
+}
+[data-slot="admin"] label[data-slot="switch-field"]:has(> input:focus-visible) {
+  outline: var(--ui-focus-ring);
+  outline-offset: var(--ui-focus-offset);
+}
+[data-slot="admin"] [data-slot="switch-track"] {
+  position: relative;
+  flex: none;
+  width: 48px;
+  height: 28px;
+  border-radius: var(--radius-pill);
+  background: var(--ui-switch-off);
+  transition: background-color var(--dur-base) var(--ease-out);
+}
+[data-slot="admin"] [data-slot="switch-thumb"] {
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  background: var(--surface-card);
+  box-shadow: var(--shadow-xs);
+  transition: transform var(--dur-base) var(--ease-out);
+}
+[data-slot="admin"] button[role="switch"][aria-checked="true"] [data-slot="switch-track"],
+[data-slot="admin"] input[role="switch"]:checked ~ [data-slot="switch-track"] {
+  background: var(--ui-switch-on);
+}
+[data-slot="admin"] button[role="switch"][aria-checked="true"] [data-slot="switch-thumb"],
+[data-slot="admin"] input[role="switch"]:checked ~ [data-slot="switch-track"] [data-slot="switch-thumb"] {
+  transform: translateX(20px);
+}
+@media (hover: hover) {
+  [data-slot="admin"] button[role="switch"]:hover:not(:disabled) [data-slot="switch-track"],
+  [data-slot="admin"] label[data-slot="switch-field"]:hover > input:not(:disabled) ~ [data-slot="switch-track"] {
+    background: var(--zinc-600);
+  }
+  [data-slot="admin"] button[role="switch"][aria-checked="true"]:hover:not(:disabled) [data-slot="switch-track"],
+  [data-slot="admin"] label[data-slot="switch-field"]:hover > input:checked:not(:disabled) ~ [data-slot="switch-track"] {
+    background: var(--coral-800);
+  }
+}
+/* 꺼진 상태 */
+[data-slot="admin"] button[role="switch"]:disabled,
+[data-slot="admin"] label[data-slot="switch-field"]:has(> input:disabled) {
+  color: var(--zinc-500);
+  cursor: not-allowed;
+}
+[data-slot="admin"] button[role="switch"]:disabled [data-slot="switch-track"],
+[data-slot="admin"] input[role="switch"]:disabled ~ [data-slot="switch-track"] {
+  opacity: 0.45;
+}
+
+/* 안1 — 트랙 안 '켬/끔' 글자 */
+[data-slot="admin"] [data-variant="label"] [data-slot="switch-track"]::before {
+  content: "끔" / "";
+  position: absolute;
+  inset-block: 0;
+  right: 5px;
+  width: 17px;
+  display: grid;
+  place-items: center;
+  color: #fff;
+  font: var(--weight-bold) 12px / 1 var(--font-sans);
+  letter-spacing: 0;
+}
+[data-slot="admin"] button[role="switch"][aria-checked="true"][data-variant="label"] [data-slot="switch-track"]::before,
+[data-slot="admin"] [data-variant="label"] input[role="switch"]:checked ~ [data-slot="switch-track"]::before {
+  content: "켬" / "";
+  right: auto;
+  left: 5px;
+}
+
+/* 안2 — 손잡이 안 체크(켬) · 가로줄(끔) */
+[data-slot="admin"] [data-variant="icon"] [data-slot="switch-thumb"]::before {
+  content: "";
+  position: absolute;
+  inset: 5px;
+  background: var(--ui-switch-off);
+  -webkit-mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='3.2' stroke-linecap='round'%3E%3Cpath d='M6 12h12'/%3E%3C/svg%3E") center / contain no-repeat;
+          mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='3.2' stroke-linecap='round'%3E%3Cpath d='M6 12h12'/%3E%3C/svg%3E") center / contain no-repeat;
+  transition: background-color var(--dur-base) var(--ease-out);
+}
+[data-slot="admin"] button[role="switch"][aria-checked="true"][data-variant="icon"] [data-slot="switch-thumb"]::before,
+[data-slot="admin"] [data-variant="icon"] input[role="switch"]:checked ~ [data-slot="switch-track"] [data-slot="switch-thumb"]::before {
+  background: var(--ui-switch-on);
+  -webkit-mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='3.2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M5 12.5l4.5 4.5L19 7.5'/%3E%3C/svg%3E");
+          mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='3.2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M5 12.5l4.5 4.5L19 7.5'/%3E%3C/svg%3E");
+}
+
+/* ── 나뉜 단추 ─────────────────────────────────────────── */
+[data-slot="admin"] fieldset[data-slot="segmented"] {
+  min-width: 0;
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+[data-slot="admin"] fieldset[data-slot="segmented"] > legend {
+  padding: 0;
+  margin-bottom: var(--space-2);
+  color: var(--text-strong);
+  font: var(--weight-semibold) var(--ui-fs-label) / var(--leading-snug) var(--font-sans);
+}
+[data-slot="admin"] fieldset[data-slot="segmented"] > div {
+  box-sizing: border-box;
+  display: grid;
+  grid-auto-flow: column;
+  grid-auto-columns: minmax(0, 1fr);
+  gap: 2px;
+  width: 100%;
+  padding: 2px;
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-pill);
+  background: var(--zinc-100);
+}
+[data-slot="admin"] fieldset[data-slot="segmented"] label {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  min-height: var(--ui-target);
+  padding: 0 var(--space-3);
+  border-radius: var(--radius-pill);
+  color: var(--zinc-600);
+  font: var(--weight-medium) var(--ui-fs-label) / 1.2 var(--font-sans);
+  text-align: center;
+  cursor: pointer;
+  transition: background-color var(--dur-fast) var(--ease-out), color var(--dur-fast) var(--ease-out);
+}
+[data-slot="admin"] fieldset[data-slot="segmented"] label > input[type="radio"] {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  margin: 0;
+  opacity: 0;
+  cursor: inherit;
+}
+[data-slot="admin"] fieldset[data-slot="segmented"] label:has(> input:checked) {
+  background: var(--surface-card);
+  color: var(--coral-700);
+  font-weight: var(--weight-bold);
+  box-shadow: var(--shadow-sm), inset 0 0 0 1px var(--coral-700);
+}
+[data-slot="admin"] fieldset[data-slot="segmented"] label:has(> input:checked)::before {
+  content: "";
+  flex: none;
+  width: 16px;
+  height: 16px;
+  background: currentColor;
+  -webkit-mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2.6' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M5 12.5l4.5 4.5L19 7.5'/%3E%3C/svg%3E") center / contain no-repeat;
+          mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2.6' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M5 12.5l4.5 4.5L19 7.5'/%3E%3C/svg%3E") center / contain no-repeat;
+}
+[data-slot="admin"] fieldset[data-slot="segmented"] label:has(> input:focus-visible) {
+  outline: var(--ui-focus-ring);
+  outline-offset: var(--ui-focus-offset);
+  z-index: 1;
+}
+[data-slot="admin"] fieldset[data-slot="segmented"] label:has(> input:disabled) {
+  color: var(--zinc-500);
+  cursor: not-allowed;
+}
+@media (hover: hover) {
+  [data-slot="admin"] fieldset[data-slot="segmented"] label:hover:not(:has(> input:checked, > input:disabled)) {
+    background: var(--zinc-150);
+    color: var(--text-strong);
+  }
+}
+@media (min-width: 640px) {
+  [data-slot="admin"] fieldset[data-slot="segmented"] > div {
+    display: inline-grid;
+    width: auto;
+  }
+  [data-slot="admin"] fieldset[data-slot="segmented"] label { padding: 0 var(--space-5); }
+}
+
+/* 4칸 넘으면 선택 목록으로 (입력칸 기본 모양은 2단계에서 확정) */
+[data-slot="admin"] select {
+  box-sizing: border-box;
+  width: 100%;
+  min-height: var(--ui-target);
+  padding: 0 40px 0 var(--space-3);
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-md);
+  background: var(--surface-card) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%233f3f46' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E") right 12px center / 20px no-repeat;
+  color: var(--text-strong);
+  font: var(--weight-regular) var(--ui-fs-input) / 1.3 var(--font-sans);
+  appearance: none;
+}
+[data-slot="admin"] label[data-slot="select-field"] {
+  display: grid;
+  gap: var(--space-2);
+  color: var(--text-strong);
+  font: var(--weight-semibold) var(--ui-fs-label) / var(--leading-snug) var(--font-sans);
+}
+@media (min-width: 640px) {
+  [data-slot="admin"] label[data-slot="select-field"] { max-width: 320px; }
+}
+
+/* ── 배치 ──────────────────────────────────────────────── */
+/* 동작 줄: 모바일은 세로 쌓기·폭 전체, 주 단추는 마크업 맨 뒤 = 아래(엄지 쪽).
+   sm 이상은 가로, 오른쪽 끝에 주 단추. */
+[data-slot="admin"] [data-slot="actions"] {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+[data-slot="admin"] [data-slot="actions"] > :is(button, a) { width: 100%; }
+@media (min-width: 640px) {
+  [data-slot="admin"] [data-slot="actions"] {
+    flex-direction: row;
+    flex-wrap: wrap;
+    justify-content: flex-end;
+    align-items: center;
+  }
+  [data-slot="admin"] [data-slot="actions"] > :is(button, a) { width: auto; }
+}
+
+/* 아래 붙는 저장 막대: 주 단추 하나 + 보조 하나까지 */
+[data-slot="admin"] [data-slot="save-bar"] {
+  position: sticky;
+  bottom: 0;
+  z-index: 10;
+  display: flex;
+  gap: var(--space-2);
+  padding: var(--space-3) var(--ui-gutter) calc(var(--space-3) + env(safe-area-inset-bottom));
+  border-top: 1px solid var(--border-subtle);
+  background: var(--surface-card);
+  box-shadow: 0 -2px 8px rgba(24, 24, 27, 0.06);
+}
+[data-slot="admin"] [data-slot="save-bar"] > [data-variant="primary"] { flex: 1; }
+@media (min-width: 640px) {
+  [data-slot="admin"] [data-slot="save-bar"] { justify-content: flex-end; }
+  [data-slot="admin"] [data-slot="save-bar"] > [data-variant="primary"] { flex: none; }
+}
+
+/* ── 움직임 줄이기 ─────────────────────────────────────── */
+@media (prefers-reduced-motion: reduce) {
+  [data-slot="admin"] *,
+  [data-slot="admin"] *::before { transition: none !important; }
+  [data-slot="admin"] [aria-busy="true"]::before {
+    animation: none;
+    border-style: dotted;
+    border-inline-end-color: currentColor;
+  }
+  [data-slot="admin"] :is(button, a):hover { transform: none !important; }
+}

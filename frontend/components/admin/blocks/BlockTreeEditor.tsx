@@ -1,5 +1,6 @@
 "use client";
 
+import { Icon, ROW_ICONS } from "@/components/admin/Icon";
 import { useId, useState, type ReactNode } from "react";
 import { initialObject, join, type BlockTypes, type FieldError } from "@/lib/admin/blocks/schema";
 import {
@@ -127,7 +128,16 @@ function Block({ ctx, block, path, depth, parent, group, index, count }: { ctx: 
   const own = errors.filter((e) => [path, `${path}.type`, `${path}.children`, `${path}.column_index`].includes(e.field));
   const name = `${index + 1}번째 블록 ${info?.label ?? block.type}`;
   const button = (text: string, onClick: () => void, disabled = false, extra: Record<string, unknown> = {}) => (
-    <button type="button" disabled={disabled} onClick={onClick} aria-label={`${text} — ${name}`} {...extra}>
+    <button
+      type="button"
+      disabled={disabled}
+      onClick={onClick}
+      aria-label={`${text} — ${name}`}
+      data-size="compact"
+      data-variant={extra["data-danger"] ? "danger" : "ghost"}
+      {...extra}
+    >
+      {ROW_ICONS[text] && <Icon name={ROW_ICONS[text]} />}
       {text}
     </button>
   );

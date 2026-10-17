@@ -1,6 +1,6 @@
 // 접근성 구조 검사 — 설계도 §13·§16.3-6. 실제 브라우저(Playwright Chromium)로 주요 화면을 열고 axe-core 를 돌린다.
 // 규칙: WCAG 2.0·2.1·2.2 A/AA + axe best-practice(랜드마크·제목 단계 등 구조 규칙). 위반이 하나라도 있으면 종료 코드 1.
-// 골격은 스타일이 없어(§13.1) 색 대비·크기는 브라우저 기본값이다 — 스킨이 붙으면 --skin 으로 모든 규칙을 다시 돈다.
+// 골격은 스타일이 없어(§13.1) 색 대비·크기는 브라우저 기본값이다 — 스킨이 모양을 정한 요소(SKINNED)는 빼던 규칙도 돈다. --skin 은 모든 화면·요소에서.
 //
 // 전제: next start(APP_ENV=dev, DEV_VIEWER_LOGIN=true) + 개발 시드(scripts/seed_dev)로 띄운 FastAPI.
 // 실행: node scripts/a11y-check.mts --base http://localhost:3000 --admin 1 --member 3
@@ -13,7 +13,7 @@ const { values } = parseArgs({
     base: { type: "string", default: "http://localhost:3000" },
     admin: { type: "string", default: "1" },
     member: { type: "string", default: "3" },
-    // 스킨이 붙으면 켠다 — 골격은 스타일이 없어 링크·단추 크기가 브라우저 기본값이다
+    // 모든 화면을 스킨 규칙으로 — 골격만 있는 화면은 링크·단추 크기가 브라우저 기본값이다
     skin: { type: "boolean", default: false },
     // 대조군 — 일부러 틀린 화면에서 위반을 잡는지(검사 도구가 실제로 도는지) 확인한다
     "self-test": { type: "boolean", default: false },
@@ -24,6 +24,20 @@ const TAGS = ["wcag2a", "wcag2aa", "wcag21a", "wcag21aa", "wcag22aa", "best-prac
 // 골격에서 빼는 규칙: target-size(WCAG 2.5.8) — 스타일이 없어 크기를 브라우저가 정한다('사용자 에이전트 제어' 예외).
 // 크기는 스킨의 몫(§13 '터치 대상 44px 목표, 하한 24px', §13.1). 에디터 도구 단추는 이미 24/44px(§8.5 A7)
 const SKELETON_EXCLUDED = values.skin ? [] : ["target-size"];
+// 스킨이 붙은 화면과 그 스킨이 모양을 정한 요소 — 그 요소에는 골격에서 빼던 규칙(target-size)도 돈다.
+// 관리 화면은 단계마다 넓힌다(관리디자인 지시서 §4): 1단계 단추 세트 → 2단계에서 머리·메뉴 링크까지(그때 '[data-slot="admin"]' 하나로)
+const SKINNED: { prefix: string; targets: string[] }[] = [
+  { prefix: "/admin", targets: ['[data-slot="admin"] button', '[data-slot="admin"] a[data-slot="button-link"]'] },
+];
+const skinnedTargets = (path: string) => SKINNED.find(({ prefix }) => path === prefix || path.startsWith(`${prefix}/`))?.targets ?? [];
+
+/** 스킨이 모양을 정한 요소에만 골격에서 빼던 규칙을 돈다(그 요소가 화면에 없으면 돌지 않는다) */
+async function skinnedViolations(page: Page, targets: string[]) {
+  if (!targets.length || !(await page.locator(targets.join(", ")).count())) return [];
+  let builder = new AxeBuilder({ page }).withRules(SKELETON_EXCLUDED);
+  for (const t of targets) builder = builder.include(t);
+  return (await builder.analyze()).violations;
+}
 // 외부 동영상 플레이어(제공자의 마크업)는 우리가 고칠 수 없어 검사에서 뺀다. 교차 출처 프레임은 안쪽만 빼는
 // 선택자가 듣지 않아(실측) iframe 째로 빼고, 우리 몫인 iframe 제목(frame-title)은 아래에서 직접 확인한다
 const THIRD_PARTY_FRAMES = ['iframe[src^="https://www.youtube-nocookie.com/"]'];
@@ -57,6 +71,7 @@ async function check(page: Page, path: string, label: string, ready?: string): P
   let builder = new AxeBuilder({ page }).withTags(TAGS).disableRules(SKELETON_EXCLUDED);
   for (const frame of THIRD_PARTY_FRAMES) builder = builder.exclude(frame);
   const result = await builder.analyze();
+  if (!values.skin) result.violations.push(...(await skinnedViolations(page, skinnedTargets(path))));
   const untitled = await page.locator(THIRD_PARTY_FRAMES.join(", ")).evaluateAll((els) => els.filter((e) => !e.getAttribute("title")?.trim()).length);
   if (untitled) result.violations.push({ id: "frame-title", impact: "serious", help: "외부 동영상 iframe 에 제목이 있어야 합니다", nodes: [] } as unknown as (typeof result.violations)[number]);
   const findings = result.violations.map((v) => ({
@@ -76,9 +91,12 @@ if (values["self-test"]) {
   const page = await (await browser.newContext()).newPage(); // axe 는 문맥(context)에서 만든 쪽을 요구한다
   await page.setContent('<html><body><main><img src="data:,"><button></button><h3>제목</h3></main></body></html>');
   const result = await new AxeBuilder({ page }).withTags(TAGS).disableRules(SKELETON_EXCLUDED).analyze();
+  // 스킨 요소 대조군: 관리 스킨 안의 작은 단추 둘(8px, 붙어 있음) — 관리 화면 대상 목록으로 돌리면 target-size 를 잡아야 한다
+  await page.setContent('<html lang="ko"><body><main data-slot="admin"><h1>대조</h1><button style="all:unset;width:8px;height:8px">가</button><button style="all:unset;width:8px;height:8px">나</button></main></body></html>');
+  const skinned = await skinnedViolations(page, skinnedTargets("/admin"));
   await browser.close();
-  const got = new Set(result.violations.map((v) => v.id));
-  const expected = ["html-has-lang", "image-alt", "button-name", "page-has-heading-one"];
+  const got = new Set([...result.violations, ...skinned].map((v) => v.id));
+  const expected = ["html-has-lang", "image-alt", "button-name", "page-has-heading-one", ...(values.skin ? [] : ["target-size"])];
   const missing = expected.filter((r) => !got.has(r));
   console.log(missing.length ? `대조군 실패 — 잡지 못한 규칙: ${missing.join(", ")}` : `대조군 통과 — ${expected.join(", ")} 를 잡았다`);
   process.exit(missing.length ? 1 : 0);

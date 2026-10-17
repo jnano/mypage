@@ -24,7 +24,13 @@ export function AdminForm({
   return (
     <form action={formAction} aria-label={buttonOnly ? undefined : label} data-slot="admin-form" data-danger={danger || undefined}>
       {children}
-      <button type="submit" disabled={pending} aria-label={buttonOnly && label ? label : undefined}>
+      <button
+        type="submit"
+        disabled={pending}
+        aria-busy={pending || undefined}
+        aria-label={buttonOnly && label ? label : undefined}
+        data-variant={danger ? "danger" : buttonOnly ? undefined : "primary"}
+      >
         {submitLabel}
       </button>
       <p aria-live="polite" data-slot="form-status">

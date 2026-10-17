@@ -1,5 +1,6 @@
 "use client";
 
+import { Icon, ROW_ICONS } from "@/components/admin/Icon";
 import { useId, useState, type ReactNode } from "react";
 import {
   deref,
@@ -409,13 +410,16 @@ export function ItemButtons({ label, up, down, remove }: { label: string; up?: (
   // 단추 이름에 무엇을 옮기는지 함께(같은 '위로' 단추가 여럿 — 화면 읽기에서 구분). 보이는 글자로 시작(WCAG 2.5.3)
   return (
     <span data-slot="item-buttons">
-      <button type="button" disabled={!up} onClick={up} aria-label={`위로 — ${label}`}>
+      <button type="button" disabled={!up} onClick={up} aria-label={`위로 — ${label}`} data-size="compact" data-variant="ghost">
+        <Icon name={ROW_ICONS["위로"]!} />
         위로
       </button>
-      <button type="button" disabled={!down} onClick={down} aria-label={`아래로 — ${label}`}>
+      <button type="button" disabled={!down} onClick={down} aria-label={`아래로 — ${label}`} data-size="compact" data-variant="ghost">
+        <Icon name={ROW_ICONS["아래로"]!} />
         아래로
       </button>
-      <button type="button" disabled={!remove} onClick={remove} aria-label={`빼기 — ${label}`}>
+      <button type="button" disabled={!remove} onClick={remove} aria-label={`빼기 — ${label}`} data-size="compact" data-variant="ghost">
+        <Icon name={ROW_ICONS["빼기"]!} />
         빼기
       </button>
     </span>

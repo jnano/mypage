@@ -50,6 +50,8 @@ describe("블록 설정 폼 형식", () => {
     const buttons = initialObject(schemaOf("buttons"), schemaOf("buttons")) as { items: unknown[] };
     expect(buttons.items).toEqual([{ label: "", link: { kind: "page", new_window: false } }]);
     expect(initialValue(prop("heading", "level"), schemaOf("heading"))).toBe(2);
+    expect(initialObject(schemaOf("recent_posts"), schemaOf("recent_posts")).board_ids).toEqual([]); // [null] 이 아니다(v16 N-1)
+    expect(initialObject(schemaOf("board_links"), schemaOf("board_links")).board_ids).toEqual([]);
   });
 
   it("오류 경로는 백엔드와 같은 꼴", () => {

@@ -15,10 +15,26 @@ import {
   type FieldError,
   type JsonSchema,
 } from "@/lib/admin/blocks/schema";
+import { uploadSiteImage } from "@/lib/boards/upload";
 
 // 블록 설정 폼(홈블록 설계도 §8) — GET /api/admin/block-types 의 형식만 보고 칸을 만든다. 값은 부르는 쪽(편집기)이 가진다.
 // 오류는 저장·미리보기 응답의 errors[].field(`blocks[2].config.items[1].url`)를 칸 경로와 맞춰 칸 옆에 보인다.
 // 접근성: 칸마다 <label>, 묶음은 <fieldset><legend>, 오류는 aria-invalid + aria-describedby(§10·본 §13)
+
+/** 서버 화면이 넘기는 선택지(함수는 서버에서 넘길 수 없다 — 올리기는 withUpload 가 브라우저에서 붙인다) */
+export type EditorOptions = Omit<ConfigOptions, "upload">;
+
+export function withUpload(options: EditorOptions): ConfigOptions {
+  return {
+    ...options,
+    upload: async (file) => {
+      const res = await uploadSiteImage(file);
+      if (!res.ok) return res;
+      if (!res.attachment.is_image) return { ok: false, message: "그림 파일만 올릴 수 있습니다" };
+      return { ok: true, id: res.attachment.id };
+    },
+  };
+}
 
 export interface ConfigOptions {
   boards: { id: number; name: string }[];
@@ -314,7 +330,7 @@ function ImageField({ value, onChange, options, title, nullable, errId, own }: F
           const res = await options.upload(file);
           if (res.ok) {
             onChange(res.id);
-            setStatus("올렸습니다. 저장해야 블록에 붙습니다.");
+            setStatus("올렸습니다. 저장해야 블록에 붙습니다(저장하지 않거나 다른 그림으로 바꾸면 이 그림은 하루 뒤 지워집니다).");
           } else setStatus(res.message);
           e.target.value = "";
         }}
@@ -390,16 +406,16 @@ function ListField({ schema, root, value, onChange, path, errors, options, title
 }
 
 export function ItemButtons({ label, up, down, remove }: { label: string; up?: () => void; down?: () => void; remove?: () => void }): ReactNode {
-  // 단추 이름에 무엇을 옮기는지 함께(같은 '위로' 단추가 여럿 — WCAG 2.4.6·axe 는 막지 않지만 화면 읽기에서 구분)
+  // 단추 이름에 무엇을 옮기는지 함께(같은 '위로' 단추가 여럿 — 화면 읽기에서 구분). 보이는 글자로 시작(WCAG 2.5.3)
   return (
     <span data-slot="item-buttons">
-      <button type="button" disabled={!up} onClick={up} aria-label={`${label} 위로`}>
+      <button type="button" disabled={!up} onClick={up} aria-label={`위로 — ${label}`}>
         위로
       </button>
-      <button type="button" disabled={!down} onClick={down} aria-label={`${label} 아래로`}>
+      <button type="button" disabled={!down} onClick={down} aria-label={`아래로 — ${label}`}>
         아래로
       </button>
-      <button type="button" disabled={!remove} onClick={remove} aria-label={`${label} 빼기`}>
+      <button type="button" disabled={!remove} onClick={remove} aria-label={`빼기 — ${label}`}>
         빼기
       </button>
     </span>

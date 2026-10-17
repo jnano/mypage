@@ -310,3 +310,16 @@ def test_missing_or_empty_menu_draws_nothing() -> None:
     assert resolve("menu", {"menu_id": 2, "label": "주 메뉴"}, LOOKUP) is None  # 지워진 메뉴(끊긴 참조)
     hidden = Lookup(site_name="예시", menus={1: [_item(1, None, "숨김", active=False)]})
     assert resolve("sub_menu", {"menu_id": 1, "label": "옆 메뉴"}, hidden) is None  # 빈 nav 랜드마크를 만들지 않는다
+
+
+def test_discriminated_union_error_loc() -> None:
+    """꼬리표 합(링크)의 오류 위치에는 갈래 이름이 한 단 더 붙는다 — 관리 화면 폼이 이 꼴에 맞춰 칸 옆에 보인다(코드 검토 v16 N-2).
+    Pydantic 판이 바뀌어 꼴이 달라지면 여기서 먼저 실패한다"""
+    from app.blocks.tree import _loc
+
+    with pytest.raises(ValidationError) as e:
+        t.validate_config("buttons", {"items": [{"label": "가", "link": {"kind": "url", "url": "javascript:x"}}]})
+    assert [_loc(x) for x in e.value.errors()] == [".items[0].link.url.url"]
+    with pytest.raises(ValidationError) as e:
+        t.validate_config("module", {"module": "board", "params": {"board_id": 0}})
+    assert [_loc(x) for x in e.value.errors()] == [".params.board_id"]  # 모듈 설정은 params 아래(field_validator)

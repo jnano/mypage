@@ -124,9 +124,10 @@ export function initialValue(raw: JsonSchema, root: JsonSchema): unknown {
       return false;
     case "select":
       return s.enum?.[0] ?? null;
-    case "list":
     case "boards":
-      return Array.from({ length: s.minItems ?? 0 }, () => initialValue(s.items ?? {}, root));
+      return []; // 고르기 전 — 최소 개수는 백엔드 검증이 알린다(빈 자리 [null] 을 만들지 않는다, 코드 검토 v16 N-1)
+    case "list":
+      return Array.from({ length: s.minItems ?? 0 }, () => initialValue(s.items ?? {}, root)).filter((v) => v !== undefined);
     case "union": {
       const [first] = variants(s, root);
       return first ? initialValue(first.schema, root) : null;
